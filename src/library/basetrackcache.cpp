@@ -14,7 +14,7 @@ namespace {
 
 constexpr bool sDebug = false;
 
-}  // namespace
+} // namespace
 
 BaseTrackCache::BaseTrackCache(TrackCollection* pTrackCollection,
         QString tableName,
@@ -212,8 +212,8 @@ bool BaseTrackCache::updateIndexWithQuery(const QString& queryString) {
     while (query.next()) {
         TrackId trackId(query.value(idColumn));
 
-        //m_trackInfo[id] will insert a QVector<QVariant> into the
-        //m_trackInfo HashTable with the key "id"
+        // m_trackInfo[id] will insert a QVector<QVariant> into the
+        // m_trackInfo HashTable with the key "id"
         QVector<QVariant>& record = m_trackInfo[trackId];
         record.resize(numColumns);
 
@@ -239,7 +239,7 @@ void BaseTrackCache::buildIndex() {
     }
 
     QString queryString = QString("SELECT %1 FROM %2")
-            .arg(m_columnsJoined, m_tableName);
+                                  .arg(m_columnsJoined, m_tableName);
 
     if (sDebug) {
         qDebug() << this << "buildIndex query:" << queryString;
@@ -273,12 +273,12 @@ void BaseTrackCache::updateTracksInIndex(const QSet<TrackId>& trackIds) {
 
     QStringList idStrings;
     idStrings.reserve(trackIds.size());
-    for (const auto& trackId: trackIds) {
+    for (const auto& trackId : trackIds) {
         idStrings << trackId.toString();
     }
 
     QString queryString = QString("SELECT %1 FROM %2 WHERE %3 in (%4)")
-            .arg(m_columnsJoined, m_tableName, m_idColumn, idStrings.join(","));
+                                  .arg(m_columnsJoined, m_tableName, m_idColumn, idStrings.join(","));
 
     if (sDebug) {
         qDebug() << this << "updateTracksInIndex update query:" << queryString;
@@ -344,6 +344,9 @@ QVariant BaseTrackCache::getTrackValueForColumn(TrackPointer pTrack,
     }
     if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_COMMENT) == column) {
         return QVariant{pTrack->getComment()};
+    }
+    if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_SUBTITLE) == column) {
+        return QVariant{pTrack->getSubtitle()};
     }
     if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_DURATION) == column) {
         return QVariant{pTrack->getDuration()};
@@ -447,12 +450,12 @@ QVariant BaseTrackCache::data(TrackId trackId, int column) const {
 }
 
 void BaseTrackCache::filterAndSort(const QSet<TrackId>& trackIds,
-                                   const QString& searchQuery,
-                                   const QString& extraFilter,
-                                   const QString& orderByClause,
-                                   const QList<SortColumn>& sortColumns,
-                                   const int columnOffset,
-                                   QHash<TrackId, int>* trackToIndex) {
+        const QString& searchQuery,
+        const QString& extraFilter,
+        const QString& orderByClause,
+        const QList<SortColumn>& sortColumns,
+        const int columnOffset,
+        QHash<TrackId, int>* trackToIndex) {
     // Skip processing if there are no tracks to filter or sort.
     if (trackIds.size() == 0) {
         return;
@@ -498,7 +501,7 @@ void BaseTrackCache::filterAndSort(const QSet<TrackId>& trackIds,
     }
 
     QString queryString = QString("SELECT %1 FROM %2 %3 %4")
-            .arg(m_idColumn, m_tableName, filter, orderByClause);
+                                  .arg(m_idColumn, m_tableName, filter, orderByClause);
 
     if (sDebug) {
         qDebug() << this << "select() executing:" << queryString;
@@ -619,7 +622,7 @@ int BaseTrackCache::findSortInsertionPoint(TrackPointer pTrack,
     if (sortColumns.isEmpty()) {
         return 0;
     }
-    for (const auto& sc: sortColumns) {
+    for (const auto& sc : sortColumns) {
         trackValues.append(getTrackValueForColumn(pTrack, sc.m_column - columnOffset));
     }
 
@@ -641,7 +644,7 @@ int BaseTrackCache::findSortInsertionPoint(TrackPointer pTrack,
         // only log it.
         if (!m_trackInfo.contains(otherTrackId)) {
             qDebug() << "WARNING: track" << otherTrackId << "was not in index";
-            //updateTrackInIndex(otherTrackId);
+            // updateTrackInIndex(otherTrackId);
         }
 
         int compare = 0;
@@ -690,8 +693,7 @@ int BaseTrackCache::compareColumnValues(int sortColumn,
             sortColumn == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_CHANNELS) ||
             sortColumn == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TIMESPLAYED) ||
             sortColumn == fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_RATING) ||
-            sortColumn == fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION)
-    ) {
+            sortColumn == fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION)) {
         // Sort as floats.
         double delta = val1.toDouble() - val2.toDouble();
 
@@ -706,9 +708,9 @@ int BaseTrackCache::compareColumnValues(int sortColumn,
         KeyUtils::KeyNotation keyNotation = m_columnCache.keyNotation();
 
         int key1 = KeyUtils::keyToCircleOfFifthsOrder(
-            KeyUtils::guessKeyFromText(val1.toString()), keyNotation);
+                KeyUtils::guessKeyFromText(val1.toString()), keyNotation);
         int key2 = KeyUtils::keyToCircleOfFifthsOrder(
-            KeyUtils::guessKeyFromText(val2.toString()), keyNotation);
+                KeyUtils::guessKeyFromText(val2.toString()), keyNotation);
         if (key1 > key2) {
             result = 1;
         } else if (key1 < key2) {

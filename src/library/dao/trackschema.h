@@ -23,6 +23,7 @@ const QString LIBRARYTABLE_TRACKNUMBER = QStringLiteral("tracknumber");
 const QString LIBRARYTABLE_FILETYPE = QStringLiteral("filetype");
 const QString LIBRARYTABLE_LOCATION = QStringLiteral("location");
 const QString LIBRARYTABLE_COMMENT = QStringLiteral("comment");
+const QString LIBRARYTABLE_SUBTITLE = QStringLiteral("subtitle");
 const QString LIBRARYTABLE_DURATION = QStringLiteral("duration");
 const QString LIBRARYTABLE_BITRATE = QStringLiteral("bitrate");
 const QString LIBRARYTABLE_BPM = QStringLiteral("bpm");

@@ -29,7 +29,8 @@ class TrackModel {
               m_eDefaultSortOrder(Qt::AscendingOrder),
               m_confirmHideRemoveTracks(true) {
     }
-    virtual ~TrackModel() {}
+    virtual ~TrackModel() {
+    }
 
     // These enums are the bits in a bitvector. Any individual column cannot
     // have a value other than 0, 1, 2, or 4!
@@ -97,6 +98,7 @@ class TrackModel {
         LastPlayedAt = 31,
         PlaylistDateTimeAdded = 32,
         TuningFrequency = 33,
+        Subtitle = 34,
 
         // IdMax terminates the list of columns, it must be always after the last item
         IdMax,
@@ -148,7 +150,9 @@ class TrackModel {
     // if no header state exists, we may hide some columns so that the user can
     // reactivate them
     virtual bool isColumnHiddenByDefault(int column) = 0;
-    virtual const QList<int>& searchColumns() const { return m_emptyColumns; }
+    virtual const QList<int>& searchColumns() const {
+        return m_emptyColumns;
+    }
 
     virtual void removeTracks(const QModelIndexList& indices) {
         Q_UNUSED(indices);
@@ -186,7 +190,7 @@ class TrackModel {
         return 0;
     }
     virtual void moveTrack(const QModelIndex& sourceIndex,
-                           const QModelIndex& destIndex) {
+            const QModelIndex& destIndex) {
         Q_UNUSED(sourceIndex);
         Q_UNUSED(destIndex);
     }

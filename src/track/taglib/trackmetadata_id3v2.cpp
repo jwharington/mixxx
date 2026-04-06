@@ -921,6 +921,12 @@ void importTrackMetadataFromTag(
         parseTrackPeak(pTrackMetadata, trackPeak, resetMissingTagMetadata);
     }
 
+    const TagLib::ID3v2::FrameList subtitleFrames(tag.frameListMap()["TIT3"]);
+    if (!subtitleFrames.isEmpty() || resetMissingTagMetadata) {
+        pTrackMetadata->refTrackInfo().setSubtitle(
+                firstNonEmptyFrameToQString(subtitleFrames));
+    }
+
 #if defined(__EXTRA_METADATA__)
     QString albumGain =
             readFirstUserTextIdentificationFrame(
@@ -1033,11 +1039,6 @@ void importTrackMetadataFromTag(
     if (!remixerFrames.isEmpty() || resetMissingTagMetadata) {
         pTrackMetadata->refTrackInfo().setRemixer(
                 firstNonEmptyFrameToQString(remixerFrames));
-    }
-    const TagLib::ID3v2::FrameList subtitleFrames(tag.frameListMap()["TIT3"]);
-    if (!subtitleFrames.isEmpty() || resetMissingTagMetadata) {
-        pTrackMetadata->refTrackInfo().setSubtitle(
-                firstNonEmptyFrameToQString(subtitleFrames));
     }
     const TagLib::ID3v2::FrameList encoderFrames(tag.frameListMap()["TENC"]);
     if (!encoderFrames.isEmpty() || resetMissingTagMetadata) {
@@ -1227,6 +1228,11 @@ bool exportTrackMetadataIntoTag(TagLib::ID3v2::Tag* pTag,
             formatTrackPeak(trackMetadata),
             true);
 
+    writeTextIdentificationFrame(
+            pTag,
+            "TIT3",
+            trackMetadata.getTrackInfo().getSubtitle());
+
 #if defined(__EXTRA_METADATA__)
     writeTextIdentificationFrame(
             pTag,
@@ -1321,10 +1327,6 @@ bool exportTrackMetadataIntoTag(TagLib::ID3v2::Tag* pTag,
             pTag,
             "TPE4",
             trackMetadata.getTrackInfo().getRemixer());
-    writeTextIdentificationFrame(
-            pTag,
-            "TIT3",
-            trackMetadata.getTrackInfo().getSubtitle());
     writeTextIdentificationFrame(
             pTag,
             "TENC",

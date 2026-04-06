@@ -593,4 +593,12 @@ reapplying those migrations.
       ALTER TABLE library ADD COLUMN tuning_frequency_hz FLOAT DEFAULT 0.0;
     </sql>
   </revision>
+  <revision version="41" min_compatible="3">
+    <description>
+      Add subtitle column to library table for ID3v2 TIT3 (Subtitle/Description refinement).
+    </description>
+    <sql>
+      ALTER TABLE library ADD COLUMN subtitle varchar(48) DEFAULT '';
+    </sql>
+  </revision>
 </schema>

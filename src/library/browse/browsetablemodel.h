@@ -2,10 +2,10 @@
 
 #include <QStandardItemModel>
 
-#include "library/trackmodel.h"
 #include "library/browse/browsethread.h"
+#include "library/trackmodel.h"
 
-//constants
+// constants
 constexpr int COLUMN_PREVIEW = 0;
 constexpr int COLUMN_FILENAME = 1;
 constexpr int COLUMN_ARTIST = 2;
@@ -27,7 +27,8 @@ constexpr int COLUMN_GROUPING = 17;
 constexpr int COLUMN_FILE_MODIFIED_TIME = 18;
 constexpr int COLUMN_FILE_CREATION_TIME = 19;
 constexpr int COLUMN_REPLAYGAIN = 20;
-constexpr int NUM_COLUMNS = 21;
+constexpr int COLUMN_SUBTITLE = 21;
+constexpr int NUM_COLUMNS = 22;
 
 class TrackCollectionManager;
 class QMimeData;
@@ -75,16 +76,18 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
     const QVector<int> getTrackRows(TrackId trackId) const override;
     void search(const QString& searchText) override;
     void removeTracks(const QModelIndexList& indices) override;
-    QMimeData* mimeData(const QModelIndexList &indexes) const override;
+    QMimeData* mimeData(const QModelIndexList& indexes) const override;
     const QString currentSearch() const override;
     bool isColumnInternal(int) override;
     void moveTrack(const QModelIndex&, const QModelIndex&) override;
     void copyTracks(const QModelIndexList& indices) const override;
-    bool isLocked() override { return false; }
+    bool isLocked() override {
+        return false;
+    }
     bool isColumnHiddenByDefault(int column) override;
     const QList<int>& searchColumns() const override;
-    Qt::ItemFlags flags(const QModelIndex &index) const override;
-    bool setData(const QModelIndex& index, const QVariant& value, int role=Qt::EditRole) override;
+    Qt::ItemFlags flags(const QModelIndex& index) const override;
+    bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
     QAbstractItemDelegate* delegateForColumn(const int i, QObject* pParent) override;
     bool isColumnSortable(int column) const override;
     TrackModel::SortColumnId sortColumnIdFromColumnIndex(int index) const override;
@@ -121,5 +124,4 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
     QString m_previewDeckGroup;
     int m_columnIndexBySortColumnId[static_cast<int>(TrackModel::SortColumnId::IdMax)];
     QMap<int, TrackModel::SortColumnId> m_sortColumnIdByColumnIndex;
-
 };

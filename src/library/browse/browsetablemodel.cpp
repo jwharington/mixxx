@@ -74,6 +74,7 @@ BrowseTableModel::BrowseTableModel(QObject* parent,
     listAppendOrReplaceAt(&headerLabels, COLUMN_FILE_MODIFIED_TIME, tr("File Modified"));
     listAppendOrReplaceAt(&headerLabels, COLUMN_FILE_CREATION_TIME, tr("File Created"));
     listAppendOrReplaceAt(&headerLabels, COLUMN_REPLAYGAIN, tr("ReplayGain"));
+    listAppendOrReplaceAt(&headerLabels, COLUMN_SUBTITLE, tr("Subtitle"));
 
     m_searchColumns = {
             COLUMN_FILENAME,
@@ -84,7 +85,8 @@ BrowseTableModel::BrowseTableModel(QObject* parent,
             COLUMN_COMPOSER,
             COLUMN_COMMENT,
             COLUMN_ALBUMARTIST,
-            COLUMN_GROUPING};
+            COLUMN_GROUPING,
+            COLUMN_SUBTITLE};
 
     setDefaultSort(COLUMN_FILENAME, Qt::AscendingOrder);
 
@@ -141,6 +143,8 @@ BrowseTableModel::BrowseTableModel(QObject* parent,
     m_columnIndexBySortColumnId[static_cast<int>(
             TrackModel::SortColumnId::FileCreationTime)] =
             COLUMN_FILE_CREATION_TIME;
+    m_columnIndexBySortColumnId[static_cast<int>(
+            TrackModel::SortColumnId::Subtitle)] = COLUMN_SUBTITLE;
 
     m_sortColumnIdByColumnIndex.clear();
     for (int i = static_cast<int>(TrackModel::SortColumnId::IdMin);
@@ -308,7 +312,8 @@ bool BrowseTableModel::isColumnHiddenByDefault(int column) {
             column == COLUMN_NATIVELOCATION ||
             column == COLUMN_ALBUMARTIST ||
             column == COLUMN_FILE_CREATION_TIME ||
-            column == COLUMN_REPLAYGAIN) {
+            column == COLUMN_REPLAYGAIN ||
+            column == COLUMN_SUBTITLE) {
         return true;
     }
     return false;
@@ -372,7 +377,7 @@ void BrowseTableModel::slotInsert(const QList<QList<QStandardItem*>>& rows,
     // receive items this object has 'ordered' from the BrowseThread (singleton)
     if (caller_object == this) {
         emit saveModelState();
-        //qDebug() << "BrowseTableModel::slotInsert";
+        // qDebug() << "BrowseTableModel::slotInsert";
         for (int i = 0; i < rows.size(); ++i) {
             appendRow(rows.at(i));
         }
@@ -487,6 +492,9 @@ bool BrowseTableModel::setData(
         break;
     case COLUMN_GROUPING:
         pTrack->setGrouping(value.toString());
+        break;
+    case COLUMN_SUBTITLE:
+        pTrack->setSubtitle(value.toString());
         break;
     default:
         qWarning() << "BrowseTableModel::setData():"

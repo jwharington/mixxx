@@ -1,6 +1,5 @@
 #include "track/trackinfo.h"
 
-
 namespace mixxx {
 
 namespace {
@@ -75,9 +74,7 @@ bool TrackInfo::compareEq(
 #endif // __EXTRA_METADATA__
             (getReplayGain() == trackInfo.getReplayGain()) &&
             (getSeratoTags() == trackInfo.getSeratoTags()) &&
-#if defined(__EXTRA_METADATA__)
             (getSubtitle() == trackInfo.getSubtitle()) &&
-#endif // __EXTRA_METADATA__
             (getTitle() == trackInfo.getTitle()) &&
             (getTrackNumber() == trackInfo.getTrackNumber()) &&
             (getTrackTotal() == trackInfo.getTrackTotal()) &&
@@ -119,9 +116,7 @@ QDebug operator<<(QDebug dbg, const TrackInfo& arg) {
 #endif // __EXTRA_METADATA__
     arg.dbgReplayGain(dbg);
     arg.dbgSeratoTags(dbg);
-#if defined(__EXTRA_METADATA__)
     arg.dbgSubtitle(dbg);
-#endif // __EXTRA_METADATA__
     arg.dbgTitle(dbg);
     arg.dbgTrackNumber(dbg);
     arg.dbgTrackTotal(dbg);

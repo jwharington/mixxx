@@ -28,22 +28,21 @@ static QMutex s_Mutex;
  * signals to BrowseModel objects. It does not
  * make sense to use this class in non-GUI threads
  */
-BrowseThread::BrowseThread(QObject *parent)
+BrowseThread::BrowseThread(QObject* parent)
         : QThread(parent) {
     m_bStopThread = false;
     m_model_observer = nullptr;
-    //start Thread
+    // start Thread
     start(QThread::LowPriority);
-
 }
 
 BrowseThread::~BrowseThread() {
     qDebug() << "Wait to finish browser background thread";
     m_bStopThread = true;
-    //wake up thread since it might wait for user input
+    // wake up thread since it might wait for user input
     m_locationUpdated.wakeAll();
-    //Wait until thread terminated
-    //terminate();
+    // Wait until thread terminated
+    // terminate();
     wait();
     qDebug() << "Browser background thread terminated!";
 }
@@ -76,12 +75,12 @@ void BrowseThread::run() {
     m_mutex.lock();
 
     while (!m_bStopThread) {
-        //Wait until the user has selected a folder
+        // Wait until the user has selected a folder
         m_locationUpdated.wait(&m_mutex);
         Trace trace("BrowseThread");
 
-        //Terminate thread if Mixxx closes
-        if(m_bStopThread) {
+        // Terminate thread if Mixxx closes
+        if (m_bStopThread) {
             break;
         }
         // Populate the model
@@ -92,22 +91,22 @@ void BrowseThread::run() {
 
 namespace {
 
-class YearItem: public QStandardItem {
-public:
-  explicit YearItem(const QString& year)
-          : QStandardItem(year) {
-  }
+class YearItem : public QStandardItem {
+  public:
+    explicit YearItem(const QString& year)
+            : QStandardItem(year) {
+    }
 
-  QVariant data(int role) const override {
-      switch (role) {
-      case Qt::DisplayRole: {
-          const QString year(QStandardItem::data(role).toString());
-          return mixxx::TrackMetadata::formatCalendarYear(year);
-      }
-      default:
-          return QStandardItem::data(role);
-      }
-  }
+    QVariant data(int role) const override {
+        switch (role) {
+        case Qt::DisplayRole: {
+            const QString year(QStandardItem::data(role).toString());
+            return mixxx::TrackMetadata::formatCalendarYear(year);
+        }
+        default:
+            return QStandardItem::data(role);
+        }
+    }
 };
 
 } // namespace
@@ -229,6 +228,11 @@ void BrowseThread::populateModel() {
             item->setToolTip(item->text());
             item->setData(item->text(), Qt::UserRole);
             row_data.insert(COLUMN_COMMENT, item);
+
+            item = new QStandardItem(trackMetadata.getTrackInfo().getSubtitle());
+            item->setToolTip(item->text());
+            item->setData(item->text(), Qt::UserRole);
+            row_data.insert(COLUMN_SUBTITLE, item);
 
             QString duration = trackMetadata.getDurationText(
                     mixxx::Duration::Precision::SECONDS);
