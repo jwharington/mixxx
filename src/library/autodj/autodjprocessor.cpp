@@ -942,6 +942,85 @@ TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
     }
 }
 
+TrackPointer AutoDJProcessor::getEnablePreviewTrack() {
+    if (m_queueMode == QueueMode::StaticQueue) {
+        pruneStaticQueuePlayedTrackIds();
+
+        const int rowCount = m_pAutoDJTableModel->rowCount();
+        if (rowCount <= 0) {
+            return TrackPointer();
+        }
+
+        DeckAttributes* pLeftDeck = getLeftDeck();
+        DeckAttributes* pRightDeck = getRightDeck();
+
+        TrackId playingTrackId;
+        if (pLeftDeck && pLeftDeck->isPlaying() && pLeftDeck->getLoadedTrack()) {
+            playingTrackId = pLeftDeck->getLoadedTrack()->getId();
+        }
+        if (pRightDeck && pRightDeck->isPlaying() && pRightDeck->getLoadedTrack()) {
+            if (!playingTrackId.isValid() || getCrossfader() >= 0.0) {
+                playingTrackId = pRightDeck->getLoadedTrack()->getId();
+            }
+        }
+
+        int startRow = 0;
+        if (playingTrackId.isValid()) {
+            const int row = findQueueRowByTrackId(playingTrackId);
+            if (row >= 0) {
+                startRow = row + 1;
+            }
+        }
+
+        for (int row = startRow; row < rowCount; ++row) {
+            const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+            const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
+            if (!trackId.isValid() || m_staticQueuePlayedTrackIds.contains(trackId)) {
+                continue;
+            }
+
+            TrackPointer pTrack = m_pAutoDJTableModel->getTrack(index);
+            if (pTrack && pTrack->getFileInfo().checkFileExists()) {
+                return pTrack;
+            }
+        }
+
+        return TrackPointer();
+    }
+
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    if (rowCount <= 0) {
+        return TrackPointer();
+    }
+
+    int startRow = 0;
+    if (rowCount > 1) {
+        const QModelIndex firstIndex = m_pAutoDJTableModel->index(0, 0);
+        const TrackId firstTrackId = m_pAutoDJTableModel->getTrackId(firstIndex);
+        if (firstTrackId.isValid()) {
+            DeckAttributes* pLeftDeck = getLeftDeck();
+            DeckAttributes* pRightDeck = getRightDeck();
+            const bool firstLoadedOnLeft = pLeftDeck && pLeftDeck->getLoadedTrack() &&
+                    pLeftDeck->getLoadedTrack()->getId() == firstTrackId;
+            const bool firstLoadedOnRight = pRightDeck && pRightDeck->getLoadedTrack() &&
+                    pRightDeck->getLoadedTrack()->getId() == firstTrackId;
+            if (firstLoadedOnLeft || firstLoadedOnRight) {
+                startRow = 1;
+            }
+        }
+    }
+
+    for (int row = startRow; row < rowCount; ++row) {
+        const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+        TrackPointer pTrack = m_pAutoDJTableModel->getTrack(index);
+        if (pTrack && pTrack->getFileInfo().checkFileExists()) {
+            return pTrack;
+        }
+    }
+
+    return TrackPointer();
+}
+
 TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
     pruneStaticQueuePlayedTrackIds();
 

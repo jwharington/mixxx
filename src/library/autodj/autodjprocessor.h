@@ -201,6 +201,8 @@ class AutoDJProcessor : public QObject {
         return m_queueMode;
     }
 
+    TrackPointer getEnablePreviewTrack();
+
     PlaylistTableModel* getTableModel() const {
         return m_pAutoDJTableModel;
     }
