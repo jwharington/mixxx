@@ -271,6 +271,7 @@ void DlgPrefLibrary::slotResetToDefaults() {
     checkBox_serato_metadata_export->setChecked(false);
     checkBox_use_relative_path->setChecked(false);
     checkBox_edit_metadata_selected_clicked->setChecked(kEditMetadataSelectedClickDefault);
+    checkBox_show_autodj_queue_split->setChecked(kShowAutoDJQueueSplitDefault);
     radioButton_dbclick_deck->setChecked(true);
     spinbox_bpm_precision->setValue(BaseTrackTableModel::kBpmColumnPrecisionDefault);
     checkbox_played_track_color->setChecked(
@@ -416,6 +417,12 @@ void DlgPrefLibrary::slotUpdate() {
             kEditMetadataSelectedClickDefault);
     checkBox_edit_metadata_selected_clicked->setChecked(editMetadataSelectedClick);
     m_pLibrary->setEditMetadataSelectedClick(editMetadataSelectedClick);
+
+    const bool showAutoDJQueueSplit = m_pConfig->getValue(
+            kShowAutoDJQueueSplitConfigKey,
+            kShowAutoDJQueueSplitDefault);
+    checkBox_show_autodj_queue_split->setChecked(showAutoDJQueueSplit);
+    m_pLibrary->setAutoDJSplitEnabled(showAutoDJQueueSplit);
 
     checkBox_enable_search_completions->setChecked(m_pConfig->getValue(
             kEnableSearchCompletionsConfigKey,
@@ -662,6 +669,11 @@ void DlgPrefLibrary::slotApply() {
             ConfigValue(checkBox_edit_metadata_selected_clicked->checkState()));
     m_pLibrary->setEditMetadataSelectedClick(
             checkBox_edit_metadata_selected_clicked->checkState());
+
+    m_pConfig->set(kShowAutoDJQueueSplitConfigKey,
+            ConfigValue(checkBox_show_autodj_queue_split->isChecked()));
+    m_pLibrary->setAutoDJSplitEnabled(
+            checkBox_show_autodj_queue_split->isChecked());
 
     QFont font = m_pLibrary->getTrackTableFont();
     if (m_originalTrackTableFont != font) {

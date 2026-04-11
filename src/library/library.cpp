@@ -267,6 +267,12 @@ Library::Library(
     m_editMetadataSelectedClick = m_pConfig->getValue(
             kEditMetadataSelectedClickConfigKey,
             kEditMetadataSelectedClickDefault);
+    m_showAutoDJQueueSplit = m_pConfig->getValue(
+            kShowAutoDJQueueSplitConfigKey,
+            kShowAutoDJQueueSplitDefault);
+    m_autoDJQueueSplitLeftRatioPermille = m_pConfig->getValue(
+            kAutoDJQueueSplitLeftRatioPermilleConfigKey,
+            kAutoDJQueueSplitLeftRatioPermilleDefault);
 }
 
 Library::~Library() = default;
@@ -404,6 +410,7 @@ void Library::bindSidebarWidget(WLibrarySidebar* pSidebarWidget) {
 void Library::bindLibraryWidget(
         WLibrary* pLibraryWidget, KeyboardEventFilter* pKeyboard) {
     m_pLibraryWidget = pLibraryWidget;
+    m_pLibraryWidget->setAutoDJViewName(kAutoDJViewName);
     WTrackTableView* pTrackTableView = new WTrackTableView(m_pLibraryWidget,
             m_pConfig,
             this,
@@ -464,6 +471,17 @@ void Library::bindLibraryWidget(
             &Library::setSelectedClick,
             pTrackTableView,
             &WTrackTableView::setSelectedClick);
+
+    m_pLibraryWidget->setAutoDJSplitLeftRatioPermille(m_autoDJQueueSplitLeftRatioPermille);
+    m_pLibraryWidget->setAutoDJSplitEnabled(m_showAutoDJQueueSplit);
+    connect(m_pLibraryWidget,
+            &WLibrary::autoDJSplitLeftRatioPermilleChanged,
+            this,
+            [this](int leftRatioPermille) {
+                m_autoDJQueueSplitLeftRatioPermille = leftRatioPermille;
+                m_pConfig->set(kAutoDJQueueSplitLeftRatioPermilleConfigKey,
+                        ConfigValue(leftRatioPermille));
+            });
 
     m_pLibraryControl->bindLibraryWidget(m_pLibraryWidget, pKeyboard);
 
@@ -752,6 +770,15 @@ void Library::setRowHeight(int rowHeight) {
 void Library::setEditMetadataSelectedClick(bool enabled) {
     m_editMetadataSelectedClick = enabled;
     emit setSelectedClick(enabled);
+}
+
+void Library::setAutoDJSplitEnabled(bool enabled) {
+    m_showAutoDJQueueSplit = enabled;
+    m_pConfig->set(kShowAutoDJQueueSplitConfigKey,
+            ConfigValue(enabled));
+    if (m_pLibraryWidget) {
+        m_pLibraryWidget->setAutoDJSplitEnabled(enabled);
+    }
 }
 
 void Library::slotSearchInCurrentView() {

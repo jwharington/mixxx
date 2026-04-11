@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <memory>
 #include <vector>
@@ -171,11 +172,17 @@ class AutoDJProcessor : public QObject {
         FixedStartCenterSkipSilence
     };
 
+    enum class QueueMode {
+        Basic = 0,
+        Requeue,
+        StaticQueue
+    };
+
     AutoDJProcessor(QObject* pParent,
-                    UserSettingsPointer pConfig,
-                    PlayerManagerInterface* pPlayerManager,
-                    TrackCollectionManager* pTrackCollectionManager,
-                    int iAutoDJPlaylistId);
+            UserSettingsPointer pConfig,
+            PlayerManagerInterface* pPlayerManager,
+            TrackCollectionManager* pTrackCollectionManager,
+            int iAutoDJPlaylistId);
     virtual ~AutoDJProcessor() = default;
 
     AutoDJState getState() const {
@@ -190,6 +197,10 @@ class AutoDJProcessor : public QObject {
         return m_transitionMode;
     }
 
+    QueueMode getQueueMode() const {
+        return m_queueMode;
+    }
+
     PlaylistTableModel* getTableModel() const {
         return m_pAutoDJTableModel;
     }
@@ -199,6 +210,8 @@ class AutoDJProcessor : public QObject {
     void setTransitionTime(int seconds);
 
     void setTransitionMode(TransitionMode newMode);
+
+    void setQueueMode(QueueMode newMode);
 
     AutoDJError shufflePlaylist(const QModelIndexList& selectedIndices);
     AutoDJError skipNext();
@@ -273,6 +286,7 @@ class AutoDJProcessor : public QObject {
     double framePositionToSeconds(mixxx::audio::FramePos position, DeckAttributes* pDeck);
 
     TrackPointer getNextTrackFromQueue();
+    TrackPointer getNextTrackFromStaticQueue();
     bool loadNextTrackFromQueue(const DeckAttributes& pDeck, bool play = false);
     void calculateTransition(DeckAttributes* pFromDeck,
             DeckAttributes* pToDeck,
@@ -295,6 +309,8 @@ class AutoDJProcessor : public QObject {
     // Removes the provided track from the top of the AutoDJ queue if it is
     // present.
     bool removeTrackFromTopOfQueue(TrackPointer pTrack);
+    int findQueueRowByTrackId(TrackId trackId) const;
+    void pruneStaticQueuePlayedTrackIds();
     void maybeFillRandomTracks();
     UserSettingsPointer m_pConfig;
     parented_ptr<PlaylistTableModel> m_pAutoDJTableModel;
@@ -303,7 +319,9 @@ class AutoDJProcessor : public QObject {
     double m_transitionProgress;
     double m_transitionTime; // the desired value set by the user
     TransitionMode m_transitionMode;
+    QueueMode m_queueMode;
     bool m_crossfaderStartCenter;
+    QSet<TrackId> m_staticQueuePlayedTrackIds;
 
     PlayerManagerInterface* m_pPlayerManager;
     std::vector<std::unique_ptr<DeckAttributes>> m_decks;

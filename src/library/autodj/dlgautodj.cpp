@@ -3,21 +3,18 @@
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QStyle>
 
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/library.h"
 #include "library/playlisttablemodel.h"
+#include "mixer/playerinfo.h"
 #include "moc_dlgautodj.cpp"
 #include "track/track.h"
 #include "util/assert.h"
 #include "util/duration.h"
 #include "widget/wlibrary.h"
 #include "widget/wtracktableview.h"
-
-namespace {
-const char* kPreferenceGroupName = "[Auto DJ]";
-const char* kRepeatPlaylistPreference = "Requeue";
-} // anonymous namespace
 
 DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         UserSettingsPointer pConfig,
@@ -69,11 +66,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &WTrackTableView::setSelectedClick);
 
     QBoxLayout* box = qobject_cast<QBoxLayout*>(layout());
-    VERIFY_OR_DEBUG_ASSERT(box) { //Assumes the form layout is a QVBox/QHBoxLayout!
-    } else {
+    VERIFY_OR_DEBUG_ASSERT(box) { // Assumes the form layout is a QVBox/QHBoxLayout!
+    }
+    else {
         box->removeWidget(m_pTrackTablePlaceholder);
         m_pTrackTablePlaceholder->hide();
-        box->insertWidget(1, m_pTrackTableView);
+        box->insertWidget(1, m_pTrackTableView, 1);
     }
 
     // We do _NOT_ take ownership of this from AutoDJProcessor.
@@ -81,7 +79,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     m_pTrackTableView->loadTrackModel(m_pAutoDJTableModel);
 
     // Do not set this because it disables auto-scrolling
-    //m_pTrackTableView->setDragDropMode(QAbstractItemView::InternalMove);
+    // m_pTrackTableView->setDragDropMode(QAbstractItemView::InternalMove);
 
     connect(pushButtonAutoDJ,
             &QPushButton::clicked,
@@ -116,8 +114,9 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     QString addRandomTrackBtnTooltip = tr(
             "Adds a random track from track sources (crates) to the Auto DJ queue.\n"
             "If no track sources are configured, the track is added from the library instead.");
-    QString repeatBtnTooltip = tr(
-            "Repeat the playlist");
+    QString queueModeBtnTooltip = tr(
+            "Queue mode: Basic\n"
+            "Click to cycle through Basic, Requeue, and StaticQueue.");
     QString spinBoxTransitionTooltip = tr(
             "Determines the duration of the transition");
     QString labelTransitionTooltip = tr(
@@ -155,7 +154,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     pushButtonSkipNext->setToolTip(skipBtnTooltip);
     pushButtonShuffle->setToolTip(shuffleBtnTooltip);
     pushButtonAddRandomTrack->setToolTip(addRandomTrackBtnTooltip);
-    pushButtonRepeatPlaylist->setToolTip(repeatBtnTooltip);
+    pushButtonRepeatPlaylist->setToolTip(queueModeBtnTooltip);
     spinBoxTransition->setToolTip(spinBoxTransitionTooltip);
     labelTransitionAppendix->setToolTip(labelTransitionTooltip);
     fadeModeCombobox->setToolTip(fadeModeTooltip);
@@ -194,14 +193,14 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     connect(pushButtonRepeatPlaylist,
             &QPushButton::clicked,
             this,
-            &DlgAutoDJ::slotRepeatPlaylistChanged);
+            &DlgAutoDJ::slotQueueModeButtonClicked);
+    pushButtonRepeatPlaylist->setCheckable(true);
     if (m_bShowButtonText) {
-        pushButtonRepeatPlaylist->setText(tr("Repeat"));
+        pushButtonRepeatPlaylist->setText(tr("Basic"));
     }
-    bool repeatPlaylist = m_pConfig->getValue<bool>(
-            ConfigKey(kPreferenceGroupName, kRepeatPlaylistPreference));
-    pushButtonRepeatPlaylist->setChecked(repeatPlaylist);
-    slotRepeatPlaylistChanged(repeatPlaylist);
+
+    AutoDJProcessor::QueueMode queueMode = m_pAutoDJProcessor->getQueueMode();
+    setQueueMode(queueMode);
 
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
     // mind that AutoDJ may already be active when DlgAutoDJ is created (due to
@@ -221,7 +220,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &AutoDJProcessor::autoDJStateChanged,
             this,
             &DlgAutoDJ::autoDJStateChanged);
+    connect(&PlayerInfo::instance(),
+            &PlayerInfo::currentPlayingTrackChanged,
+            this,
+            &DlgAutoDJ::slotCurrentPlayingTrackChanged);
     autoDJStateChanged(m_pAutoDJProcessor->getState());
+    slotCurrentPlayingTrackChanged(PlayerInfo::instance().getCurrentPlayingTrack());
 
     updateSelectionInfo();
 }
@@ -340,6 +344,14 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
     }
 }
 
+void DlgAutoDJ::slotCurrentPlayingTrackChanged(TrackPointer pTrack) {
+    if (!pTrack) {
+        m_pTrackTableView->setHighlightedTrackId(TrackId());
+        return;
+    }
+    m_pTrackTableView->setHighlightedTrackId(pTrack->getId());
+}
+
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
     m_pAutoDJProcessor->setTransitionMode(
             static_cast<AutoDJProcessor::TransitionMode>(
@@ -349,9 +361,65 @@ void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
     ControlObject::set(ConfigKey("[Library]", "refocus_prev_widget"), 1);
 }
 
-void DlgAutoDJ::slotRepeatPlaylistChanged(bool checked) {
-    m_pConfig->setValue(ConfigKey(kPreferenceGroupName, kRepeatPlaylistPreference),
-            checked);
+void DlgAutoDJ::setQueueMode(AutoDJProcessor::QueueMode mode) {
+    m_pAutoDJProcessor->setQueueMode(mode);
+    updateQueueModeButton(mode);
+}
+
+void DlgAutoDJ::updateQueueModeButton(AutoDJProcessor::QueueMode mode) {
+    QString buttonText;
+    QString tooltip;
+    const char* queueModePropertyValue = "basic";
+    switch (mode) {
+    case AutoDJProcessor::QueueMode::Requeue:
+        buttonText = tr("Requeue");
+        tooltip = tr(
+                "Queue mode: Requeue\n"
+                "Played tracks move to the end of the queue.");
+        queueModePropertyValue = "requeue";
+        break;
+    case AutoDJProcessor::QueueMode::StaticQueue:
+        buttonText = tr("StaticQueue");
+        tooltip = tr(
+                "Queue mode: StaticQueue\n"
+                "Played tracks stay in place and AutoDJ picks the next track by queue order.");
+        queueModePropertyValue = "static";
+        break;
+    case AutoDJProcessor::QueueMode::Basic:
+    default:
+        buttonText = tr("Basic");
+        tooltip = tr(
+                "Queue mode: Basic\n"
+                "Played tracks are removed from the queue.");
+        break;
+    }
+    pushButtonRepeatPlaylist->setChecked(mode != AutoDJProcessor::QueueMode::Basic);
+    pushButtonRepeatPlaylist->setProperty("queueMode", queueModePropertyValue);
+    pushButtonRepeatPlaylist->style()->unpolish(pushButtonRepeatPlaylist);
+    pushButtonRepeatPlaylist->style()->polish(pushButtonRepeatPlaylist);
+    pushButtonRepeatPlaylist->update();
+    pushButtonRepeatPlaylist->setToolTip(tooltip);
+    if (m_bShowButtonText) {
+        pushButtonRepeatPlaylist->setText(buttonText);
+    }
+}
+
+void DlgAutoDJ::slotQueueModeButtonClicked(bool buttonChecked) {
+    Q_UNUSED(buttonChecked);
+    AutoDJProcessor::QueueMode mode = m_pAutoDJProcessor->getQueueMode();
+    switch (mode) {
+    case AutoDJProcessor::QueueMode::Basic:
+        mode = AutoDJProcessor::QueueMode::Requeue;
+        break;
+    case AutoDJProcessor::QueueMode::Requeue:
+        mode = AutoDJProcessor::QueueMode::StaticQueue;
+        break;
+    case AutoDJProcessor::QueueMode::StaticQueue:
+    default:
+        mode = AutoDJProcessor::QueueMode::Basic;
+        break;
+    }
+    setQueueMode(mode);
 }
 
 void DlgAutoDJ::updateSelectionInfo() {
