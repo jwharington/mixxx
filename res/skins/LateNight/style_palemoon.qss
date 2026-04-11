@@ -2853,11 +2853,15 @@ QPushButton#pushButtonAddRandomTrack:enabled {
   image: url(skins:LateNight/palemoon/buttons/btn__autodj_addrandom.svg) no-repeat center center;
 }
 
-QPushButton#pushButtonRepeatPlaylist:!checked {
+QPushButton#pushButtonRepeatPlaylist,
+QPushButton#pushButtonRepeatPlaylist[queueMode="basic"] {
   image: url(skins:LateNight/palemoon/buttons/btn__autodj_repeat_playlist_off.svg) no-repeat center center;
   }
-  QPushButton#pushButtonRepeatPlaylist:checked {
+  QPushButton#pushButtonRepeatPlaylist[queueMode="requeue"] {
     image: url(skins:LateNight/palemoon/buttons/btn__autodj_repeat_playlist_on.svg) no-repeat center center;
+  }
+  QPushButton#pushButtonRepeatPlaylist[queueMode="static"] {
+    image: url(skins:LateNight/palemoon/buttons/btn__autodj_repeat_playlist_static.svg) no-repeat center center;
   }
 /* AutoDJ button icons */
 
