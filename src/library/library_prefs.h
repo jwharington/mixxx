@@ -34,6 +34,14 @@ extern const ConfigKey kApplyPlayedTrackColorConfigKey;
 
 extern const ConfigKey kEditMetadataSelectedClickConfigKey;
 
+extern const ConfigKey kShowAutoDJQueueSplitConfigKey;
+
+const bool kShowAutoDJQueueSplitDefault = false;
+
+extern const ConfigKey kAutoDJQueueSplitLeftRatioPermilleConfigKey;
+
+const int kAutoDJQueueSplitLeftRatioPermilleDefault = 667;
+
 extern const ConfigKey kHistoryMinTracksToKeepConfigKey;
 
 const int kHistoryMinTracksToKeepDefault = 1;

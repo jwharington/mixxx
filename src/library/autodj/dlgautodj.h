@@ -42,9 +42,10 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void transitionTimeChanged(int time);
     void transitionSliderChanged(int value);
     void autoDJStateChanged(AutoDJProcessor::AutoDJState state);
+    void slotCurrentPlayingTrackChanged(TrackPointer pTrack);
     void updateSelectionInfo();
     void slotTransitionModeChanged(int comboboxIndex);
-    void slotRepeatPlaylistChanged(bool checked);
+    void slotQueueModeButtonClicked(bool buttonChecked);
 
   signals:
     void addRandomTrackButton(bool buttonChecked);
@@ -63,6 +64,8 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void setupActionButton(QPushButton* pButton,
             void (DlgAutoDJ::*pSlot)(bool),
             const QString& fallbackText);
+    void setQueueMode(AutoDJProcessor::QueueMode mode);
+    void updateQueueModeButton(AutoDJProcessor::QueueMode mode);
     void keyPressEvent(QKeyEvent* pEvent) override;
 
     const UserSettingsPointer m_pConfig;

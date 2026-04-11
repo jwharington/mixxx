@@ -12,6 +12,7 @@ const QString kPreferenceGroup = QStringLiteral("[Auto DJ]");
 const QString kControlGroup = QStringLiteral("[AutoDJ]");
 const char* kTransitionPreferenceName = "Transition";
 const char* kTransitionModePreferenceName = "TransitionMode";
+const char* kQueueModePreferenceName = "QueueMode";
 constexpr double kTransitionPreferenceDefault = 10.0;
 constexpr double kKeepPosition = -1.0;
 
@@ -42,12 +43,9 @@ DeckAttributes::DeckAttributes(int index,
           m_sampleRate(group, "track_samplerate"),
           m_rateRatio(group, "rate_ratio"),
           m_pPlayer(pPlayer) {
-    connect(m_pPlayer, &BaseTrackPlayer::newTrackLoaded,
-            this, &DeckAttributes::slotTrackLoaded);
-    connect(m_pPlayer, &BaseTrackPlayer::loadingTrack,
-            this, &DeckAttributes::slotLoadingTrack);
-    connect(m_pPlayer, &BaseTrackPlayer::playerEmpty,
-            this, &DeckAttributes::slotPlayerEmpty);
+    connect(m_pPlayer, &BaseTrackPlayer::newTrackLoaded, this, &DeckAttributes::slotTrackLoaded);
+    connect(m_pPlayer, &BaseTrackPlayer::loadingTrack, this, &DeckAttributes::slotLoadingTrack);
+    connect(m_pPlayer, &BaseTrackPlayer::playerEmpty, this, &DeckAttributes::slotPlayerEmpty);
     m_playPos.connectValueChanged(this, &DeckAttributes::slotPlayPosChanged);
     m_play.connectValueChanged(this, &DeckAttributes::slotPlayChanged);
     m_introStartPos.connectValueChanged(this, &DeckAttributes::slotIntroStartPositionChanged);
@@ -89,7 +87,7 @@ void DeckAttributes::slotTrackLoaded(TrackPointer pTrack) {
 }
 
 void DeckAttributes::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldTrack) {
-    //qDebug() << "DeckAttributes::slotLoadingTrack";
+    // qDebug() << "DeckAttributes::slotLoadingTrack";
     emit loadingTrack(this, pNewTrack, pOldTrack);
 }
 
@@ -118,6 +116,7 @@ AutoDJProcessor::AutoDJProcessor(
           m_eState(ADJ_DISABLED),
           m_transitionProgress(0.0),
           m_transitionTime(kTransitionPreferenceDefault),
+          m_queueMode(QueueMode::Basic),
           m_pPlayerManager(pPlayerManager),
           m_coCrossfader(QStringLiteral("[Master]"), QStringLiteral("crossfader")),
           m_coCrossfaderReverse(QStringLiteral("[Mixer Profile]"), QStringLiteral("xFaderReverse")),
@@ -160,6 +159,25 @@ AutoDJProcessor::AutoDJProcessor(
     m_transitionMode = m_pConfig->getValue(
             ConfigKey(kPreferenceGroup, kTransitionModePreferenceName),
             TransitionMode::FullIntroOutro);
+
+    m_queueMode = QueueMode::Basic;
+    const QString queueModeSetting = m_pConfig->getValueString(
+            ConfigKey(kPreferenceGroup, kQueueModePreferenceName));
+    if (!queueModeSetting.isEmpty()) {
+        bool ok = false;
+        const int queueModeValue = queueModeSetting.toInt(&ok);
+        if (ok) {
+            QueueMode parsedMode = static_cast<QueueMode>(queueModeValue);
+            if (parsedMode == QueueMode::Basic ||
+                    parsedMode == QueueMode::Requeue ||
+                    parsedMode == QueueMode::StaticQueue) {
+                m_queueMode = parsedMode;
+            }
+        }
+    } else if (m_pConfig->getValue<bool>(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue")))) {
+        // Backward compatibility with the old boolean Requeue preference.
+        m_queueMode = QueueMode::Requeue;
+    }
 }
 
 void AutoDJProcessor::slotNumberOfDecksChanged(int decks) {
@@ -345,7 +363,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
         TrackId leftId = pLeftDeck->getLoadedTrack()->getId();
         TrackId rightId = pRightDeck->getLoadedTrack()->getId();
         if (nextId == leftId || nextId == rightId) {
-        // One of the playing tracks is still on top of playlist, remove second item
+            // One of the playing tracks is still on top of playlist, remove second item
             m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(1, 0));
         } else {
             m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
@@ -411,7 +429,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
             removeLoadedTrackFromTopOfQueue(*pLeftDeck);
         } else if (rightDeckPlaying) {
             removeLoadedTrackFromTopOfQueue(*pRightDeck);
-        } else {
+        } else if (m_queueMode != QueueMode::StaticQueue) {
             // If the first track is already cued at a position in the first
             // 2/3 in on of the Auto DJ decks, start it.
             // If the track is paused at a later position, it is probably too
@@ -663,7 +681,7 @@ void AutoDJProcessor::crossfaderChanged(double value) {
 }
 
 void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
-                                            double thisPlayPosition) {
+        double thisPlayPosition) {
     // qDebug() << "player" << pAttributes->group << "PositionChanged(" << value << ")";
     if (m_eState == ADJ_DISABLED) {
         // nothing to do
@@ -885,6 +903,10 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
 }
 
 TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
+    if (m_queueMode == QueueMode::StaticQueue) {
+        return getNextTrackFromStaticQueue();
+    }
+
     // Get the track at the top of the playlist.
     bool randomQueueEnabled = m_pConfig->getValue<bool>(
             ConfigKey(kPreferenceGroup, QStringLiteral("EnableRandomQueue")));
@@ -918,6 +940,59 @@ TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
             return pNextTrack;
         }
     }
+}
+
+TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
+    pruneStaticQueuePlayedTrackIds();
+
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    if (rowCount <= 0) {
+        return TrackPointer();
+    }
+
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
+
+    TrackId playingTrackId;
+    if (pLeftDeck && pLeftDeck->isPlaying() && pLeftDeck->getLoadedTrack()) {
+        playingTrackId = pLeftDeck->getLoadedTrack()->getId();
+    }
+    if (pRightDeck && pRightDeck->isPlaying() && pRightDeck->getLoadedTrack()) {
+        if (!playingTrackId.isValid() || getCrossfader() >= 0.0) {
+            playingTrackId = pRightDeck->getLoadedTrack()->getId();
+        }
+    }
+
+    int startRow = 0;
+    if (playingTrackId.isValid()) {
+        const int row = findQueueRowByTrackId(playingTrackId);
+        if (row >= 0) {
+            startRow = row + 1;
+        }
+    }
+
+    for (int row = startRow; row < m_pAutoDJTableModel->rowCount(); ++row) {
+        const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+        const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
+        if (!trackId.isValid() || m_staticQueuePlayedTrackIds.contains(trackId)) {
+            continue;
+        }
+
+        TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(index);
+        if (!pNextTrack) {
+            continue;
+        }
+
+        if (pNextTrack->getFileInfo().checkFileExists()) {
+            return pNextTrack;
+        }
+
+        qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
+        m_pAutoDJTableModel->removeTrack(index);
+        return getNextTrackFromStaticQueue();
+    }
+
+    return TrackPointer();
 }
 
 bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool play) {
@@ -968,11 +1043,17 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
         return false;
     }
 
+    if (m_queueMode == QueueMode::StaticQueue) {
+        // In static mode played tracks remain in place and queue order is unchanged.
+        m_staticQueuePlayedTrackIds.insert(trackId);
+        return true;
+    }
+
     // Remove the top track.
     m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
 
     // Re-queue if configured.
-    if (m_pConfig->getValueString(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue"))).toInt()) {
+    if (m_queueMode == QueueMode::Requeue) {
         m_pAutoDJTableModel->appendTrack(nextId);
     }
 
@@ -1021,6 +1102,16 @@ void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) 
     }
 
     if (playing) {
+        if (m_queueMode == QueueMode::StaticQueue) {
+            const TrackPointer pTrack = thisDeck->getLoadedTrack();
+            if (pTrack) {
+                const TrackId trackId = pTrack->getId();
+                if (trackId.isValid()) {
+                    m_staticQueuePlayedTrackIds.insert(trackId);
+                }
+            }
+        }
+
         if (!otherDeck->isPlaying()) {
             // In case both decks were stopped and now this one just started, make
             // this deck the "from deck".
@@ -1495,7 +1586,7 @@ void AutoDJProcessor::calculateTransition(DeckAttributes* pFromDeck,
             startPoint = toDeckPositionSeconds;
         }
         useFixedFadeTime(pFromDeck, pToDeck, fromDeckPosition, fromDeckEndPosition, startPoint);
-        }
+    }
     }
 
     // These are expected to be a fraction of the track length.
@@ -1581,8 +1672,11 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
     if (duration < kMinimumTrackDurationSec) {
         qWarning() << "Skip track with" << duration << "Duration"
                    << pTrack->getLocation();
-        // Remove Tack with duration smaller than two callbacks
-        removeTrackFromTopOfQueue(pTrack);
+        // Remove track with duration smaller than two callbacks.
+        const int row = findQueueRowByTrackId(pTrack ? pTrack->getId() : TrackId());
+        if (row >= 0) {
+            m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(row, 0));
+        }
 
         // Load the next track. If we are the first AutoDJ track
         // (ADJ_ENABLE_P1LOADED state) then play the track.
@@ -1626,7 +1720,8 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
 }
 
 void AutoDJProcessor::playerLoadingTrack(DeckAttributes* pDeck,
-        TrackPointer pNewTrack, TrackPointer pOldTrack) {
+        TrackPointer pNewTrack,
+        TrackPointer pOldTrack) {
     if constexpr (sDebug) {
         qDebug() << this << "playerLoadingTrack" << pDeck->group
                  << "new:" << (pNewTrack ? pNewTrack->getLocation() : "(null)")
@@ -1648,7 +1743,10 @@ void AutoDJProcessor::playerLoadingTrack(DeckAttributes* pDeck,
     if (!pNewTrack) {
         // If a track is ejected because of a manual eject command or a load failure
         // this track seams to be undesired. Remove the bad track from the queue.
-        removeTrackFromTopOfQueue(pOldTrack);
+        const int row = findQueueRowByTrackId(pOldTrack ? pOldTrack->getId() : TrackId());
+        if (row >= 0) {
+            m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(row, 0));
+        }
 
         // wait until the track is fully unloaded and the playerEmpty()
         // slot is called before load an alternative track.
@@ -1775,6 +1873,24 @@ void AutoDJProcessor::setTransitionMode(TransitionMode newMode) {
     }
 }
 
+void AutoDJProcessor::setQueueMode(QueueMode newMode) {
+    if (newMode != QueueMode::Basic &&
+            newMode != QueueMode::Requeue &&
+            newMode != QueueMode::StaticQueue) {
+        newMode = QueueMode::Basic;
+    }
+    m_queueMode = newMode;
+    m_pConfig->setValue(ConfigKey(kPreferenceGroup, kQueueModePreferenceName),
+            static_cast<int>(newMode));
+    // Keep legacy boolean setting in sync for older code paths.
+    m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue")),
+            newMode == QueueMode::Requeue);
+
+    if (newMode != QueueMode::StaticQueue) {
+        m_staticQueuePlayedTrackIds.clear();
+    }
+}
+
 DeckAttributes* AutoDJProcessor::getLeftDeck() {
     // find first left deck
     for (const auto& pDeck : m_decks) {
@@ -1843,4 +1959,34 @@ bool AutoDJProcessor::nextTrackLoaded() {
     }
 
     return loadedTrack == getNextTrackFromQueue();
+}
+
+int AutoDJProcessor::findQueueRowByTrackId(TrackId trackId) const {
+    if (!trackId.isValid()) {
+        return -1;
+    }
+
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    for (int row = 0; row < rowCount; ++row) {
+        if (m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(row, 0)) == trackId) {
+            return row;
+        }
+    }
+    return -1;
+}
+
+void AutoDJProcessor::pruneStaticQueuePlayedTrackIds() {
+    if (m_queueMode != QueueMode::StaticQueue) {
+        return;
+    }
+
+    QSet<TrackId> existingTrackIds;
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    for (int row = 0; row < rowCount; ++row) {
+        const TrackId trackId = m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(row, 0));
+        if (trackId.isValid()) {
+            existingTrackIds.insert(trackId);
+        }
+    }
+    m_staticQueuePlayedTrackIds.intersect(existingTrackIds);
 }

@@ -1,8 +1,9 @@
 #pragma once
 
+#include <QList>
 #include <QMap>
-#include <QStackedWidget>
 #include <QString>
+#include <QWidget>
 
 #include "library/library_decl.h"
 #include "library/libraryview.h"
@@ -12,12 +13,14 @@
 #include "widget/wbasewidget.h"
 
 class LibraryView;
+class QSplitter;
+class QStackedWidget;
 class WTrackTableView;
 class TrackId;
 class QDomNode;
 class SkinContext;
 
-class WLibrary : public QStackedWidget, public WBaseWidget {
+class WLibrary : public QWidget, public WBaseWidget {
     Q_OBJECT
   public:
     explicit WLibrary(QWidget* parent);
@@ -31,6 +34,12 @@ class WLibrary : public QStackedWidget, public WBaseWidget {
     // registration was successful. Registered widget must implement the
     // LibraryView interface.
     bool registerView(const QString& name, QWidget* view);
+    QWidget* currentWidget() const;
+
+    void setAutoDJQueueView(QWidget* pView);
+    void setAutoDJViewName(const QString& name);
+    void setAutoDJSplitEnabled(bool enabled);
+    void setAutoDJSplitLeftRatioPermille(int leftRatioPermille);
 
     LibraryView* getActiveView() const;
     WTrackTableView* getCurrentTrackTableView() const;
@@ -45,8 +54,8 @@ class WLibrary : public QStackedWidget, public WBaseWidget {
 
     // Alpha value for row color background
     static constexpr double kDefaultTrackTableBackgroundColorOpacity = 0.125; // 12.5% opacity
-    static constexpr double kMinTrackTableBackgroundColorOpacity = 0.0; // 0% opacity
-    static constexpr double kMaxTrackTableBackgroundColorOpacity = 1.0; // 100% opacity
+    static constexpr double kMinTrackTableBackgroundColorOpacity = 0.0;       // 0% opacity
+    static constexpr double kMaxTrackTableBackgroundColorOpacity = 1.0;       // 100% opacity
 
     double getTrackTableBackgroundColorOpacity() const {
         return m_trackTableBackgroundColorOpacity;
@@ -63,6 +72,7 @@ class WLibrary : public QStackedWidget, public WBaseWidget {
   signals:
     FocusWidget setLibraryFocus(FocusWidget newFocus,
             Qt::FocusReason focusReason = Qt::OtherFocusReason);
+    void autoDJSplitLeftRatioPermilleChanged(int leftRatioPermille);
 
   public slots:
     // Show the view registered with the given name. Does nothing if the current
@@ -79,8 +89,18 @@ class WLibrary : public QStackedWidget, public WBaseWidget {
     void keyPressEvent(QKeyEvent* event) override;
 
   private:
+    void updateAutoDJQueueVisibility();
+
     QT_RECURSIVE_MUTEX m_mutex;
     QMap<QString, QWidget*> m_viewMap;
+    QStackedWidget* m_pViewStack;
+    QSplitter* m_pMainSplitter;
+    QWidget* m_pAutoDJQueueWidget;
+    QString m_currentViewName;
+    QString m_autoDJViewName;
+    QList<int> m_visibleSplitterSizes;
+    int m_autoDJSplitLeftRatioPermille;
+    bool m_showAutoDJSplitEnabled;
     double m_trackTableBackgroundColorOpacity;
     bool m_bShowButtonText;
     WaveformSignalColors m_overviewSignalColors;

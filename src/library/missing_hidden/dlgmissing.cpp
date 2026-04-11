@@ -28,11 +28,12 @@ DlgMissing::DlgMissing(
 
     // Install our own trackTable
     QBoxLayout* box = qobject_cast<QBoxLayout*>(layout());
-    VERIFY_OR_DEBUG_ASSERT(box) { //Assumes the form layout is a QVBox/QHBoxLayout!
-    } else {
+    VERIFY_OR_DEBUG_ASSERT(box) { // Assumes the form layout is a QVBox/QHBoxLayout!
+    }
+    else {
         box->removeWidget(m_pTrackTablePlaceholder);
         m_pTrackTablePlaceholder->hide();
-        box->insertWidget(1, m_pTrackTableView);
+        box->insertWidget(1, m_pTrackTableView, 1);
     }
 
     m_pMissingTableModel = new MissingTableModel(this, pLibrary->trackCollectionManager());
@@ -79,8 +80,8 @@ void DlgMissing::activateButtons(bool enable) {
     btnPurge->setEnabled(enable);
 }
 
-void DlgMissing::selectionChanged(const QItemSelection &selected,
-                                  const QItemSelection &deselected) {
+void DlgMissing::selectionChanged(const QItemSelection& selected,
+        const QItemSelection& deselected) {
     Q_UNUSED(deselected);
     activateButtons(!selected.indexes().isEmpty());
 }
