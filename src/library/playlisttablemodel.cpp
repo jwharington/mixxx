@@ -231,6 +231,9 @@ int PlaylistTableModel::addTracksWithTrackIds(const QModelIndex& insertionIndex,
                  << trackIds.size() - tracksAdded
                  << "to playlist id" << m_iPlaylistId << "name" << playlistName;
     }
+    if (tracksAdded > 0) {
+        emit playlistTracksChanged();
+    }
     return tracksAdded;
 }
 
@@ -285,7 +288,7 @@ void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
         --newPosition;
     }
 
-    //qDebug() << "old pos" << oldPosition << "new pos" << newPosition;
+    // qDebug() << "old pos" << oldPosition << "new pos" << newPosition;
     if (newPosition < 0 || newPosition == oldPosition) {
         // Invalid for the position to be 0 or less.
         // or no move at all
@@ -300,6 +303,7 @@ void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
     if (oldPosition == 1 || newPosition == 1) {
         emit firstTrackChanged();
     }
+    emit playlistTracksChanged();
 }
 
 bool PlaylistTableModel::isLocked() {

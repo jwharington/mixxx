@@ -77,6 +77,24 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     // We do _NOT_ take ownership of this from AutoDJProcessor.
     m_pAutoDJTableModel = m_pAutoDJProcessor->getTableModel();
     m_pTrackTableView->loadTrackModel(m_pAutoDJTableModel);
+    connect(m_pAutoDJTableModel,
+            &QAbstractItemModel::rowsInserted,
+            this,
+            [this](const QModelIndex&, int, int) {
+                updateHighlightedTrack();
+            });
+    connect(m_pAutoDJTableModel,
+            &QAbstractItemModel::rowsRemoved,
+            this,
+            [this](const QModelIndex&, int, int) {
+                updateHighlightedTrack();
+            });
+    connect(m_pAutoDJTableModel,
+            &QAbstractItemModel::modelReset,
+            this,
+            [this]() {
+                updateHighlightedTrack();
+            });
 
     // Do not set this because it disables auto-scrolling
     // m_pTrackTableView->setDragDropMode(QAbstractItemView::InternalMove);
@@ -225,7 +243,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             this,
             &DlgAutoDJ::slotCurrentPlayingTrackChanged);
     autoDJStateChanged(m_pAutoDJProcessor->getState());
-    slotCurrentPlayingTrackChanged(PlayerInfo::instance().getCurrentPlayingTrack());
+    updateHighlightedTrack();
 
     updateSelectionInfo();
 }
@@ -342,14 +360,30 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
 
         pushButtonSkipNext->setEnabled(true);
     }
+    updateHighlightedTrack();
 }
 
 void DlgAutoDJ::slotCurrentPlayingTrackChanged(TrackPointer pTrack) {
-    if (!pTrack) {
-        m_pTrackTableView->setHighlightedTrackId(TrackId());
-        return;
+    Q_UNUSED(pTrack);
+    updateHighlightedTrack();
+}
+
+void DlgAutoDJ::updateHighlightedTrack() {
+    TrackId highlightedTrackId;
+
+    if (m_pAutoDJProcessor->getState() == AutoDJProcessor::ADJ_DISABLED) {
+        TrackPointer pPreviewTrack = m_pAutoDJProcessor->getEnablePreviewTrack();
+        if (pPreviewTrack) {
+            highlightedTrackId = pPreviewTrack->getId();
+        }
+    } else {
+        TrackPointer pTrack = PlayerInfo::instance().getCurrentPlayingTrack();
+        if (pTrack) {
+            highlightedTrackId = pTrack->getId();
+        }
     }
-    m_pTrackTableView->setHighlightedTrackId(pTrack->getId());
+
+    m_pTrackTableView->setHighlightedTrackId(highlightedTrackId);
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
@@ -364,6 +398,7 @@ void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
 void DlgAutoDJ::setQueueMode(AutoDJProcessor::QueueMode mode) {
     m_pAutoDJProcessor->setQueueMode(mode);
     updateQueueModeButton(mode);
+    updateHighlightedTrack();
 }
 
 void DlgAutoDJ::updateQueueModeButton(AutoDJProcessor::QueueMode mode) {

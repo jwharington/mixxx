@@ -64,6 +64,7 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
     void setupActionButton(QPushButton* pButton,
             void (DlgAutoDJ::*pSlot)(bool),
             const QString& fallbackText);
+    void updateHighlightedTrack();
     void setQueueMode(AutoDJProcessor::QueueMode mode);
     void updateQueueModeButton(AutoDJProcessor::QueueMode mode);
     void keyPressEvent(QKeyEvent* pEvent) override;
