@@ -619,6 +619,28 @@ TEST_F(AutoDJProcessorTest, TransitionTimeLoadedFromConfig) {
     EXPECT_EQ(25, pProcessor->getTransitionTime());
 }
 
+TEST_F(AutoDJProcessorTest, QueueModeLoadedFromConfigPrefersQueueModeOverLegacyRequeue) {
+    EXPECT_EQ(AutoDJProcessor::QueueMode::Basic, pProcessor->getQueueMode());
+
+    config()->set(ConfigKey("[Auto DJ]", "QueueMode"),
+            QString::number(static_cast<int>(AutoDJProcessor::QueueMode::StaticQueue)));
+    config()->set(ConfigKey("[Auto DJ]", "Requeue"), QString("1"));
+
+    EXPECT_CALL(*pPlayerManager, getDeckBase(0)).Times(1);
+    EXPECT_CALL(*pPlayerManager, getDeckBase(1)).Times(1);
+    EXPECT_CALL(*pPlayerManager, getDeckBase(2)).Times(1);
+    EXPECT_CALL(*pPlayerManager, getDeckBase(3)).Times(1);
+
+    pProcessor.reset();
+    pProcessor.reset(new MockAutoDJProcessor(nullptr,
+            config(),
+            pPlayerManager.data(),
+            trackCollectionManager(),
+            m_iAutoDJPlaylistId));
+
+    EXPECT_EQ(AutoDJProcessor::QueueMode::StaticQueue, pProcessor->getQueueMode());
+}
+
 TEST_F(AutoDJProcessorTest, DecksPlayingWarning) {
     deck1.play.set(1);
     deck2.play.set(1);

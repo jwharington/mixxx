@@ -8,17 +8,13 @@
 #include "controllers/keyboard/keyboardeventfilter.h"
 #include "library/library.h"
 #include "library/playlisttablemodel.h"
+#include "mixer/playerinfo.h"
 #include "moc_dlgautodj.cpp"
 #include "track/track.h"
 #include "util/assert.h"
 #include "util/duration.h"
 #include "widget/wlibrary.h"
 #include "widget/wtracktableview.h"
-
-namespace {
-const char* kPreferenceGroupName = "[Auto DJ]";
-const char* kQueueModePreference = "QueueMode";
-} // anonymous namespace
 
 DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         UserSettingsPointer pConfig,
@@ -203,12 +199,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
         pushButtonRepeatPlaylist->setText(tr("Basic"));
     }
 
-    AutoDJProcessor::QueueMode queueMode = static_cast<AutoDJProcessor::QueueMode>(
-            m_pConfig->getValue(ConfigKey(kPreferenceGroupName, kQueueModePreference),
-                    static_cast<int>(AutoDJProcessor::QueueMode::Basic)));
-    if (m_pConfig->getValue<bool>(ConfigKey(kPreferenceGroupName, "Requeue"))) {
-        queueMode = AutoDJProcessor::QueueMode::Requeue;
-    }
+    AutoDJProcessor::QueueMode queueMode = m_pAutoDJProcessor->getQueueMode();
     setQueueMode(queueMode);
 
     // Setup DlgAutoDJ UI based on the current AutoDJProcessor state. Keep in
@@ -229,7 +220,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
             &AutoDJProcessor::autoDJStateChanged,
             this,
             &DlgAutoDJ::autoDJStateChanged);
+    connect(&PlayerInfo::instance(),
+            &PlayerInfo::currentPlayingTrackChanged,
+            this,
+            &DlgAutoDJ::slotCurrentPlayingTrackChanged);
     autoDJStateChanged(m_pAutoDJProcessor->getState());
+    slotCurrentPlayingTrackChanged(PlayerInfo::instance().getCurrentPlayingTrack());
 
     updateSelectionInfo();
 }
@@ -346,6 +342,14 @@ void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
 
         pushButtonSkipNext->setEnabled(true);
     }
+}
+
+void DlgAutoDJ::slotCurrentPlayingTrackChanged(TrackPointer pTrack) {
+    if (!pTrack) {
+        m_pTrackTableView->setHighlightedTrackId(TrackId());
+        return;
+    }
+    m_pTrackTableView->setHighlightedTrackId(pTrack->getId());
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {

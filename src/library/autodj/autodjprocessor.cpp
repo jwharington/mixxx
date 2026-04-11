@@ -160,16 +160,22 @@ AutoDJProcessor::AutoDJProcessor(
             ConfigKey(kPreferenceGroup, kTransitionModePreferenceName),
             TransitionMode::FullIntroOutro);
 
-    m_queueMode = static_cast<QueueMode>(m_pConfig->getValue(
-            ConfigKey(kPreferenceGroup, kQueueModePreferenceName),
-            static_cast<int>(QueueMode::Basic)));
-    if (m_queueMode != QueueMode::Basic &&
-            m_queueMode != QueueMode::Requeue &&
-            m_queueMode != QueueMode::StaticQueue) {
-        m_queueMode = QueueMode::Basic;
-    }
-    // Backward compatibility with the old boolean Requeue preference.
-    if (m_pConfig->getValue<bool>(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue")))) {
+    m_queueMode = QueueMode::Basic;
+    const QString queueModeSetting = m_pConfig->getValueString(
+            ConfigKey(kPreferenceGroup, kQueueModePreferenceName));
+    if (!queueModeSetting.isEmpty()) {
+        bool ok = false;
+        const int queueModeValue = queueModeSetting.toInt(&ok);
+        if (ok) {
+            QueueMode parsedMode = static_cast<QueueMode>(queueModeValue);
+            if (parsedMode == QueueMode::Basic ||
+                    parsedMode == QueueMode::Requeue ||
+                    parsedMode == QueueMode::StaticQueue) {
+                m_queueMode = parsedMode;
+            }
+        }
+    } else if (m_pConfig->getValue<bool>(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue")))) {
+        // Backward compatibility with the old boolean Requeue preference.
         m_queueMode = QueueMode::Requeue;
     }
 }
@@ -1878,7 +1884,7 @@ void AutoDJProcessor::setQueueMode(QueueMode newMode) {
             static_cast<int>(newMode));
     // Keep legacy boolean setting in sync for older code paths.
     m_pConfig->setValue(ConfigKey(kPreferenceGroup, QStringLiteral("Requeue")),
-            newMode != QueueMode::Basic);
+            newMode == QueueMode::Requeue);
 
     if (newMode != QueueMode::StaticQueue) {
         m_staticQueuePlayedTrackIds.clear();

@@ -905,6 +905,43 @@ void WTrackTableView::dropEvent(QDropEvent* event) {
 void WTrackTableView::paintEvent(QPaintEvent* e) {
     QTableView::paintEvent(e);
 
+    QPainter painter(viewport());
+
+    if (m_highlightedTrackId.isValid()) {
+        TrackModel* pTrackModel = getTrackModel();
+        if (pTrackModel != nullptr) {
+            const QVector<int> rows = pTrackModel->getTrackRows(m_highlightedTrackId);
+            for (int row : rows) {
+                if (row < 0 || row >= model()->rowCount()) {
+                    continue;
+                }
+
+                const int y = rowViewportPosition(row);
+                const int h = rowHeight(row);
+                if (h <= 0 || y + h < 0 || y > viewport()->height()) {
+                    continue;
+                }
+
+                QRect borderRect(1, y + 1, viewport()->width() - 3, h - 3);
+                if (!borderRect.isValid()) {
+                    continue;
+                }
+
+                QColor borderColor = palette().highlight().color();
+                borderColor.setAlpha(170);
+                QColor shadeColor = borderColor.darker(160);
+                shadeColor.setAlpha(110);
+
+                painter.setRenderHint(QPainter::Antialiasing, false);
+                painter.setPen(QPen(shadeColor, 3));
+                painter.drawRect(borderRect);
+                painter.setPen(QPen(borderColor, 1));
+                painter.drawRect(borderRect);
+                break;
+            }
+        }
+    }
+
     if (m_dropRow < 0) {
         return;
     }
@@ -924,7 +961,6 @@ void WTrackTableView::paintEvent(QPaintEvent* e) {
         y = viewport()->height() - 1;
     }
 
-    QPainter painter(viewport());
     QPen pen(m_dropIndicatorColor, 2, Qt::SolidLine);
     painter.setPen(pen);
     painter.drawLine(0, y, viewport()->width(), y);
@@ -955,6 +991,14 @@ QList<int> WTrackTableView::getSelectedRowNumbers() const {
 TrackModel* WTrackTableView::getTrackModel() const {
     TrackModel* pTrackModel = dynamic_cast<TrackModel*>(model());
     return pTrackModel;
+}
+
+void WTrackTableView::setHighlightedTrackId(const TrackId& trackId) {
+    if (m_highlightedTrackId == trackId) {
+        return;
+    }
+    m_highlightedTrackId = trackId;
+    viewport()->update();
 }
 
 namespace {
