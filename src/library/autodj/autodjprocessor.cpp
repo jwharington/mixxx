@@ -554,6 +554,11 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
                 &PlaylistTableModel::firstTrackChanged,
                 this,
                 &AutoDJProcessor::playlistFirstTrackChanged);
+        connect(m_pAutoDJTableModel,
+                &PlaylistTableModel::playlistTracksChanged,
+                this,
+                &AutoDJProcessor::playlistTracksChanged,
+                Qt::UniqueConnection);
 
         if (!leftDeckPlaying && !rightDeckPlaying) {
             // Both decks are stopped. Load a track into deck 1 and start it
@@ -940,6 +945,85 @@ TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
             return pNextTrack;
         }
     }
+}
+
+TrackPointer AutoDJProcessor::getEnablePreviewTrack() {
+    if (m_queueMode == QueueMode::StaticQueue) {
+        pruneStaticQueuePlayedTrackIds();
+
+        const int rowCount = m_pAutoDJTableModel->rowCount();
+        if (rowCount <= 0) {
+            return TrackPointer();
+        }
+
+        DeckAttributes* pLeftDeck = getLeftDeck();
+        DeckAttributes* pRightDeck = getRightDeck();
+
+        TrackId playingTrackId;
+        if (pLeftDeck && pLeftDeck->isPlaying() && pLeftDeck->getLoadedTrack()) {
+            playingTrackId = pLeftDeck->getLoadedTrack()->getId();
+        }
+        if (pRightDeck && pRightDeck->isPlaying() && pRightDeck->getLoadedTrack()) {
+            if (!playingTrackId.isValid() || getCrossfader() >= 0.0) {
+                playingTrackId = pRightDeck->getLoadedTrack()->getId();
+            }
+        }
+
+        int startRow = 0;
+        if (playingTrackId.isValid()) {
+            const int row = findQueueRowByTrackId(playingTrackId);
+            if (row >= 0) {
+                startRow = row + 1;
+            }
+        }
+
+        for (int row = startRow; row < rowCount; ++row) {
+            const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+            const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
+            if (!trackId.isValid() || m_staticQueuePlayedTrackIds.contains(trackId)) {
+                continue;
+            }
+
+            TrackPointer pTrack = m_pAutoDJTableModel->getTrack(index);
+            if (pTrack && pTrack->getFileInfo().checkFileExists()) {
+                return pTrack;
+            }
+        }
+
+        return TrackPointer();
+    }
+
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    if (rowCount <= 0) {
+        return TrackPointer();
+    }
+
+    int startRow = 0;
+    if (rowCount > 1) {
+        const QModelIndex firstIndex = m_pAutoDJTableModel->index(0, 0);
+        const TrackId firstTrackId = m_pAutoDJTableModel->getTrackId(firstIndex);
+        if (firstTrackId.isValid()) {
+            DeckAttributes* pLeftDeck = getLeftDeck();
+            DeckAttributes* pRightDeck = getRightDeck();
+            const bool firstLoadedOnLeft = pLeftDeck && pLeftDeck->getLoadedTrack() &&
+                    pLeftDeck->getLoadedTrack()->getId() == firstTrackId;
+            const bool firstLoadedOnRight = pRightDeck && pRightDeck->getLoadedTrack() &&
+                    pRightDeck->getLoadedTrack()->getId() == firstTrackId;
+            if (firstLoadedOnLeft || firstLoadedOnRight) {
+                startRow = 1;
+            }
+        }
+    }
+
+    for (int row = startRow; row < rowCount; ++row) {
+        const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+        TrackPointer pTrack = m_pAutoDJTableModel->getTrack(index);
+        if (pTrack && pTrack->getFileInfo().checkFileExists()) {
+            return pTrack;
+        }
+    }
+
+    return TrackPointer();
 }
 
 TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
@@ -1801,6 +1885,73 @@ void AutoDJProcessor::playlistFirstTrackChanged() {
             loadNextTrackFromQueue(*pRightDeck);
         }
     }
+}
+
+void AutoDJProcessor::playlistTracksChanged() {
+    if constexpr (sDebug) {
+        qDebug() << this << "playlistTracksChanged";
+    }
+    // In StaticQueue mode the next track is determined by the playing track's
+    // position in the queue, not by row 0. Re-evaluate the cued deck whenever
+    // the playlist is modified (insertion or reorder) so that the deck always
+    // shows the track immediately following the currently playing one.
+    if (m_eState == ADJ_DISABLED || m_queueMode != QueueMode::StaticQueue) {
+        return;
+    }
+
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
+    if (!pLeftDeck || !pRightDeck) {
+        return;
+    }
+
+    DeckAttributes* pCuedDeck = nullptr;
+    if (!pLeftDeck->isPlaying()) {
+        pCuedDeck = pLeftDeck;
+    } else if (!pRightDeck->isPlaying()) {
+        pCuedDeck = pRightDeck;
+    } else {
+        // Both decks are playing (transition in progress) — do not reload.
+        return;
+    }
+
+    // Determine the track that is immediately after the currently playing
+    // track in the queue. If the user explicitly dragged a previously-played
+    // (greyed-out) track to that slot, honour that intent by removing it from
+    // the played set so getNextTrackFromStaticQueue() will not skip it.
+    TrackId playingTrackId;
+    if (pLeftDeck->isPlaying() && pLeftDeck->getLoadedTrack()) {
+        playingTrackId = pLeftDeck->getLoadedTrack()->getId();
+    }
+    if (pRightDeck->isPlaying() && pRightDeck->getLoadedTrack()) {
+        if (!playingTrackId.isValid() || getCrossfader() >= 0.0) {
+            playingTrackId = pRightDeck->getLoadedTrack()->getId();
+        }
+    }
+    if (playingTrackId.isValid()) {
+        const int playingRow = findQueueRowByTrackId(playingTrackId);
+        if (playingRow >= 0) {
+            const int nextRow = playingRow + 1;
+            if (nextRow < m_pAutoDJTableModel->rowCount()) {
+                const TrackId nextRowTrackId = m_pAutoDJTableModel->getTrackId(
+                        m_pAutoDJTableModel->index(nextRow, 0));
+                // The user intentionally placed this track next — un-grey it.
+                m_staticQueuePlayedTrackIds.remove(nextRowTrackId);
+            }
+        }
+    }
+
+    TrackPointer pNextTrack = getNextTrackFromStaticQueue();
+    TrackPointer pCurrentlyLoaded = pCuedDeck->getLoadedTrack();
+
+    // Only reload if the next track has actually changed.
+    if (pNextTrack && pCurrentlyLoaded &&
+            pNextTrack->getId().isValid() &&
+            pNextTrack->getId() == pCurrentlyLoaded->getId()) {
+        return;
+    }
+
+    loadNextTrackFromQueue(*pCuedDeck);
 }
 
 void AutoDJProcessor::setTransitionTime(int time) {
