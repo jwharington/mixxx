@@ -8,6 +8,7 @@
 #include "library/autodj/dlgautodj.h"
 #include "library/dao/trackschema.h"
 #include "library/library.h"
+#include "library/library_prefs.h"
 #include "library/parser.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
@@ -25,18 +26,18 @@
 namespace {
 constexpr int kMaxRetrieveAttempts = 3;
 
-    int findOrCrateAutoDjPlaylistId(PlaylistDAO& playlistDAO) {
-        int playlistId = playlistDAO.getPlaylistIdFromName(AUTODJ_TABLE);
-        // If the AutoDJ playlist does not exist yet then create it.
-        if (playlistId < 0) {
-            playlistId = playlistDAO.createPlaylist(
-                    AUTODJ_TABLE, PlaylistDAO::PLHT_AUTO_DJ);
-            VERIFY_OR_DEBUG_ASSERT(playlistId >= 0) {
-                qWarning() << "Failed to create Auto DJ playlist!";
-            }
+int findOrCrateAutoDjPlaylistId(PlaylistDAO& playlistDAO) {
+    int playlistId = playlistDAO.getPlaylistIdFromName(AUTODJ_TABLE);
+    // If the AutoDJ playlist does not exist yet then create it.
+    if (playlistId < 0) {
+        playlistId = playlistDAO.createPlaylist(
+                AUTODJ_TABLE, PlaylistDAO::PLHT_AUTO_DJ);
+        VERIFY_OR_DEBUG_ASSERT(playlistId >= 0) {
+            qWarning() << "Failed to create Auto DJ playlist!";
         }
-        return playlistId;
     }
+    return playlistId;
+}
 } // anonymous namespace
 
 AutoDJFeature::AutoDJFeature(Library* pLibrary,
@@ -189,8 +190,12 @@ TreeItemModel* AutoDJFeature::sidebarModel() const {
     return m_pSidebarModel;
 }
 
+QAbstractItemModel* AutoDJFeature::queueTrackModel() const {
+    return m_pAutoDJProcessor ? m_pAutoDJProcessor->getTableModel() : nullptr;
+}
+
 void AutoDJFeature::activate() {
-    //qDebug() << "AutoDJFeature::activate()";
+    // qDebug() << "AutoDJFeature::activate()";
     emit switchToView(m_viewName);
     emit disableSearch();
     emit enableCoverArtDisplay(true);
@@ -204,7 +209,7 @@ void AutoDJFeature::clear() {
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No);
     if (btn == QMessageBox::Yes) {
-            m_playlistDao.clearAutoDJQueue();
+        m_playlistDao.clearAutoDJQueue();
     }
 }
 
@@ -216,7 +221,7 @@ void AutoDJFeature::paste() {
 void AutoDJFeature::deleteItem(const QModelIndex& index) {
     TreeItem* pSelectedItem = static_cast<TreeItem*>(index.internalPointer());
     if (!pSelectedItem || pSelectedItem == m_pCratesTreeItem) {
-            return;
+        return;
     }
     CrateId crateId(pSelectedItem->getData());
     removeCrateFromAutoDj(crateId);
@@ -333,7 +338,7 @@ void AutoDJFeature::slotAddRandomTrack() {
                 pRandomTrack = m_pLibrary->trackCollectionManager()->getTrackById(randomTrackId);
                 VERIFY_OR_DEBUG_ASSERT(pRandomTrack) {
                     qWarning() << "Track does not exist:"
-                            << randomTrackId;
+                               << randomTrackId;
                     continue;
                 }
                 if (!pRandomTrack->getFileInfo().checkFileExists()) {
@@ -373,6 +378,21 @@ void AutoDJFeature::onRightClick(const QPoint& globalPos) {
         menu.addAction(m_pDisableAutoDJAction.get());
     }
     menu.addAction(m_pClearQueueAction.get());
+
+    auto* pShowQueueSplitAction = menu.addAction(tr("Show Auto DJ Queue on Right"));
+    pShowQueueSplitAction->setCheckable(true);
+    pShowQueueSplitAction->setChecked(m_pConfig->getValue(
+            mixxx::library::prefs::kShowAutoDJQueueSplitConfigKey,
+            mixxx::library::prefs::kShowAutoDJQueueSplitDefault));
+    connect(pShowQueueSplitAction,
+            &QAction::toggled,
+            this,
+            [this](bool enabled) {
+                m_pConfig->set(mixxx::library::prefs::kShowAutoDJQueueSplitConfigKey,
+                        ConfigValue(enabled));
+                m_pLibrary->setAutoDJSplitEnabled(enabled);
+            });
+
     menu.exec(globalPos);
 }
 

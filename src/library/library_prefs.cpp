@@ -38,6 +38,16 @@ const ConfigKey mixxx::library::prefs::kEditMetadataSelectedClickConfigKey =
                 mixxx::library::prefs::kConfigGroup,
                 QStringLiteral("EditMetadataSelectedClick")};
 
+const ConfigKey mixxx::library::prefs::kShowAutoDJQueueSplitConfigKey =
+        ConfigKey{
+                mixxx::library::prefs::kConfigGroup,
+                QStringLiteral("ShowAutoDJQueueSplit")};
+
+const ConfigKey mixxx::library::prefs::kAutoDJQueueSplitLeftRatioPermilleConfigKey =
+        ConfigKey{
+                mixxx::library::prefs::kConfigGroup,
+                QStringLiteral("AutoDJQueueSplitLeftRatioPermille")};
+
 const ConfigKey mixxx::library::prefs::kHistoryMinTracksToKeepConfigKey =
         ConfigKey{
                 mixxx::library::prefs::kConfigGroup,
