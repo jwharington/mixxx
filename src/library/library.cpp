@@ -461,39 +461,6 @@ void Library::bindLibraryWidget(
             pTrackTableView,
             &WTrackTableView::setSelectedClick);
 
-    auto* pAutoDJQueueView = new WTrackTableView(m_pLibraryWidget,
-            m_pConfig,
-            this,
-            m_pLibraryWidget->getTrackTableBackgroundColorOpacity());
-    pAutoDJQueueView->installEventFilter(pKeyboard);
-    connect(pAutoDJQueueView,
-            &WTrackTableView::loadTrack,
-            this,
-            &Library::slotLoadTrack);
-    connect(pAutoDJQueueView,
-            &WTrackTableView::loadTrackToPlayer,
-            this,
-            &Library::slotLoadTrackToPlayer);
-    connect(pAutoDJQueueView,
-            &WTrackTableView::trackSelected,
-            this,
-            &Library::trackSelected);
-    connect(this,
-            &Library::setTrackTableFont,
-            pAutoDJQueueView,
-            &WTrackTableView::setTrackTableFont);
-    connect(this,
-            &Library::setTrackTableRowHeight,
-            pAutoDJQueueView,
-            &WTrackTableView::setTrackTableRowHeight);
-    connect(this,
-            &Library::setSelectedClick,
-            pAutoDJQueueView,
-            &WTrackTableView::setSelectedClick);
-    if (auto* pAutoDJQueueModel = m_pAutoDJFeature->queueTrackModel()) {
-        pAutoDJQueueView->loadTrackModel(pAutoDJQueueModel);
-    }
-    m_pLibraryWidget->setAutoDJQueueView(pAutoDJQueueView);
     m_pLibraryWidget->setAutoDJSplitLeftRatioPermille(m_autoDJQueueSplitLeftRatioPermille);
     m_pLibraryWidget->setAutoDJSplitEnabled(m_showAutoDJQueueSplit);
     connect(m_pLibraryWidget,

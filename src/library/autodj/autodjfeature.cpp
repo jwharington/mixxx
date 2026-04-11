@@ -50,6 +50,7 @@ AutoDJFeature::AutoDJFeature(Library* pLibrary,
           m_pAutoDJProcessor(nullptr),
           m_pSidebarModel(make_parented<TreeItemModel>(this)),
           m_pAutoDJView(nullptr),
+          m_pAutoDJSplitView(nullptr),
           m_viewName(Library::kAutoDJViewName),
           m_autoDjCratesDao(m_iAutoDJPlaylistId, pLibrary->trackCollectionManager(), m_pConfig) {
     qRegisterMetaType<AutoDJProcessor::AutoDJState>("AutoDJState");
@@ -149,6 +150,15 @@ void AutoDJFeature::bindLibraryWidget(
             m_pAutoDJProcessor,
             keyboard);
     libraryWidget->registerView(m_viewName, m_pAutoDJView);
+
+    m_pAutoDJSplitView = new DlgAutoDJ(
+            libraryWidget,
+            m_pConfig,
+            m_pLibrary,
+            m_pAutoDJProcessor,
+            keyboard);
+    libraryWidget->setAutoDJQueueView(m_pAutoDJSplitView);
+
     connect(m_pAutoDJView,
             &DlgAutoDJ::loadTrack,
             this,
@@ -163,12 +173,29 @@ void AutoDJFeature::bindLibraryWidget(
             this,
             &AutoDJFeature::trackSelected);
 
+    connect(m_pAutoDJSplitView,
+            &DlgAutoDJ::loadTrack,
+            this,
+            &AutoDJFeature::loadTrack);
+    connect(m_pAutoDJSplitView,
+            &DlgAutoDJ::loadTrackToPlayer,
+            this,
+            &LibraryFeature::loadTrackToPlayer);
+    connect(m_pAutoDJSplitView,
+            &DlgAutoDJ::trackSelected,
+            this,
+            &AutoDJFeature::trackSelected);
+
     // Be informed when the user wants to add another random track.
     connect(m_pAutoDJProcessor,
             &AutoDJProcessor::randomTrackRequested,
             this,
             &AutoDJFeature::slotRandomQueue);
     connect(m_pAutoDJView,
+            &DlgAutoDJ::addRandomTrackButton,
+            this,
+            &AutoDJFeature::slotAddRandomTrack);
+    connect(m_pAutoDJSplitView,
             &DlgAutoDJ::addRandomTrackButton,
             this,
             &AutoDJFeature::slotAddRandomTrack);

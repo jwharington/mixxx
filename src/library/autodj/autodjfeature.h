@@ -68,6 +68,7 @@ class AutoDJFeature : public LibraryFeature {
     AutoDJProcessor* m_pAutoDJProcessor;
     parented_ptr<TreeItemModel> m_pSidebarModel;
     DlgAutoDJ* m_pAutoDJView;
+    DlgAutoDJ* m_pAutoDJSplitView;
     const QString m_viewName;
 
     // Initialize the list of crates loaded into the auto-DJ queue.

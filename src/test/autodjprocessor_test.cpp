@@ -21,6 +21,7 @@
 
 using ::testing::_;
 using ::testing::Return;
+using ::testing::SaveArg;
 
 namespace {
 const int kDefaultTransitionTime = 10;
@@ -88,7 +89,7 @@ class FakeDeck : public BaseTrackPlayer {
         return loadedTrack;
     }
 
-    void setupEqControls() override{};
+    void setupEqControls() override {};
 
     // This method emulates requesting a track load to a player and emits no
     // signals. Normally, the reader thread attempts to load the file and emits
@@ -166,12 +167,11 @@ class MockPlayerManager : public PlayerManagerInterface {
 class MockAutoDJProcessor : public AutoDJProcessor {
   public:
     MockAutoDJProcessor(QObject* pParent,
-                        UserSettingsPointer pConfig,
-                        PlayerManagerInterface* pPlayerManager,
-                        TrackCollectionManager* pTrackCollectionManager,
-                        int iAutoDJPlaylistId)
-            : AutoDJProcessor(pParent, pConfig, pPlayerManager,
-                              pTrackCollectionManager, iAutoDJPlaylistId) {
+            UserSettingsPointer pConfig,
+            PlayerManagerInterface* pPlayerManager,
+            TrackCollectionManager* pTrackCollectionManager,
+            int iAutoDJPlaylistId)
+            : AutoDJProcessor(pParent, pConfig, pPlayerManager, pTrackCollectionManager, iAutoDJPlaylistId) {
     }
 
     virtual ~MockAutoDJProcessor() {
@@ -1541,7 +1541,6 @@ TEST_F(AutoDJProcessorTest, FadeToDeck2_LoadOnDeck1_TrackLoadFailed) {
     EXPECT_DOUBLE_EQ(1.0, deck2.play.get());
 }
 
-
 TEST_F(AutoDJProcessorTest, FadeToDeck2_Long_Transition) {
     pProcessor->setTransitionMode(AutoDJProcessor::TransitionMode::FixedFullTrack);
 
@@ -1895,4 +1894,94 @@ TEST_F(AutoDJProcessorTest, TrackZeroLength) {
     // Expect that the track is rejected an a new one is loaded
     // Signal that the request to load pTrack succeeded.
     deck1.fakeTrackLoadedEvent(pTrack);
+}
+
+TEST_F(AutoDJProcessorTest, StaticQueue_KeepsPlayedTrackInQueueAndLoadsFollowingTrack) {
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true));
+
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    TrackPointer pFirstTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pFirstTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pFirstTrack);
+
+    TrackPointer loadedToSecondDeck;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false))
+            .WillOnce(SaveArg<0>(&loadedToSecondDeck));
+    deck1.playposition.set(0.1);
+
+    ASSERT_TRUE(loadedToSecondDeck);
+    EXPECT_EQ(secondId, loadedToSecondDeck->getId());
+    EXPECT_EQ(3, pAutoDJTableModel->rowCount());
+}
+
+TEST_F(AutoDJProcessorTest, StaticQueue_StartsFromFirstUnplayedWhenRestartingWithNoTrackPlaying) {
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    TrackPointer pFirstTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pFirstTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pFirstTrack);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false));
+    deck1.playposition.set(0.1);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    err = pProcessor->toggleAutoDJ(false);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    deck1.play.set(0.0);
+    deck2.play.set(0.0);
+
+    TrackPointer restartTrack;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&restartTrack));
+    err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    ASSERT_TRUE(restartTrack);
+    EXPECT_EQ(secondId, restartTrack->getId());
 }
