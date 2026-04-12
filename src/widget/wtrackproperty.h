@@ -10,6 +10,7 @@
 #include "widget/wlabel.h"
 
 class ControlPushButton;
+class ControlProxy;
 class Library;
 class WTrackMenu;
 
@@ -49,9 +50,16 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     // if no second click is registered within the specified interval.
     // Usage in css: WTrackProperty[selected="true"/"false"] { /* styles */ }
     Q_PROPERTY(bool selected READ isSelected NOTIFY selectedStateChanged);
+    // Custom property to style track properties by deck playback state.
+    // Usage in css: WTrackProperty[playing="true"/"false"] { /* styles */ }
+    Q_PROPERTY(bool playing READ isPlaying NOTIFY playingStateChanged);
 
     bool isSelected() const {
         return m_bSelected;
+    }
+
+    bool isPlaying() const {
+        return m_bPlaying;
     }
 
     void setup(const QDomNode& node, const SkinContext& context) override;
@@ -61,6 +69,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     void cloneDeck(const QString& sourceGroup, const QString& targetGroup) override;
     void setAndConfirmTrackMenuControl(bool visible);
     void selectedStateChanged(bool state);
+    void playingStateChanged(bool state);
     void saveCurrentViewState();
     void restoreCurrentViewState();
 
@@ -74,6 +83,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
 
   private slots:
     void slotTrackChanged(TrackId);
+    void slotPlayStateChanged(double playState);
     void resetSelectedState();
     void slotCommitEditorData(const QString& text);
 
@@ -100,7 +110,9 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     bool m_propertyIsWritable;
     parented_ptr<QTimer> m_pSelectedClickTimer;
     bool m_bSelected;
+    bool m_bPlaying;
     parented_ptr<WTrackPropertyEditor> m_pEditor;
+    ControlProxy* m_pPlayControl;
 
     parented_ptr<WTrackMenu> m_pTrackMenu;
 };

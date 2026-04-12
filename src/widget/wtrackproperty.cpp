@@ -6,6 +6,7 @@
 #include <QStyleOption>
 
 #include "control/controlobject.h"
+#include "control/controlproxy.h"
 #include "moc_wtrackproperty.cpp"
 #include "skin/legacy/skincontext.h"
 #include "track/track.h"
@@ -32,7 +33,14 @@ WTrackProperty::WTrackProperty(
           m_propertyIsWritable(false),
           m_pSelectedClickTimer(nullptr),
           m_bSelected(false),
-          m_pEditor(nullptr) {
+          m_bPlaying(false),
+          m_pEditor(nullptr),
+          m_pPlayControl(new ControlProxy(group,
+                  QStringLiteral("play_indicator"),
+                  this,
+                  ControlFlag::NoAssertIfMissing)) {
+    m_pPlayControl->connectValueChanged(this, &WTrackProperty::slotPlayStateChanged);
+    m_bPlaying = m_pPlayControl->toBool();
     setAcceptDrops(true);
 }
 
@@ -97,6 +105,15 @@ void WTrackProperty::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldT
 void WTrackProperty::slotTrackChanged(TrackId trackId) {
     Q_UNUSED(trackId);
     updateLabel();
+}
+
+void WTrackProperty::slotPlayStateChanged(double playState) {
+    const bool playing = playState > 0.0;
+    if (m_bPlaying == playing) {
+        return;
+    }
+    m_bPlaying = playing;
+    restyleAndRepaint();
 }
 
 void WTrackProperty::updateLabel() {
@@ -331,6 +348,7 @@ void WTrackProperty::resetSelectedState() {
 
 void WTrackProperty::restyleAndRepaint() {
     emit selectedStateChanged(isSelected());
+    emit playingStateChanged(isPlaying());
 
     style()->unpolish(this);
     style()->polish(this);
