@@ -28,10 +28,13 @@ LibraryScannerDlg::LibraryScannerDlg(QWidget* pParent)
 
     m_pLabelCurrent->setAlignment(Qt::AlignTop);
     m_pLabelCurrent->setWordWrap(true);
-    // Allow the label to expand horizontally if the dialog is expanded manually
-    // and vertically if required by the text. `Ignored` means the label will not
-    // force-expand the dialog.
-    m_pLabelCurrent->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::MinimumExpanding);
+    // Allow the label to expand horizontally if the dialog is expanded manually.
+    // Use `Preferred` instead of `MinimumExpanding` to prevent vertical layout
+    // shifts that cause visible shaking on Windows when file paths update rapidly.
+    // `Ignored` means the label will not force-expand the dialog horizontally.
+    m_pLabelCurrent->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    // Limit vertical expansion to prevent dialog from bouncing as text changes
+    m_pLabelCurrent->setMaximumHeight(80);
 
     // Try not let the dialog expand beyond the screen's bottom edge, this would
     // push the Cancel button off screen.
@@ -109,7 +112,7 @@ void LibraryScannerDlg::slotUpdate(const QString& path) {
     // qDebug() << "LibraryScannerDlg slotUpdate" <<
     // m_timer.elapsed().formatMillisWithUnit() << path;
     if (!m_bCancelled && m_timer.elapsed() > mixxx::Duration::fromSeconds(2)) {
-       setVisible(true);
+        setVisible(true);
     }
 
     m_tasksDone++;
@@ -123,7 +126,7 @@ void LibraryScannerDlg::slotUpdate(const QString& path) {
 void LibraryScannerDlg::slotUpdateCover(const QString& path) {
     // qDebug() << "LibraryScannerDlg slotUpdate" << m_timer.elapsed() << path;
     if (!m_bCancelled && m_timer.elapsed() > mixxx::Duration::fromSeconds(2)) {
-       setVisible(true);
+        setVisible(true);
     }
 
     m_tasksDone++;
