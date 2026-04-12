@@ -927,16 +927,19 @@ void WTrackTableView::paintEvent(QPaintEvent* e) {
                     continue;
                 }
 
-                QColor borderColor = palette().highlight().color();
-                borderColor.setAlpha(170);
-                QColor shadeColor = borderColor.darker(160);
-                shadeColor.setAlpha(110);
+                QColor borderColor(0x53, 0xFF, 0x53);
+                borderColor.setAlpha(230);
+                QColor shadeColor(0x18, 0x66, 0x18);
+                shadeColor.setAlpha(200);
+                QColor fillColor = borderColor;
+                fillColor.setAlpha(36);
 
                 painter.setRenderHint(QPainter::Antialiasing, false);
+                painter.fillRect(borderRect.adjusted(2, 2, -2, -2), fillColor);
                 painter.setPen(QPen(shadeColor, 3));
                 painter.drawRect(borderRect);
                 painter.setPen(QPen(borderColor, 1));
-                painter.drawRect(borderRect);
+                painter.drawRect(borderRect.adjusted(1, 1, -1, -1));
                 break;
             }
         }
