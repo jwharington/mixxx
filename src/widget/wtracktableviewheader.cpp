@@ -244,7 +244,6 @@ void WTrackTableViewHeader::setModel(QAbstractItemModel* pModel) {
                     pCheckBox->toggle();
                 });
         m_menu.addAction(pAction);
-
     }
 
     m_menu.addSeparator();
@@ -277,7 +276,7 @@ void WTrackTableViewHeader::saveHeaderState() {
     // Convert the QByteArray to a Base64 string and save it.
     HeaderViewState view_state(*this);
     pTrackModel->setModelSetting("header_state_pb", view_state.saveState());
-    //qDebug() << "Saving old header state:" << result << headerState;
+    // qDebug() << "Saving old header state:" << result << headerState;
 }
 
 void WTrackTableViewHeader::restoreHeaderState() {
@@ -293,7 +292,7 @@ void WTrackTableViewHeader::restoreHeaderState() {
     } else {
         // Load the previous header state (stored as serialized protobuf).
         // Decode it and restore it.
-        //qDebug() << "Restoring header state from proto" << headerStateString;
+        // qDebug() << "Restoring header state from proto" << headerStateString;
         HeaderViewState view_state(headerStateString);
         if (!view_state.healthy()) {
             loadDefaultHeaderState();
@@ -359,6 +358,7 @@ void WTrackTableViewHeader::showOrHideColumn(int column) {
             pCheckBox->setChecked(true);
         }
     }
+    saveHeaderState();
 }
 
 int WTrackTableViewHeader::getWidthOfHiddenColumn(int column) const {
