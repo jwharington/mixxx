@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QOpenGLContext>
+#include <QTimer>
 #include <QUrl>
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -312,38 +313,23 @@ void MixxxMainWindow::initialize() {
             m_pCoreServices->getLibrary().get(),
             &Library::onSkinLoadFinished);
 
+#if defined(__WINDOWS__)
+    constexpr Qt::ConnectionType kWaveformSkinLoadedConnection = Qt::QueuedConnection;
+#else
+    constexpr Qt::ConnectionType kWaveformSkinLoadedConnection = Qt::AutoConnection;
+#endif
     connect(this,
             &MixxxMainWindow::skinLoaded,
             WaveformWidgetFactory::instance(),
-            &WaveformWidgetFactory::slotSkinLoaded);
+            &WaveformWidgetFactory::slotSkinLoaded,
+            kWaveformSkinLoadedConnection);
 
-    // Initialize preference dialog
-    m_pPrefDlg = new DlgPreferences(
-            m_pCoreServices->getScreensaverManager(),
-            m_pSkinLoader,
-            m_pCoreServices->getSoundManager(),
-            m_pCoreServices->getControllerManager(),
-            m_pCoreServices->getVinylControlManager(),
-            m_pCoreServices->getEffectsManager(),
-            m_pCoreServices->getSettingsManager(),
-            m_pCoreServices->getLibrary());
-    m_pPrefDlg->setWindowIcon(QIcon(MIXXX_ICON_PATH));
-    m_pPrefDlg->setHidden(true);
-    connect(m_pPrefDlg,
-            &DlgPreferences::tooltipModeChanged,
-            this,
-            &MixxxMainWindow::slotTooltipModeChanged);
-    connect(m_pPrefDlg,
-            &DlgPreferences::reloadUserInterface,
-            this,
-            &MixxxMainWindow::rebootMixxxView,
-            Qt::DirectConnection);
-#ifndef __APPLE__
-    connect(m_pPrefDlg,
-            &DlgPreferences::menuBarAutoHideChanged,
-            this,
-            &MixxxMainWindow::slotUpdateMenuBarAltKeyConnection,
-            Qt::DirectConnection);
+    // Initialize preference dialog. On Windows we create it lazily to keep
+    // startup path minimal while diagnosing startup crashes.
+#if defined(__WINDOWS__)
+    qInfo() << "[startup-trace] initialize: deferring DlgPreferences construction";
+#else
+    ensurePreferencesDialog();
 #endif
 
     // Connect signals to the menubar. Should be done before emit skinLoaded.
@@ -357,14 +343,28 @@ void MixxxMainWindow::initialize() {
         reportCriticalErrorAndQuit(
                 "default skin cannot be loaded - see <b>mixxx</b> trace for more information");
         m_pCentralWidget = oldWidget;
-        //TODO (XXX) add dialog to warn user and launch skin choice page
+        // TODO (XXX) add dialog to warn user and launch skin choice page
     } else {
+#if defined(__WINDOWS__)
+        qInfo() << "[startup-trace] initialize: applying menubar stylesheet begin";
+        QTimer::singleShot(0, this, [this]() {
+            qInfo() << "[startup-trace] initialize: deferred menubar stylesheet begin";
+            m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet());
+            qInfo() << "[startup-trace] initialize: deferred menubar stylesheet end";
+        });
+        qInfo() << "[startup-trace] initialize: applying menubar stylesheet deferred";
+#else
+        qInfo() << "[startup-trace] initialize: applying menubar stylesheet begin";
         m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet());
+        qInfo() << "[startup-trace] initialize: applying menubar stylesheet end";
+#endif
     }
 
     // Check direct rendering and warn user if they don't have it
     if (!CmdlineArgs::Instance().getSafeMode()) {
+        qInfo() << "[startup-trace] initialize: checkDirectRendering begin";
         checkDirectRendering();
+        qInfo() << "[startup-trace] initialize: checkDirectRendering end";
     }
 
     // Sound hardware setup
@@ -373,7 +373,9 @@ void MixxxMainWindow::initialize() {
     bool retryClicked;
     do {
         retryClicked = false;
+        qInfo() << "[startup-trace] initialize: setupDevices begin";
         SoundDeviceStatus result = m_pCoreServices->getSoundManager()->setupDevices();
+        qInfo() << "[startup-trace] initialize: setupDevices result" << static_cast<int>(result);
         if (result == SoundDeviceStatus::ErrorDeviceCount ||
                 result == SoundDeviceStatus::ErrorExcessiveOutputChannel) {
             if (soundDeviceBusyDlg(&retryClicked) != QDialog::Accepted) {
@@ -386,12 +388,14 @@ void MixxxMainWindow::initialize() {
             }
         }
     } while (retryClicked);
+    qInfo() << "[startup-trace] initialize: setupDevices finished";
 
     // Test for at least one output device. If none, display another dialog
     // that says "mixxx will barely work with no outs".
     // In case of persisting errors, the user has already received a message
     // above. So we can just check the output count here.
     while (m_pCoreServices->getSoundManager()->getConfig().getOutputs().count() == 0) {
+        qInfo() << "[startup-trace] initialize: no configured outputs, showing dialog";
         // Exit when we press the Exit button in the noSoundDlg dialog
         // only call it if result != OK
         bool continueClicked = false;
@@ -410,7 +414,17 @@ void MixxxMainWindow::initialize() {
     // this has to be after the OpenGL widgets are created or depending on a
     // million different variables the first waveform may be horribly
     // corrupted. See bug 521509 -- bkgood ?? -- vrince
+    QWidget* pPreviousCentralWidget = takeCentralWidget();
+    if (pPreviousCentralWidget) {
+        pPreviousCentralWidget->hide();
+    }
     setCentralWidget(m_pCentralWidget);
+    if (pPreviousCentralWidget) {
+        pPreviousCentralWidget->deleteLater();
+    }
+    qInfo() << "[startup-trace] initialize: about to emit skinLoaded";
+    emit skinLoaded();
+    qInfo() << "[startup-trace] initialize: skinLoaded emitted";
 
 #ifndef __APPLE__
     // Ask for permission to auto-hide the menu bar if applicable.
@@ -639,7 +653,7 @@ void MixxxMainWindow::alwaysHideMenuBarDlg() {
 #endif
 
 QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
-        const QString &title, const QString &text, bool* retryClicked) {
+        const QString& title, const QString& text, bool* retryClicked) {
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.setWindowTitle(title);
@@ -654,8 +668,7 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
     QPushButton* exitButton =
             msgBox.addButton(tr("Exit"), QMessageBox::ActionRole);
 
-    while (true)
-    {
+    while (true) {
         msgBox.exec();
 
         if (msgBox.clickedButton() == retryButton) {
@@ -670,10 +683,14 @@ QDialog::DialogCode MixxxMainWindow::soundDeviceErrorDlg(
 
             m_pCoreServices->getSoundManager()->clearAndQueryDevices();
             // This way of opening the dialog allows us to use it synchronously
-            m_pPrefDlg->setWindowModality(Qt::ApplicationModal);
+            auto* pPrefDlg = ensurePreferencesDialog();
+            if (!pPrefDlg) {
+                return QDialog::Rejected;
+            }
+            pPrefDlg->setWindowModality(Qt::ApplicationModal);
             // Open preferences, sound hardware page is selected (default on first call)
-            m_pPrefDlg->exec();
-            if (m_pPrefDlg->result() == QDialog::Accepted) {
+            pPrefDlg->exec();
+            if (pPrefDlg->result() == QDialog::Accepted) {
                 return QDialog::Accepted;
             }
 
@@ -744,19 +761,18 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     msgBox.setWindowTitle(tr("No Output Devices"));
     msgBox.setText(
             "<html>" + tr("Mixxx was configured without any output sound devices. "
-            "Audio processing will be disabled without a configured output device.") +
+                          "Audio processing will be disabled without a configured output device.") +
             "<ul>"
-                "<li>" +
-                    tr("<b>Continue</b> without any outputs.") +
-                "</li>"
-                "<li>" +
-                    tr("<b>Reconfigure</b> Mixxx's sound device settings.") +
-                "</li>"
-                "<li>" +
-                    tr("<b>Exit</b> Mixxx.") +
-                "</li>"
-            "</ul></html>"
-    );
+            "<li>" +
+            tr("<b>Continue</b> without any outputs.") +
+            "</li>"
+            "<li>" +
+            tr("<b>Reconfigure</b> Mixxx's sound device settings.") +
+            "</li>"
+            "<li>" +
+            tr("<b>Exit</b> Mixxx.") +
+            "</li>"
+            "</ul></html>");
 
     QPushButton* continueButton =
             msgBox.addButton(tr("Continue"), QMessageBox::ActionRole);
@@ -765,8 +781,7 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
     QPushButton* exitButton =
             msgBox.addButton(tr("Exit"), QMessageBox::ActionRole);
 
-    while (true)
-    {
+    while (true) {
         msgBox.exec();
 
         if (msgBox.clickedButton() == continueButton) {
@@ -776,10 +791,14 @@ QDialog::DialogCode MixxxMainWindow::noOutputDlg(bool* continueClicked) {
             msgBox.hide();
 
             // This way of opening the dialog allows us to use it synchronously
-            m_pPrefDlg->setWindowModality(Qt::ApplicationModal);
-            m_pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Output);
-            m_pPrefDlg->exec();
-            if (m_pPrefDlg->result() == QDialog::Accepted) {
+            auto* pPrefDlg = ensurePreferencesDialog();
+            if (!pPrefDlg) {
+                return QDialog::Rejected;
+            }
+            pPrefDlg->setWindowModality(Qt::ApplicationModal);
+            pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Output);
+            pPrefDlg->exec();
+            if (pPrefDlg->result() == QDialog::Accepted) {
                 return QDialog::Accepted;
             }
 
@@ -1048,7 +1067,7 @@ void MixxxMainWindow::slotFileLoadSongPlayer(int deck) {
 
     QString loadTrackText = tr("Load track to Deck %1").arg(QString::number(deck));
     QString deckWarningMessage = tr("Deck %1 is currently playing a track.")
-            .arg(QString::number(deck));
+                                         .arg(QString::number(deck));
     QString areYouSure = tr("Are you sure you want to load a new track?");
 
     if (ControlObject::get(ConfigKey(group, "play")) > 0.0) {
@@ -1129,10 +1148,49 @@ void MixxxMainWindow::slotViewFullScreen(bool toggle) {
     }
 }
 
+DlgPreferences* MixxxMainWindow::ensurePreferencesDialog() {
+    if (m_pPrefDlg) {
+        return m_pPrefDlg;
+    }
+
+    m_pPrefDlg = new DlgPreferences(
+            m_pCoreServices->getScreensaverManager(),
+            m_pSkinLoader,
+            m_pCoreServices->getSoundManager(),
+            m_pCoreServices->getControllerManager(),
+            m_pCoreServices->getVinylControlManager(),
+            m_pCoreServices->getEffectsManager(),
+            m_pCoreServices->getSettingsManager(),
+            m_pCoreServices->getLibrary());
+    m_pPrefDlg->setWindowIcon(QIcon(MIXXX_ICON_PATH));
+    m_pPrefDlg->setHidden(true);
+    connect(m_pPrefDlg,
+            &DlgPreferences::tooltipModeChanged,
+            this,
+            &MixxxMainWindow::slotTooltipModeChanged);
+    connect(m_pPrefDlg,
+            &DlgPreferences::reloadUserInterface,
+            this,
+            &MixxxMainWindow::rebootMixxxView,
+            Qt::DirectConnection);
+#ifndef __APPLE__
+    connect(m_pPrefDlg,
+            &DlgPreferences::menuBarAutoHideChanged,
+            this,
+            &MixxxMainWindow::slotUpdateMenuBarAltKeyConnection,
+            Qt::DirectConnection);
+#endif
+    return m_pPrefDlg;
+}
+
 void MixxxMainWindow::slotOptionsPreferences() {
-    m_pPrefDlg->show();
-    m_pPrefDlg->raise();
-    m_pPrefDlg->activateWindow();
+    auto* pPrefDlg = ensurePreferencesDialog();
+    if (!pPrefDlg) {
+        return;
+    }
+    pPrefDlg->show();
+    pPrefDlg->raise();
+    pPrefDlg->activateWindow();
 }
 
 void MixxxMainWindow::slotNoVinylControlInputConfigured() {
@@ -1157,8 +1215,12 @@ void MixxxMainWindow::slotNoVinylControlInputConfigured() {
     m_noVinylInputDialog->exec();
     if (m_noVinylInputDialog->clickedButton() ==
             m_noVinylInputDialog->button(QMessageBox::Ok)) {
-        m_pPrefDlg->show();
-        m_pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
+        auto* pPrefDlg = ensurePreferencesDialog();
+        if (!pPrefDlg) {
+            return;
+        }
+        pPrefDlg->show();
+        pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
     }
 }
 
@@ -1184,8 +1246,12 @@ void MixxxMainWindow::slotNoDeckPassthroughInputConfigured() {
     m_noPassthroughInputDialog->exec();
     if (m_noPassthroughInputDialog->clickedButton() ==
             m_noPassthroughInputDialog->button(QMessageBox::Ok)) {
-        m_pPrefDlg->show();
-        m_pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
+        auto* pPrefDlg = ensurePreferencesDialog();
+        if (!pPrefDlg) {
+            return;
+        }
+        pPrefDlg->show();
+        pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
     }
 }
 
@@ -1211,8 +1277,12 @@ void MixxxMainWindow::slotNoMicrophoneInputConfigured() {
     m_noMicInputDialog->exec();
     if (m_noMicInputDialog->clickedButton() ==
             m_noMicInputDialog->button(QMessageBox::Ok)) {
-        m_pPrefDlg->show();
-        m_pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
+        auto* pPrefDlg = ensurePreferencesDialog();
+        if (!pPrefDlg) {
+            return;
+        }
+        pPrefDlg->show();
+        pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
     }
 }
 
@@ -1238,8 +1308,12 @@ void MixxxMainWindow::slotNoAuxiliaryInputConfigured() {
     m_noAuxInputDialog->exec();
     if (m_noAuxInputDialog->clickedButton() ==
             m_noAuxInputDialog->button(QMessageBox::Ok)) {
-        m_pPrefDlg->show();
-        m_pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
+        auto* pPrefDlg = ensurePreferencesDialog();
+        if (!pPrefDlg) {
+            return;
+        }
+        pPrefDlg->show();
+        pPrefDlg->showSoundHardwarePage(mixxx::preferences::SoundHardwareTab::Input);
     }
 }
 
@@ -1373,8 +1447,8 @@ void MixxxMainWindow::rebootMixxxView() {
 
     if (!loadConfiguredSkin()) {
         QMessageBox::critical(this,
-                              tr("Error in skin file"),
-                              tr("The selected skin cannot be loaded."));
+                tr("Error in skin file"),
+                tr("The selected skin cannot be loaded."));
         m_inRebootMixxxView = false;
         // m_pWidgetParent is NULL, we can't continue.
         return;
@@ -1382,6 +1456,9 @@ void MixxxMainWindow::rebootMixxxView() {
     m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet());
 
     setCentralWidget(m_pCentralWidget);
+    qInfo() << "[startup-trace] rebootMixxxView: about to emit skinLoaded";
+    emit skinLoaded();
+    qInfo() << "[startup-trace] rebootMixxxView: skinLoaded emitted";
 #ifdef __LINUX__
     // don't adjustSize() on Linux as this wouldn't use the entire available area
     // to paint the new skin with X11
@@ -1409,14 +1486,22 @@ void MixxxMainWindow::rebootMixxxView() {
 }
 
 bool MixxxMainWindow::loadConfiguredSkin() {
+    qInfo() << "[startup-trace] loadConfiguredSkin: begin";
     // TODO: use std::shared_ptr throughout skin widgets instead of these hacky get() calls
     m_pCentralWidget = m_pSkinLoader->loadConfiguredSkin(this,
             &m_skinCreatedControls,
             m_pCoreServices.get());
+    qInfo() << "[startup-trace] loadConfiguredSkin: result"
+            << (m_pCentralWidget ? "ok" : "null")
+            << m_pCentralWidget;
     if (centralWidget() == m_pLaunchImage) {
+#if defined(__WINDOWS__)
+        // Avoid forcing a final synchronous repaint tick at the transition
+        // point from launch image to skin on Windows.
+#else
         initializationProgressUpdate(100, "");
+#endif
     }
-    emit skinLoaded();
     return m_pCentralWidget != nullptr;
 }
 
@@ -1527,7 +1612,7 @@ bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
     return QMainWindow::eventFilter(obj, event);
 }
 
-void MixxxMainWindow::closeEvent(QCloseEvent *event) {
+void MixxxMainWindow::closeEvent(QCloseEvent* event) {
     // WARNING: We can receive a CloseEvent while only partially
     // initialized. This is because we call QApplication::processEvents to
     // render LaunchImage progress in the constructor.
@@ -1556,7 +1641,7 @@ void MixxxMainWindow::checkDirectRendering() {
     UserSettingsPointer pConfig = m_pCoreServices->getSettings();
 
     if (!factory->isOpenGlAvailable() && !factory->isOpenGlesAvailable() &&
-        pConfig->getValueString(ConfigKey("[Direct Rendering]", "Warned")) != QString("yes")) {
+            pConfig->getValueString(ConfigKey("[Direct Rendering]", "Warned")) != QString("yes")) {
         QMessageBox::warning(nullptr,
                 tr("OpenGL Direct Rendering"),
                 tr("Direct rendering is not enabled on your machine.<br><br>"
@@ -1594,31 +1679,29 @@ bool MixxxMainWindow::confirmExit() {
     }
     if (playing) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-            tr("Confirm Exit"),
-            tr("A deck is currently playing. Exit Mixxx?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                tr("Confirm Exit"),
+                tr("A deck is currently playing. Exit Mixxx?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     } else if (playingSampler) {
         QMessageBox::StandardButton btn = QMessageBox::question(this,
-            tr("Confirm Exit"),
-            tr("A sampler is currently playing. Exit Mixxx?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                tr("Confirm Exit"),
+                tr("A sampler is currently playing. Exit Mixxx?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
         }
     }
     if (m_pPrefDlg && m_pPrefDlg->isVisible()) {
         QMessageBox::StandardButton btn = QMessageBox::question(
-            this, tr("Confirm Exit"),
-            tr("The preferences window is still open.") + "<br>" +
-            tr("Discard any changes and exit Mixxx?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                this, tr("Confirm Exit"), tr("The preferences window is still open.") + "<br>" + tr("Discard any changes and exit Mixxx?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if (btn == QMessageBox::No) {
             return false;
-        }
-        else {
+        } else {
             m_pPrefDlg->close();
         }
     }

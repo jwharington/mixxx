@@ -619,8 +619,10 @@ void Library::slotCreateCrate() {
 }
 
 void Library::onSkinLoadFinished() {
+    qInfo() << "[startup-trace] Library::onSkinLoadFinished begin";
     // Enable the default selection when a new skin is loaded.
     m_pSidebarModel->activateDefaultSelection();
+    qInfo() << "[startup-trace] Library::onSkinLoadFinished end";
 }
 
 bool Library::requestAddDir(const QString& dir) {

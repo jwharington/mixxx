@@ -37,7 +37,7 @@
 #include <QJniObject>
 #endif
 
-typedef PaError (*SetJackClientName)(const char *name);
+typedef PaError (*SetJackClientName)(const char* name);
 
 namespace {
 
@@ -76,7 +76,7 @@ SoundManager::SoundManager(UserSettingsPointer pConfig,
     m_pControlObjectVinylControlGainCO = new ControlObject(
             ConfigKey(VINYL_PREF_KEY, "gain"));
 
-    //Hack because PortAudio samplerate enumeration is slow as hell on Linux (ALSA dmix sucks, so we can't blame PortAudio)
+    // Hack because PortAudio samplerate enumeration is slow as hell on Linux (ALSA dmix sucks, so we can't blame PortAudio)
     m_samplerates.push_back(mixxx::audio::SampleRate(44100));
     m_samplerates.push_back(mixxx::audio::SampleRate(48000));
     m_samplerates.push_back(mixxx::audio::SampleRate(96000));
@@ -114,7 +114,7 @@ SoundManager::~SoundManager() {
 
 QList<SoundDevicePointer> SoundManager::getDeviceList(
         const QString& filterAPI, bool bOutputDevices, bool bInputDevices) const {
-    //qDebug() << "SoundManager::getDeviceList";
+    // qDebug() << "SoundManager::getDeviceList";
 
     if (filterAPI == SoundManagerConfig::kDefaultAPI) {
         return QList<SoundDevicePointer>();
@@ -124,7 +124,7 @@ QList<SoundDevicePointer> SoundManager::getDeviceList(
     // input/output.
     QList<SoundDevicePointer> filteredDeviceList;
 
-    for (const auto& pDevice: m_devices) {
+    for (const auto& pDevice : m_devices) {
         // Skip devices that don't match the API, don't have input channels when
         // we want input devices, or don't have output channels when we want
         // output devices. If searching for both input and output devices,
@@ -204,20 +204,22 @@ void SoundManager::completeDevicesClosing() {
     // then the callback may be running when we call
     // onInputDisconnected/onOutputDisconnected.
     for (const auto& pDevice : std::as_const(m_devices)) {
-        for (const auto& in: pDevice->inputs()) {
+        for (const auto& in : pDevice->inputs()) {
             // Need to tell all registered AudioDestinations for this AudioInput
             // that the input was disconnected.
             for (auto it = m_registeredDestinations.constFind(in);
-                 it != m_registeredDestinations.constEnd() && it.key() == in; ++it) {
+                    it != m_registeredDestinations.constEnd() && it.key() == in;
+                    ++it) {
                 it.value()->onInputUnconfigured(in);
                 m_pEngineMixer->onInputDisconnected(in);
             }
         }
-        for (const auto& out: pDevice->outputs()) {
+        for (const auto& out : pDevice->outputs()) {
             // Need to tell all registered AudioSources for this AudioOutput
             // that the output was disconnected.
             for (auto it = m_registeredSources.constFind(out);
-                 it != m_registeredSources.constEnd() && it.key() == out; ++it) {
+                    it != m_registeredSources.constEnd() && it.key() == out;
+                    ++it) {
                 it.value()->onOutputDisconnected(out);
             }
         }
@@ -237,7 +239,7 @@ void SoundManager::completeDevicesClosing() {
 }
 
 void SoundManager::clearDeviceList(bool sleepAfterClosing) {
-    //qDebug() << "SoundManager::clearDeviceList()";
+    // qDebug() << "SoundManager::clearDeviceList()";
 
     // Close the devices first.
     closeDevices(sleepAfterClosing);
@@ -477,12 +479,17 @@ void SoundManager::queryDevicesPortaudio() {
             PaTime  defaultHighOutputLatency
             double  defaultSampleRate
          */
+        if (!paApiIndexToTypeId.contains(deviceInfo->hostApi)) {
+            qWarning() << "PortAudio device has unknown host API index"
+                       << deviceInfo->hostApi << "for device index" << i;
+        }
         const auto deviceTypeId = paApiIndexToTypeId.value(deviceInfo->hostApi);
         auto currentDevice = SoundDevicePointer(new SoundDevicePortAudio(
                 m_pConfig, this, deviceInfo, deviceTypeId, i));
         m_devices.push_back(currentDevice);
-        if (!strcmp(Pa_GetHostApiInfo(deviceInfo->hostApi)->name,
-                    MIXXX_PORTAUDIO_JACK_STRING)) {
+        const PaHostApiInfo* hostApiInfo = Pa_GetHostApiInfo(deviceInfo->hostApi);
+        if (hostApiInfo && hostApiInfo->name &&
+                !strcmp(hostApiInfo->name, MIXXX_PORTAUDIO_JACK_STRING)) {
             m_jackSampleRate = static_cast<mixxx::audio::SampleRate::value_t>(
                     deviceInfo->defaultSampleRate);
         }
@@ -507,7 +514,7 @@ SoundDeviceStatus SoundManager::setupDevices() {
     // it was. Clearing it causes the engine to stop being processed which
     // results in a stuttering noise (sometimes a loud buzz noise at low
     // latencies) when changing devices.
-    //m_pClkRefDevice = NULL;
+    // m_pClkRefDevice = NULL;
     m_pErrorDevice.clear();
     int outputDevicesOpened = 0;
     int inputDevicesOpened = 0;
@@ -627,7 +634,7 @@ SoundDeviceStatus SoundManager::setupDevices() {
         }
     }
 
-    for (const auto& mode: toOpen) {
+    for (const auto& mode : toOpen) {
         SoundDevicePointer pDevice = mode.pDevice;
         m_pErrorDevice = pDevice;
 
@@ -673,8 +680,7 @@ SoundDeviceStatus SoundManager::setupDevices() {
     }
 
     m_pControlObjectSoundStatusCO->set(
-            outputDevicesOpened > 0 ?
-                    SOUNDMANAGER_CONNECTED : SOUNDMANAGER_DISCONNECTED);
+            outputDevicesOpened > 0 ? SOUNDMANAGER_CONNECTED : SOUNDMANAGER_DISCONNECTED);
 
     // returns OK if we were able to open all the devices the user wanted
     if (devicesNotFound.isEmpty()) {
@@ -772,20 +778,23 @@ void SoundManager::onDeviceOutputCallback(const SINT iFramesPerBuffer) {
 }
 
 void SoundManager::pushInputBuffers(const QList<AudioInputBuffer>& inputs,
-                                    const SINT iFramesPerBuffer) {
-   for (QList<AudioInputBuffer>::ConstIterator i = inputs.begin(),
-                 e = inputs.end(); i != e; ++i) {
+        const SINT iFramesPerBuffer) {
+    for (QList<AudioInputBuffer>::ConstIterator i = inputs.begin(),
+                                                e = inputs.end();
+            i != e;
+            ++i) {
         const AudioInputBuffer& in = *i;
         CSAMPLE* pInputBuffer = in.getBuffer();
         for (auto it = m_registeredDestinations.constFind(in);
-             it != m_registeredDestinations.constEnd() && it.key() == in; ++it) {
+                it != m_registeredDestinations.constEnd() && it.key() == in;
+                ++it) {
             it.value()->receiveBuffer(in, pInputBuffer, iFramesPerBuffer);
         }
     }
 }
 
 void SoundManager::writeProcess(SINT framesPerBuffer) const {
-    for (const auto& pDevice: m_devices) {
+    for (const auto& pDevice : m_devices) {
         if (pDevice) {
             pDevice->writeProcess(framesPerBuffer);
         }
@@ -793,7 +802,7 @@ void SoundManager::writeProcess(SINT framesPerBuffer) const {
 }
 
 void SoundManager::readProcess(SINT framesPerBuffer) const {
-    for (const auto& pDevice: m_devices) {
+    for (const auto& pDevice : m_devices) {
         if (pDevice) {
             pDevice->readProcess(framesPerBuffer);
         }
@@ -827,12 +836,12 @@ QList<AudioInput> SoundManager::registeredInputs() const {
 
 void SoundManager::setJACKName() const {
 #ifdef Q_OS_LINUX
-    typedef PaError (*SetJackClientName)(const char *name);
+    typedef PaError (*SetJackClientName)(const char* name);
     QLibrary portaudio("libportaudio.so.2");
     if (portaudio.load()) {
         SetJackClientName func(
-            reinterpret_cast<SetJackClientName>(
-                portaudio.resolve("PaJack_SetClientName")));
+                reinterpret_cast<SetJackClientName>(
+                        portaudio.resolve("PaJack_SetClientName")));
         if (func) {
             // PortAudio does not make a copy of the string we provide it so we
             // need to make sure it will last forever so we intentionally leak

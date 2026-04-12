@@ -135,8 +135,12 @@ void ControllerHidReportTabsManager::createHidReportTab(QTabWidget* pParentRepor
                         [this, pTable = pTable.get(), reportId, reportType]() {
                             slotReadReport(pTable, reportId, reportType);
                         });
-                // Read once on tab creation
-                slotReadReport(pTable, reportId, reportType);
+                // Do not probe unopened controllers during preferences
+                // construction. The controller manager opens devices later in
+                // startup, and eager reads here are not required for the UI.
+                if (m_pHidController->isOpen()) {
+                    slotReadReport(pTable, reportId, reportType);
+                }
             }
             if (reportType != hid::reportDescriptor::HidReportType::Input) {
                 connect(pSendButton,

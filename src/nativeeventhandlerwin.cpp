@@ -4,7 +4,6 @@
 
 // clang-format off
 #include <windows.h>  // needs to be included first
-#include <commctrl.h> // for DefSubclassProc
 #include <winuser.h>  // for MSG, RedrawWindow PostMessageW
 // clang-format on
 
@@ -19,7 +18,7 @@ bool WindowsEventHandler::nativeEventFilter(
     Q_UNUSED(eventType);
     Q_UNUSED(result);
     MSG* msg = reinterpret_cast<MSG*>(message);
-    if (msg && msg->message == WM_NCLBUTTONDOWN) {
+    if (msg && msg->hwnd && msg->message == WM_NCLBUTTONDOWN) {
         // Trigger the modal loop to prevent 500ms wait in Event Loop
         // when Windows setting "Show window contents while dragging" is enabled
         // and the user left-clicks and holds with the mouse on the titlebar of
@@ -36,8 +35,6 @@ bool WindowsEventHandler::nativeEventFilter(
         if (msg->wParam == HTCAPTION) {
             PostMessageW(msg->hwnd, WM_MOUSEMOVE, 0, 0);
         }
-
-        DefSubclassProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
     }
 
     // Returning false indicates that the event itself has not been finally processed here,
