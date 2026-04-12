@@ -6,10 +6,15 @@
 #include "library/tabledelegates/stareditor.h"
 #include "library/tabledelegates/tableitemdelegate.h"
 #include "moc_stardelegate.cpp"
+#include "widget/wtracktableview.h"
 
 StarDelegate::StarDelegate(QTableView* pTableView)
         : TableItemDelegate(pTableView),
-          m_isOneCellInEditMode(false) {
+          m_isOneCellInEditMode(false),
+          m_paintingScaleFactor(StarRating::kDefaultPaintingScaleFactor) {
+    if (auto* pTrackTableView = qobject_cast<WTrackTableView*>(pTableView)) {
+        m_paintingScaleFactor = pTrackTableView->getRatingStarScaleFactor();
+    }
     connect(pTableView, &QTableView::entered, this, &StarDelegate::cellEntered);
 }
 
@@ -26,19 +31,21 @@ void StarDelegate::paintItem(
     paintItemBackground(painter, option, index);
 
     StarRating starRating = index.data().value<StarRating>();
+    starRating.setPaintingScaleFactor(m_paintingScaleFactor);
     starRating.paint(painter, option.rect);
 }
 
 QSize StarDelegate::sizeHint(const QStyleOptionViewItem& option,
-                             const QModelIndex& index) const {
+        const QModelIndex& index) const {
     Q_UNUSED(option);
     StarRating starRating = index.data().value<StarRating>();
+    starRating.setPaintingScaleFactor(m_paintingScaleFactor);
     return starRating.sizeHint();
 }
 
 QWidget* StarDelegate::createEditor(QWidget* parent,
-                                    const QStyleOptionViewItem& option,
-                                    const QModelIndex& index) const {
+        const QStyleOptionViewItem& option,
+        const QModelIndex& index) const {
     // Populate the correct colors based on the styling
     QStyleOptionViewItem newOption = option;
     initStyleOption(&newOption, index);
@@ -51,7 +58,12 @@ QWidget* StarDelegate::createEditor(QWidget* parent,
     setTextColor(newOption, index);
 
     StarEditor* editor =
-            new StarEditor(parent, m_pTableView, index, newOption, m_focusBorderColor);
+            new StarEditor(parent,
+                    m_pTableView,
+                    index,
+                    newOption,
+                    m_focusBorderColor,
+                    m_paintingScaleFactor);
     connect(editor,
             &StarEditor::editingFinished,
             this,
@@ -60,14 +72,14 @@ QWidget* StarDelegate::createEditor(QWidget* parent,
 }
 
 void StarDelegate::setEditorData(QWidget* editor,
-                                 const QModelIndex& index) const {
+        const QModelIndex& index) const {
     StarRating starRating = index.data().value<StarRating>();
+    starRating.setPaintingScaleFactor(m_paintingScaleFactor);
     StarEditor* starEditor = qobject_cast<StarEditor*>(editor);
     starEditor->setStarRating(starRating);
 }
 
-void StarDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
-                                const QModelIndex& index) const {
+void StarDelegate::setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const {
     StarEditor* starEditor = qobject_cast<StarEditor*>(editor);
     model->setData(index, QVariant::fromValue(starEditor->starRating()));
 }

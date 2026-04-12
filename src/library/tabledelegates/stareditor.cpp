@@ -23,14 +23,17 @@ StarEditor::StarEditor(QWidget* parent,
         QTableView* pTableView,
         const QModelIndex& index,
         const QStyleOptionViewItem& option,
-        const QColor& focusBorderColor)
+        const QColor& focusBorderColor,
+        int paintingScaleFactor)
         : QWidget(parent),
           m_pTableView(pTableView),
           m_index(index),
           m_styleOption(option),
           m_focusBorderColor(focusBorderColor),
-          m_starCount(StarRating::kMinStarCount) {
+          m_starCount(StarRating::kMinStarCount),
+          m_paintingScaleFactor(paintingScaleFactor) {
     DEBUG_ASSERT(m_pTableView);
+    m_starRating.setPaintingScaleFactor(m_paintingScaleFactor);
     setMouseTracking(true);
     installEventFilter(this);
 }

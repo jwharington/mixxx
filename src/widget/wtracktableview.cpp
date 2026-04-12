@@ -6,6 +6,7 @@
 #include <QShortcut>
 #include <QStylePainter>
 #include <QUrl>
+#include <algorithm>
 
 #include "control/controlobject.h"
 #include "library/dao/trackschema.h"
@@ -54,6 +55,12 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
           m_trackPlayedColor(kDefaultTrackPlayedColor),
           m_trackMissingColor(kDefaultTrackMissingColor),
           m_dropIndicatorColor(kDefaultDropIndicatorColor),
+          m_ratingStarScaleFactor(std::clamp(
+                  pConfig->getValue(
+                          mixxx::library::prefs::kRatingStarScaleFactorConfigKey,
+                          StarRating::kDefaultPaintingScaleFactor),
+                  StarRating::kMinPaintingScaleFactor,
+                  StarRating::kMaxPaintingScaleFactor)),
           m_sorting(false),
           m_selectionChangedSinceLastGuiTick(true),
           m_loadCachedOnly(false),

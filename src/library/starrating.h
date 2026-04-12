@@ -15,14 +15,19 @@ QT_FORWARD_DECLARE_CLASS(QRect);
 /// m_maxStarCount stores the highest possible rating (typically 5).
 class StarRating {
   public:
-    enum EditMode { Editable, ReadOnly };
+    enum EditMode { Editable,
+        ReadOnly };
 
     static constexpr int kMinStarCount = 0;
     static constexpr int kInvalidStarCount = -1;
+    static constexpr int kDefaultPaintingScaleFactor = 15;
+    static constexpr int kMinPaintingScaleFactor = 8;
+    static constexpr int kMaxPaintingScaleFactor = 24;
 
     explicit StarRating(
             int starCount = kMinStarCount,
-            int maxStarCount = mixxx::TrackRecord::kMaxRating - mixxx::TrackRecord::kMinRating);
+            int maxStarCount = mixxx::TrackRecord::kMaxRating - mixxx::TrackRecord::kMinRating,
+            int paintingScaleFactor = kDefaultPaintingScaleFactor);
 
     void paint(QPainter* painter, const QRect& rect) const;
     QSize sizeHint() const;
@@ -48,11 +53,28 @@ class StarRating {
         m_starCount = starCount;
     }
 
+    bool verifyPaintingScaleFactor(int paintingScaleFactor) const {
+        return paintingScaleFactor >= kMinPaintingScaleFactor &&
+                paintingScaleFactor <= kMaxPaintingScaleFactor;
+    }
+
+    int paintingScaleFactor() const {
+        return m_paintingScaleFactor;
+    }
+
+    void setPaintingScaleFactor(int paintingScaleFactor) {
+        VERIFY_OR_DEBUG_ASSERT(verifyPaintingScaleFactor(paintingScaleFactor)) {
+            return;
+        }
+        m_paintingScaleFactor = paintingScaleFactor;
+    }
+
   private:
     QPolygonF m_starPolygon;
     QPolygonF m_diamondPolygon;
     int m_starCount;
     int m_maxStarCount;
+    int m_paintingScaleFactor;
 };
 
 Q_DECLARE_METATYPE(StarRating)

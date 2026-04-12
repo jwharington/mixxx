@@ -9,16 +9,14 @@ class StarDelegate : public TableItemDelegate {
 
     // reimplemented from QItemDelegate and is called whenever the view needs to
     // repaint an item
-    void paintItem(QPainter* painter, const QStyleOptionViewItem& option,
-               const QModelIndex& index) const;
+    void paintItem(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const;
 
     // returns an item's preferred size
     QSize sizeHint(const QStyleOptionViewItem& option,
-                   const QModelIndex& index) const;
+            const QModelIndex& index) const;
 
     // called when the user starts editing an item
-    QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option,
-                          const QModelIndex& index) const;
+    QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const;
 
     // called when an editor is created to initialize it with data from the
     // model
@@ -26,8 +24,7 @@ class StarDelegate : public TableItemDelegate {
 
     // called when editing is finished, to commit data from the editor to the
     // model
-    void setModelData(QWidget* editor, QAbstractItemModel* model,
-                      const QModelIndex& index) const;
+    void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const;
 
   private slots:
     void commitAndCloseEditor();
@@ -36,4 +33,5 @@ class StarDelegate : public TableItemDelegate {
   private:
     QPersistentModelIndex m_currentEditedCellIndex;
     bool m_isOneCellInEditMode;
+    int m_paintingScaleFactor;
 };
