@@ -34,6 +34,8 @@ extern const ConfigKey kApplyPlayedTrackColorConfigKey;
 
 extern const ConfigKey kEditMetadataSelectedClickConfigKey;
 
+extern const ConfigKey kRatingStarScaleFactorConfigKey;
+
 extern const ConfigKey kShowAutoDJQueueSplitConfigKey;
 
 const bool kShowAutoDJQueueSplitDefault = false;

@@ -6,6 +6,7 @@
 #include "control/controlproxy.h"
 #include "control/pollingcontrolproxy.h"
 #include "library/dao/playlistdao.h"
+#include "library/starrating.h"
 #include "library/trackmodel.h" // Can't forward declare enums
 #include "preferences/usersettings.h"
 #include "util/duration.h"
@@ -121,12 +122,21 @@ class WTrackTableView : public WLibraryTableView {
                             NOTIFY dropIndicatorColorChanged
                                     DESIGNABLE true);
 
+    Q_PROPERTY(int ratingStarScaleFactor
+                    MEMBER m_ratingStarScaleFactor
+                            NOTIFY ratingStarScaleFactorChanged
+                                    DESIGNABLE true);
+    int getRatingStarScaleFactor() const {
+        return m_ratingStarScaleFactor;
+    }
+
   signals:
     void trackMenuVisible(bool visible);
     void focusBorderColorChanged(QColor col);
     void trackPlayedColorChanged(QColor col);
     void trackMissingColorChanged(QColor col);
     void dropIndicatorColorChanged(QColor col);
+    void ratingStarScaleFactorChanged(int scaleFactor);
 
   public slots:
     void loadTrackModel(QAbstractItemModel* model, bool restoreState = false);
@@ -204,6 +214,8 @@ class WTrackTableView : public WLibraryTableView {
     QColor m_trackPlayedColor;
     QColor m_trackMissingColor;
     QColor m_dropIndicatorColor;
+    int m_ratingStarScaleFactor;
+    TrackId m_highlightedTrackId;
     bool m_sorting;
 
     // Control the delay to load a cover art.
