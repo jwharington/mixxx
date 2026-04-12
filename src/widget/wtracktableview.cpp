@@ -903,6 +903,46 @@ void WTrackTableView::dropEvent(QDropEvent * event) {
 void WTrackTableView::paintEvent(QPaintEvent* e) {
     QTableView::paintEvent(e);
 
+    QPainter painter(viewport());
+
+    if (m_highlightedTrackId.isValid()) {
+        TrackModel* pTrackModel = getTrackModel();
+        if (pTrackModel != nullptr) {
+            const QVector<int> rows = pTrackModel->getTrackRows(m_highlightedTrackId);
+            for (int row : rows) {
+                if (row < 0 || row >= model()->rowCount()) {
+                    continue;
+                }
+
+                const int y = rowViewportPosition(row);
+                const int h = rowHeight(row);
+                if (h <= 0 || y + h < 0 || y > viewport()->height()) {
+                    continue;
+                }
+
+                QRect borderRect(1, y + 1, viewport()->width() - 3, h - 3);
+                if (!borderRect.isValid()) {
+                    continue;
+                }
+
+                QColor borderColor(0x53, 0xFF, 0x53);
+                borderColor.setAlpha(230);
+                QColor shadeColor(0x18, 0x66, 0x18);
+                shadeColor.setAlpha(200);
+                QColor fillColor = borderColor;
+                fillColor.setAlpha(36);
+
+                painter.setRenderHint(QPainter::Antialiasing, false);
+                painter.fillRect(borderRect.adjusted(2, 2, -2, -2), fillColor);
+                painter.setPen(QPen(shadeColor, 3));
+                painter.drawRect(borderRect);
+                painter.setPen(QPen(borderColor, 1));
+                painter.drawRect(borderRect.adjusted(1, 1, -1, -1));
+                break;
+            }
+        }
+    }
+
     if (m_dropRow < 0) {
         return;
     }
@@ -922,7 +962,6 @@ void WTrackTableView::paintEvent(QPaintEvent* e) {
         y = viewport()->height() - 1;
     }
 
-    QPainter painter(viewport());
     QPen pen(m_dropIndicatorColor, 2, Qt::SolidLine);
     painter.setPen(pen);
     painter.drawLine(0, y, viewport()->width(), y);
