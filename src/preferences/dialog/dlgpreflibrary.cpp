@@ -17,6 +17,7 @@
 #include "library/library.h"
 #include "library/library_prefs.h"
 #include "library/searchquery.h"
+#include "library/starrating.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "moc_dlgpreflibrary.cpp"
@@ -73,6 +74,10 @@ DlgPrefLibrary::DlgPrefLibrary(
             QOverload<int>::of(&QSpinBox::valueChanged),
             this,
             &DlgPrefLibrary::slotRowHeightValueChanged);
+
+    spinBox_rating_star_scale_factor->setMinimum(StarRating::kMinPaintingScaleFactor);
+    spinBox_rating_star_scale_factor->setMaximum(StarRating::kMaxPaintingScaleFactor);
+    spinBox_rating_star_scale_factor->setSuffix(QStringLiteral(" px"));
 
     spinbox_bpm_precision->setMinimum(BaseTrackTableModel::kBpmColumnPrecisionMinimum);
     spinbox_bpm_precision->setMaximum(BaseTrackTableModel::kBpmColumnPrecisionMaximum);
@@ -280,6 +285,7 @@ void DlgPrefLibrary::slotResetToDefaults() {
     radioButton_cover_art_fetcher_medium->setChecked(true);
 
     spinBox_row_height->setValue(Library::kDefaultRowHeightPx);
+    spinBox_rating_star_scale_factor->setValue(StarRating::kDefaultPaintingScaleFactor);
     setLibraryFont(QApplication::font());
     spinBox_search_debouncing_timeout->setValue(
             WSearchLineEdit::kDefaultDebouncingTimeoutMillis);
@@ -435,6 +441,9 @@ void DlgPrefLibrary::slotUpdate() {
     m_originalTrackTableFont = m_pLibrary->getTrackTableFont();
     m_iOriginalTrackTableRowHeight = m_pLibrary->getTrackTableRowHeight();
     spinBox_row_height->setValue(m_iOriginalTrackTableRowHeight);
+    spinBox_rating_star_scale_factor->setValue(m_pConfig->getValue(
+            kRatingStarScaleFactorConfigKey,
+            StarRating::kDefaultPaintingScaleFactor));
     setLibraryFont(m_originalTrackTableFont);
 
     const auto searchDebouncingTimeoutMillis =
@@ -688,6 +697,10 @@ void DlgPrefLibrary::slotApply() {
                 ConfigValue(rowHeight));
         m_iOriginalTrackTableRowHeight = rowHeight;
     }
+
+    m_pConfig->set(
+            kRatingStarScaleFactorConfigKey,
+            ConfigValue(spinBox_rating_star_scale_factor->value()));
 
     BaseTrackTableModel::setApplyPlayedTrackColor(
             checkbox_played_track_color->isChecked());

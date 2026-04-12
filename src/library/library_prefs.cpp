@@ -38,6 +38,11 @@ const ConfigKey mixxx::library::prefs::kEditMetadataSelectedClickConfigKey =
                 mixxx::library::prefs::kConfigGroup,
                 QStringLiteral("EditMetadataSelectedClick")};
 
+const ConfigKey mixxx::library::prefs::kRatingStarScaleFactorConfigKey =
+        ConfigKey{
+                mixxx::library::prefs::kConfigGroup,
+                QStringLiteral("RatingStarScaleFactor")};
+
 const ConfigKey mixxx::library::prefs::kShowAutoDJQueueSplitConfigKey =
         ConfigKey{
                 mixxx::library::prefs::kConfigGroup,

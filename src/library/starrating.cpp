@@ -6,15 +6,15 @@
 #include "util/math.h"
 #include "util/painterscope.h"
 
-// Magic number? Explain what this factor affects and how
-constexpr int PaintingScaleFactor = 15;
-
 StarRating::StarRating(
         int starCount,
-        int maxStarCount)
+        int maxStarCount,
+        int paintingScaleFactor)
         : m_starCount(starCount),
-          m_maxStarCount(maxStarCount) {
+          m_maxStarCount(maxStarCount),
+          m_paintingScaleFactor(paintingScaleFactor) {
     DEBUG_ASSERT(verifyStarCount(m_starCount));
+    DEBUG_ASSERT(verifyPaintingScaleFactor(m_paintingScaleFactor));
     // 1st star cusp at 0° of the unit circle whose center is shifted to adapt the 0,0-based paint area
     m_starPolygon << QPointF(1.0, 0.5);
     for (int i = 1; i < 5; ++i) {
@@ -30,7 +30,7 @@ StarRating::StarRating(
 }
 
 QSize StarRating::sizeHint() const {
-    return PaintingScaleFactor * QSize(m_maxStarCount, 1);
+    return m_paintingScaleFactor * QSize(m_maxStarCount, 1);
 }
 
 void StarRating::paint(QPainter* painter, const QRect& rect) const {
@@ -43,12 +43,12 @@ void StarRating::paint(QPainter* painter, const QRect& rect) const {
     // Center vertically inside the table cell, and also center horizontally
     // if the cell is wider than the minimum stars width.
     int xOffset = std::max((rect.width() - sizeHint().width()) / 2, 0);
-    int yOffset = (rect.height() - PaintingScaleFactor) / 2;
+    int yOffset = (rect.height() - m_paintingScaleFactor) / 2;
     painter->translate(rect.x() + xOffset, rect.y() + yOffset);
-    painter->scale(PaintingScaleFactor, PaintingScaleFactor);
+    painter->scale(m_paintingScaleFactor, m_paintingScaleFactor);
 
     // Determine number of stars that are possible to paint
-    int n = rect.width() / PaintingScaleFactor;
+    int n = rect.width() / m_paintingScaleFactor;
 
     for (int i = 0; i < m_maxStarCount && i < n; ++i) {
         if (i < m_starCount) {

@@ -6,6 +6,7 @@
 #include <QShortcut>
 #include <QStylePainter>
 #include <QUrl>
+#include <algorithm>
 
 #include "control/controlobject.h"
 #include "library/dao/trackschema.h"
@@ -39,6 +40,14 @@ const ConfigKey kVScrollBarPosConfigKey{
         QStringLiteral("[Library]"),
         QStringLiteral("VScrollBarPos")};
 
+// Keep local fallback constants to avoid cross-commit symbol drift during rebases.
+const ConfigKey kRatingStarScaleFactorConfigKey{
+        QStringLiteral("[Library]"),
+        QStringLiteral("RatingStarScaleFactor")};
+constexpr int kDefaultRatingStarScaleFactor = 15;
+constexpr int kMinRatingStarScaleFactor = 8;
+constexpr int kMaxRatingStarScaleFactor = 24;
+
 } // anonymous namespace
 
 WTrackTableView::WTrackTableView(QWidget* pParent,
@@ -54,6 +63,11 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
           m_trackPlayedColor(kDefaultTrackPlayedColor),
           m_trackMissingColor(kDefaultTrackMissingColor),
           m_dropIndicatorColor(kDefaultDropIndicatorColor),
+          m_ratingStarScaleFactor(std::clamp(
+                  pConfig->getValue(kRatingStarScaleFactorConfigKey,
+                          kDefaultRatingStarScaleFactor),
+                  kMinRatingStarScaleFactor,
+                  kMaxRatingStarScaleFactor)),
           m_sorting(false),
           m_selectionChangedSinceLastGuiTick(true),
           m_loadCachedOnly(false),
