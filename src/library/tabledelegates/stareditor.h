@@ -1,9 +1,9 @@
 #pragma once
 
-#include <QWidget>
+#include <QModelIndex>
 #include <QSize>
 #include <QStyleOptionViewItem>
-#include <QModelIndex>
+#include <QWidget>
 
 class QTableView;
 
@@ -16,18 +16,22 @@ class StarEditor : public QWidget {
             QTableView* pTableView,
             const QModelIndex& index,
             const QStyleOptionViewItem& option,
-            const QColor& focusBorderColor);
+            const QColor& focusBorderColor,
+            int paintingScaleFactor);
 
     QSize sizeHint() const override;
     void setStarRating(const StarRating& starRating) {
         m_starRating = starRating;
+        m_starRating.setPaintingScaleFactor(m_paintingScaleFactor);
         int stars = m_starRating.starCount();
         VERIFY_OR_DEBUG_ASSERT(m_starRating.verifyStarCount(stars)) {
             return;
         }
         m_starCount = stars;
     }
-    StarRating starRating() { return m_starRating; }
+    StarRating starRating() {
+        return m_starRating;
+    }
 
   signals:
     void editingFinished();
@@ -49,4 +53,5 @@ class StarEditor : public QWidget {
     QColor m_focusBorderColor;
     StarRating m_starRating;
     int m_starCount;
+    int m_paintingScaleFactor;
 };
