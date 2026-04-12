@@ -122,18 +122,24 @@ TrackDAO::~TrackDAO() {
     addTracksFinish(true);
 }
 
+void TrackDAO::initialize(const QSqlDatabase& database) {
+    DAO::initialize(database);
+
+    // Keep played flags across shutdown/restart and only clear tracks that
+    // were played more than 10 hours ago.
+    kLogger.debug() << "Resetting stale played information from previous sessions";
+    QSqlQuery query(m_database);
+    if (!query.exec(
+                "UPDATE library SET played=0 "
+                "WHERE played>0 "
+                "AND last_played_at < datetime('now', '-10 hours')")) {
+        LOG_FAILED_QUERY(query)
+                << "Error resetting stale played values";
+    }
+}
+
 void TrackDAO::finish() {
     kLogger.debug() << "finish()";
-
-    // clear out played information on exit
-    // crash prevention: if mixxx crashes, played information will be maintained
-    kLogger.debug() << "Clearing played information for this session";
-    QSqlQuery query(m_database);
-    if (!query.exec("UPDATE library SET played=0 where played>0")) {
-        // Note: without where, this call updates every row which takes long
-        LOG_FAILED_QUERY(query)
-                << "Error clearing played value";
-    }
 
     // Do housekeeping on the LibraryHashes/track_locations tables.
     kLogger.debug() << "Cleaning LibraryHashes/track_locations tables.";
