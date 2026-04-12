@@ -71,7 +71,7 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
     else {
         box->removeWidget(m_pTrackTablePlaceholder);
         m_pTrackTablePlaceholder->hide();
-        box->insertWidget(1, m_pTrackTableView);
+        box->insertWidget(1, m_pTrackTableView, 1);
     }
 
     // We do _NOT_ take ownership of this from AutoDJProcessor.

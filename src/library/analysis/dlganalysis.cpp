@@ -67,7 +67,7 @@ DlgAnalysis::DlgAnalysis(WLibrary* parent,
     else {
         box->removeWidget(m_pTrackTablePlaceholder);
         m_pTrackTablePlaceholder->hide();
-        box->insertWidget(1, m_pAnalysisLibraryTableView);
+        box->insertWidget(1, m_pAnalysisLibraryTableView, 1);
     }
 
     m_pAnalysisLibraryTableModel = new AnalysisLibraryTableModel(
