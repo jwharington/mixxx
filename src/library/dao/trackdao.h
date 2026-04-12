@@ -27,7 +27,6 @@ class TrackRecord;
 class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackCacheRelocator {
     Q_OBJECT
   public:
-
     enum class ResolveTrackIdFlag : int {
         ResolveOnly = 0,
         UnhideHidden = 1,
@@ -44,6 +43,8 @@ class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackC
             LibraryHashDAO& libraryHashDao,
             UserSettingsPointer pConfig);
     ~TrackDAO() override;
+
+    void initialize(const QSqlDatabase& database) override;
 
     void finish();
 
@@ -195,7 +196,7 @@ class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackC
             volatile const bool* pCancel);
 
     void detectCoverArtForTracksWithoutCover(volatile const bool* pCancel,
-                                        QSet<TrackId>* pTracksChanged);
+            QSet<TrackId>* pTracksChanged);
 
     // Callback for GlobalTrackCache
     mixxx::FileAccess relocateCachedTrack(TrackId trackId) override;
