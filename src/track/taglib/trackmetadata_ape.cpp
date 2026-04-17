@@ -177,6 +177,13 @@ void importTrackMetadataFromTag(
         parseTrackPeak(pTrackMetadata, trackPeak, resetMissingTagMetadata);
     }
 
+    QString subtitle;
+    if (readItem(tag, "Subtitle", &subtitle) ||
+            readItem(tag, "SUBTITLE", &subtitle) ||
+            resetMissingTagMetadata) {
+        pTrackMetadata->refTrackInfo().setSubtitle(subtitle);
+    }
+
 #if defined(__EXTRA_METADATA__)
     QString albumGain;
     if (readItem(tag, "REPLAYGAIN_ALBUM_GAIN", &albumGain) || resetMissingTagMetadata) {
@@ -270,12 +277,6 @@ void importTrackMetadataFromTag(
             resetMissingTagMetadata) {
         pTrackMetadata->refAlbumInfo().setRecordLabel(recordLabel);
     }
-    QString subtitle;
-    if (readItem(tag, "Subtitle", &subtitle) ||
-            readItem(tag, "SUBTITLE", &subtitle) ||
-            resetMissingTagMetadata) {
-        pTrackMetadata->refTrackInfo().setSubtitle(subtitle);
-    }
     QString encoder;
     if (readItem(tag, "EncodedBy", &encoder) ||
             readItem(tag, "ENCODEDBY", &encoder) ||
@@ -319,6 +320,8 @@ bool exportTrackMetadataIntoTag(TagLib::APE::Tag* pTag, const TrackMetadata& tra
     writeItem(pTag, "REPLAYGAIN_TRACK_GAIN", toTString(formatTrackGain(trackMetadata)));
     writeItem(pTag, "REPLAYGAIN_TRACK_PEAK", toTString(formatTrackPeak(trackMetadata)));
 
+    writeItem(pTag, "Subtitle", toTString(trackMetadata.getTrackInfo().getSubtitle()));
+
 #if defined(__EXTRA_METADATA__)
     auto discNumbers = TrackNumbers::joinAsString(
             trackMetadata.getTrackInfo().getDiscNumber(),
@@ -345,7 +348,6 @@ bool exportTrackMetadataIntoTag(TagLib::APE::Tag* pTag, const TrackMetadata& tra
     writeItem(pTag, "LICENSE", toTString(trackMetadata.getAlbumInfo().getLicense()));
     writeItem(pTag, "Label", toTString(trackMetadata.getAlbumInfo().getRecordLabel()));
     writeItem(pTag, "MixArtist", toTString(trackMetadata.getTrackInfo().getRemixer()));
-    writeItem(pTag, "Subtitle", toTString(trackMetadata.getTrackInfo().getSubtitle()));
     writeItem(pTag, "EncodedBy", toTString(trackMetadata.getTrackInfo().getEncoder()));
     writeItem(pTag, "EncoderSettings", toTString(trackMetadata.getTrackInfo().getEncoderSettings()));
 #endif // __EXTRA_METADATA__

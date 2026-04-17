@@ -70,6 +70,7 @@ class Track : public QObject {
     Q_PROPERTY(QString trackTotal READ getTrackTotal WRITE setTrackTotal NOTIFY trackTotalChanged)
     Q_PROPERTY(int timesPlayed READ getTimesPlayed NOTIFY timesPlayedChanged)
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
+    Q_PROPERTY(QString subtitle READ getSubtitle WRITE setSubtitle NOTIFY subtitleChanged)
     Q_PROPERTY(double bpm READ getBpm NOTIFY bpmChanged)
     Q_PROPERTY(QString bpmText READ getBpmText STORED false NOTIFY bpmChanged)
     Q_PROPERTY(QString keyText READ getKeyText WRITE setKeyText NOTIFY keyChanged)
@@ -207,6 +208,8 @@ class Track : public QObject {
     void clearComment() {
         setComment(QString());
     }
+    QString getSubtitle() const;
+    void setSubtitle(const QString&);
     QString getComposer() const;
     void setComposer(const QString&);
     QString getGrouping() const;
@@ -477,6 +480,7 @@ class Track : public QObject {
     void trackNumberChanged(const QString&);
     void trackTotalChanged(const QString&);
     void commentChanged(const QString&);
+    void subtitleChanged(const QString&);
     void bpmChanged();
     void bpmLockChanged(bool locked);
     void keyChanged();

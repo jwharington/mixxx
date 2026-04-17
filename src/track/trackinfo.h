@@ -44,15 +44,13 @@ class TrackInfo final {
 #endif // __EXTRA_METADATA__
     MIXXX_DECL_PROPERTY(ReplayGain, replayGain, ReplayGain)
     MIXXX_DECL_PROPERTY(SeratoTags, seratoTags, SeratoTags)
-#if defined(__EXTRA_METADATA__)
     MIXXX_DECL_PROPERTY(QString, subtitle, Subtitle)
-#endif // __EXTRA_METADATA__
     MIXXX_DECL_PROPERTY(QString, title, Title)
     MIXXX_DECL_PROPERTY(QString, trackNumber, TrackNumber)
     MIXXX_DECL_PROPERTY(QString, trackTotal, TrackTotal)
 #if defined(__EXTRA_METADATA__)
     MIXXX_DECL_PROPERTY(QString, work, Work)
-#endif // __EXTRA_METADATA__
+#endif                                       // __EXTRA_METADATA__
     MIXXX_DECL_PROPERTY(QString, year, Year) // = release date
 
   public:
@@ -85,13 +83,11 @@ class TrackInfo final {
             Bpm::Comparison cmpBpm = Bpm::Comparison::Default) const;
 };
 
-inline
-bool operator==(const TrackInfo& lhs, const TrackInfo& rhs) {
+inline bool operator==(const TrackInfo& lhs, const TrackInfo& rhs) {
     return lhs.compareEq(rhs);
 }
 
-inline
-bool operator!=(const TrackInfo& lhs, const TrackInfo& rhs) {
+inline bool operator!=(const TrackInfo& lhs, const TrackInfo& rhs) {
     return !(lhs == rhs);
 }
 

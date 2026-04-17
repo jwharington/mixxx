@@ -72,10 +72,10 @@ constexpr int kQuickBeatChangeDeltaMillis = 800;
 // Otherwise 3rd party software that picks up the currently
 // playing track from the main window and relies on this
 // formatting would stop working.
-//static
+// static
 const QString Track::kArtistTitleSeparator = QStringLiteral(" - ");
 
-//static
+// static
 SyncTrackMetadataParams SyncTrackMetadataParams::readFromUserSettings(
         const UserSettings& userSettings) {
     return SyncTrackMetadataParams{
@@ -130,14 +130,14 @@ Track::~Track() {
     }
 }
 
-//static
+// static
 TrackPointer Track::newTemporary(
         mixxx::FileAccess fileAccess) {
     return std::make_shared<Track>(
             std::move(fileAccess));
 }
 
-//static
+// static
 TrackPointer Track::newDummy(
         const QString& filePath,
         TrackId trackId) {
@@ -198,7 +198,7 @@ void Track::replaceMetadataFromSource(
         if (importedBpm.isValid() &&
                 (!m_pBeats ||
                         !getBeatsPointerBpm(m_pBeats, getDuration())
-                                 .isValid())) {
+                                .isValid())) {
             // Only use the imported BPM if the current beat grid is either
             // missing or not valid! The BPM value in the metadata might be
             // imprecise (normalized or rounded), e.g. ID3v2 only supports
@@ -537,6 +537,7 @@ void Track::emitChangedSignalsForAllMetadata() {
     emit trackNumberChanged(getTrackNumber());
     emit trackTotalChanged(getTrackTotal());
     emit commentChanged(getComment());
+    emit subtitleChanged(getSubtitle());
     emit bpmChanged();
     emit timesPlayedChanged();
     emit durationChanged();
@@ -684,7 +685,7 @@ void Track::setAlbum(const QString& s) {
     }
 }
 
-QString Track::getAlbumArtist()  const {
+QString Track::getAlbumArtist() const {
     const auto locked = lockMutex(&m_qMutex);
     return m_record.getMetadata().getAlbumInfo().getArtist();
 }
@@ -698,7 +699,7 @@ void Track::setAlbumArtist(const QString& s) {
     }
 }
 
-QString Track::getYear()  const {
+QString Track::getYear() const {
     const auto locked = lockMutex(&m_qMutex);
     return m_record.getMetadata().getTrackInfo().getYear();
 }
@@ -726,7 +727,7 @@ void Track::setComposer(const QString& s) {
     }
 }
 
-QString Track::getGrouping()  const {
+QString Track::getGrouping() const {
     const auto locked = lockMutex(&m_qMutex);
     return m_record.getMetadata().getTrackInfo().getGrouping();
 }
@@ -740,12 +741,12 @@ void Track::setGrouping(const QString& s) {
     }
 }
 
-QString Track::getTrackNumber()  const {
+QString Track::getTrackNumber() const {
     const auto locked = lockMutex(&m_qMutex);
     return m_record.getMetadata().getTrackInfo().getTrackNumber();
 }
 
-QString Track::getTrackTotal()  const {
+QString Track::getTrackTotal() const {
     const auto locked = lockMutex(&m_qMutex);
     return m_record.getMetadata().getTrackInfo().getTrackTotal();
 }
@@ -827,6 +828,19 @@ void Track::setComment(const QString& s) {
     }
 }
 
+QString Track::getSubtitle() const {
+    const auto locked = lockMutex(&m_qMutex);
+    return m_record.getMetadata().getTrackInfo().getSubtitle();
+}
+
+void Track::setSubtitle(const QString& s) {
+    auto locked = lockMutex(&m_qMutex);
+    if (compareAndSet(m_record.refMetadata().refTrackInfo().ptrSubtitle(), s)) {
+        markDirtyAndUnlock(&locked);
+        emit subtitleChanged(s);
+    }
+}
+
 QString Track::getType() const {
     const auto locked = lockMutex(&m_qMutex);
     return m_record.getFileType();
@@ -897,7 +911,7 @@ void Track::initId(TrackId id) {
     // the object has been created.
     VERIFY_OR_DEBUG_ASSERT(!m_record.getId().isValid()) {
         kLogger.warning() << "Cannot change id from"
-                << m_record.getId() << "to" << id;
+                          << m_record.getId() << "to" << id;
         return; // abort
     }
     m_record.setId(id);
@@ -1115,7 +1129,7 @@ CuePointer Track::findCueByType(mixxx::CueType type) const {
         return CuePointer();
     }
     auto locked = lockMutex(&m_qMutex);
-    for (const CuePointer& pCue: m_cuePoints) {
+    for (const CuePointer& pCue : m_cuePoints) {
         if (pCue->getType() == type) {
             return pCue;
         }
@@ -1529,7 +1543,7 @@ int Track::getRating() const {
     return m_record.getRating();
 }
 
-void Track::setRating (int rating) {
+void Track::setRating(int rating) {
     auto locked = lockMutex(&m_qMutex);
     if (compareAndSet(m_record.ptrRating(), rating)) {
         markDirtyAndUnlock(&locked);
@@ -1560,7 +1574,7 @@ Keys Track::getKeys() const {
 }
 
 void Track::setKey(mixxx::track::io::key::ChromaticKey key,
-                   mixxx::track::io::key::Source keySource) {
+        mixxx::track::io::key::Source keySource) {
     if (key == mixxx::track::io::key::INVALID) {
         return;
     }
@@ -1595,7 +1609,7 @@ double Track::getTuningFrequencyHz() const {
 
 // normalizes the keyText before storing
 void Track::setKeyText(const QString& keyText,
-                       mixxx::track::io::key::Source keySource) {
+        mixxx::track::io::key::Source keySource) {
     auto locked = lockMutex(&m_qMutex);
     if (m_record.updateGlobalKeyNormalizeText(keyText, keySource) == mixxx::UpdateResult::Updated) {
         afterKeysUpdated(&locked);
@@ -1819,8 +1833,8 @@ ExportTrackMetadataResult Track::exportMetadata(
             // to be updated.
             if (kLogger.debugEnabled()) {
                 kLogger.debug()
-                            << "Skip exporting of unmodified track metadata into file:"
-                            << getLocation();
+                        << "Skip exporting of unmodified track metadata into file:"
+                        << getLocation();
             }
             // abort
             return ExportTrackMetadataResult::Skipped;

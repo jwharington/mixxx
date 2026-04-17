@@ -137,6 +137,9 @@ void BaseSqlTableModel::initSortColumnMapping() {
     m_columnIndexBySortColumnId[static_cast<int>(
             TrackModel::SortColumnId::PlaylistDateTimeAdded)] =
             fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_DATETIMEADDED);
+    m_columnIndexBySortColumnId[static_cast<int>(
+            TrackModel::SortColumnId::Subtitle)] =
+            fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_SUBTITLE);
 
     m_sortColumnIdByColumnIndex.clear();
     for (int i = static_cast<int>(TrackModel::SortColumnId::IdMin);
@@ -565,7 +568,7 @@ void BaseSqlTableModel::setSort(int column, Qt::SortOrder order) {
             m_trackSourceOrderBy.append(first ? "ORDER BY " : ", ");
             m_trackSourceOrderBy.append(sort_field);
             m_trackSourceOrderBy.append((sc.m_order == Qt::AscendingOrder) ? " ASC" : " DESC");
-            //qDebug() << m_trackSourceOrderBy;
+            // qDebug() << m_trackSourceOrderBy;
             first = false;
         }
     }
@@ -581,7 +584,7 @@ void BaseSqlTableModel::sort(int column, Qt::SortOrder order) {
 
 int BaseSqlTableModel::rowCount(const QModelIndex& parent) const {
     int count = parent.isValid() ? 0 : m_rowInfo.size();
-    //qDebug() << "rowCount()" << parent << count;
+    // qDebug() << "rowCount()" << parent << count;
     return count;
 }
 
@@ -691,8 +694,8 @@ QVariant BaseSqlTableModel::rawValue(
         // on the fly. This will be a steep penalty to pay if there are tons
         // of these tracks in the table that are not cached.
         qDebug() << __FILE__ << __LINE__
-                    << "Track" << trackId
-                    << "was not present in cache and had to be manually fetched.";
+                 << "Track" << trackId
+                 << "was not present in cache and had to be manually fetched.";
         m_trackSource->ensureCached(trackId);
     }
     return m_trackSource->data(trackId, trackSourceColumn);
@@ -734,6 +737,8 @@ bool BaseSqlTableModel::setTrackValueForColumn(
         pTrack->setTrackNumber(value.toString());
     } else if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_COMMENT) == column) {
         pTrack->setComment(value.toString());
+    } else if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_SUBTITLE) == column) {
+        pTrack->setSubtitle(value.toString());
     } else if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_BPM) == column) {
         pTrack->trySetBpm(static_cast<double>(value.toDouble()));
     } else if (fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_PLAYED) == column) {
@@ -830,7 +835,7 @@ void BaseSqlTableModel::tracksChanged(const QSet<TrackId>& trackIds) {
     for (const auto& trackId : trackIds) {
         const auto rows = getTrackRows(trackId);
         for (int row : rows) {
-            //qDebug() << "Row in this result set was updated. Signalling update. track:" << trackId << "row:" << row;
+            // qDebug() << "Row in this result set was updated. Signalling update. track:" << trackId << "row:" << row;
             QModelIndex topLeft = index(row, 0);
             QModelIndex bottomRight = index(row, lastColumn);
             emit dataChanged(topLeft, bottomRight);

@@ -10,11 +10,11 @@
 #include "util/logger.h"
 
 // The schema XML is baked into the binary via Qt resources.
-//static
+// static
 const QString MixxxDb::kDefaultSchemaFile(":/schema.xml");
 
-//static
-const int MixxxDb::kRequiredSchemaVersion = 40;
+// static
+const int MixxxDb::kRequiredSchemaVersion = 41;
 
 namespace {
 
@@ -68,7 +68,7 @@ mixxx::DbConnection::Params dbConnectionParams(
 MixxxDb::MixxxDb(
         const UserSettingsPointer& pConfig,
         bool inMemoryConnection)
-    : m_pDbConnectionPool(std::make_shared<mixxx::DbConnectionPool>(dbConnectionParams(pConfig, inMemoryConnection), "MIXXX")) {
+        : m_pDbConnectionPool(std::make_shared<mixxx::DbConnectionPool>(dbConnectionParams(pConfig, inMemoryConnection), "MIXXX")) {
 }
 
 bool MixxxDb::initDatabaseSchema(
@@ -79,7 +79,7 @@ bool MixxxDb::initDatabaseSchema(
     QString upgradeFailed = tr("Cannot upgrade database schema");
     QString upgradeToVersionFailed =
             tr("Unable to upgrade your database schema to version %1")
-            .arg(QString::number(schemaVersion));
+                    .arg(QString::number(schemaVersion));
     QString helpContact = tr("For help with database issues consult:") + "\n" +
             "https://www.mixxx.org/support";
 

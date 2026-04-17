@@ -1,18 +1,18 @@
 #pragma once
 
-#include <QObject>
 #include <QMap>
+#include <QObject>
 #include <QStringList>
 
-#include "track/keyutils.h"
 #include "control/controlproxy.h"
+#include "track/keyutils.h"
 
 // Caches the index of frequently used columns and provides a lookup-table of
 // column name to index.
 // When you add columns, remember to also add them to
 // constexpr ColumnProperties kColumnPropertiesByEnum
 class ColumnCache : public QObject {
-  Q_OBJECT
+    Q_OBJECT
   public:
     enum Column {
         COLUMN_LIBRARYTABLE_INVALID = -1,
@@ -58,6 +58,7 @@ class ColumnCache : public QObject {
         COLUMN_LIBRARYTABLE_COVERART_DIGEST,
         COLUMN_LIBRARYTABLE_COVERART_HASH,
         COLUMN_LIBRARYTABLE_LAST_PLAYED_AT,
+        COLUMN_LIBRARYTABLE_SUBTITLE,
 
         COLUMN_TRACKLOCATIONSTABLE_LOCATION,
         COLUMN_TRACKLOCATIONSTABLE_DIRECTORY,
@@ -132,7 +133,6 @@ class ColumnCache : public QObject {
         DEBUG_ASSERT(!m_columnSortByIndex.contains(index));
         m_columnSortByIndex.insert(index, sortFormat);
     }
-
 
     QStringList m_columnsByIndex;
     QMap<int, QString> m_columnSortByIndex;

@@ -62,6 +62,20 @@ UpdateResult TrackRecord::updateGlobalKeyNormalizeText(
 
 namespace {
 
+// This conditional copy operation only works for nullable properties
+// like QString or QUuid.
+template<typename T>
+bool copyIfNotNull(
+        gsl::not_null<T*> pMergedProperty,
+        const T& importedProperty) {
+    if (pMergedProperty->isNull() &&
+            *pMergedProperty != importedProperty) {
+        *pMergedProperty = importedProperty;
+        return true;
+    }
+    return false;
+}
+
 #if defined(__EXTRA_METADATA__)
 bool mergeReplayGainMetadataProperty(
         ReplayGain* pMergedReplayGain,
@@ -80,20 +94,6 @@ bool mergeReplayGainMetadataProperty(
         modified = true;
     }
     return modified;
-}
-
-// This conditional copy operation only works for nullable properties
-// like QString or QUuid.
-template<typename T>
-bool copyIfNotNull(
-        gsl::not_null<T*> pMergedProperty,
-        const T& importedProperty) {
-    if (pMergedProperty->isNull() &&
-            *pMergedProperty != importedProperty) {
-        *pMergedProperty = importedProperty;
-        return true;
-    }
-    return false;
 }
 
 // This conditional copy operation only works for properties where
@@ -231,6 +231,9 @@ bool TrackRecord::mergeExtraMetadataFromSource(
             modified = true;
         }
     }
+    modified |= copyIfNotNull(
+            pMergedTrackInfo->ptrSubtitle(),
+            importedTrackInfo.getSubtitle());
 #if defined(__EXTRA_METADATA__)
     modified |= copyIfNotNull(
             pMergedTrackInfo->ptrConductor(),
@@ -280,9 +283,6 @@ bool TrackRecord::mergeExtraMetadataFromSource(
     modified |= copyIfNotEmpty(
             pMergedTrackInfo->ptrSeratoTags(),
             importedTrackInfo.getSeratoTags());
-    modified |= copyIfNotNull(
-            pMergedTrackInfo->ptrSubtitle(),
-            importedTrackInfo.getSubtitle());
     modified |= copyIfNotNull(
             pMergedTrackInfo->ptrWork(),
             importedTrackInfo.getWork());

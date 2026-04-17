@@ -46,6 +46,7 @@ MixxxLibraryFeature::MixxxLibraryFeature(Library* pLibrary,
             LIBRARYTABLE_ALBUM,
             LIBRARYTABLE_ARTIST,
             LIBRARYTABLE_TITLE,
+            LIBRARYTABLE_SUBTITLE,
             LIBRARYTABLE_YEAR,
             LIBRARYTABLE_RATING,
             LIBRARYTABLE_GENRE,
@@ -140,17 +141,15 @@ MixxxLibraryFeature::MixxxLibraryFeature(Library* pLibrary,
 }
 
 void MixxxLibraryFeature::bindLibraryWidget(WLibrary* pLibraryWidget,
-                                     KeyboardEventFilter* pKeyboard) {
-    m_pHiddenView = new DlgHidden(pLibraryWidget, m_pConfig, m_pLibrary,
-                                  pKeyboard);
+        KeyboardEventFilter* pKeyboard) {
+    m_pHiddenView = new DlgHidden(pLibraryWidget, m_pConfig, m_pLibrary, pKeyboard);
     pLibraryWidget->registerView(kHiddenTitle, m_pHiddenView);
     connect(m_pHiddenView,
             &DlgHidden::trackSelected,
             this,
             &MixxxLibraryFeature::trackSelected);
 
-    m_pMissingView = new DlgMissing(pLibraryWidget, m_pConfig, m_pLibrary,
-                                    pKeyboard);
+    m_pMissingView = new DlgMissing(pLibraryWidget, m_pConfig, m_pLibrary, pKeyboard);
     pLibraryWidget->registerView(kMissingTitle, m_pMissingView);
     connect(m_pMissingView,
             &DlgMissing::trackSelected,
@@ -203,7 +202,7 @@ void MixxxLibraryFeature::slotUpdateTrackCount() {
 }
 
 void MixxxLibraryFeature::activate() {
-    //qDebug() << "MixxxLibraryFeature::activate()";
+    // qDebug() << "MixxxLibraryFeature::activate()";
     emit saveModelState();
     emit showTrackModel(m_pLibraryTableModel);
     emit enableCoverArtDisplay(true);
