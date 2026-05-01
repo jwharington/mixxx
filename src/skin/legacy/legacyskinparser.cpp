@@ -23,6 +23,7 @@
 #include "moc_legacyskinparser.cpp"
 #include "skin/legacy/colorschemeparser.h"
 #include "skin/legacy/launchimage.h"
+#include "skin/legacy/skineditconstants.h"
 #include "skin/legacy/skincontext.h"
 #include "track/track.h"
 #include "util/assert.h"
@@ -485,6 +486,11 @@ QList<QWidget*> wrapWidget(QWidget* pWidget) {
 QList<QWidget*> LegacySkinParser::parseNode(const QDomElement& node) {
     QList<QWidget*> result;
     QString nodeName = node.nodeName();
+    if (m_pContext->selectBool(node,
+                QString::fromUtf8(mixxx::skin::legacy::kSkinEditDisabledTagName),
+                false)) {
+        return result;
+    }
     //qDebug() << "parseNode" << node.nodeName();
 
     // TODO(rryan) replace with a map to function pointers?
@@ -1836,10 +1842,13 @@ QString LegacySkinParser::getLibraryStyle(const QDomNode& node) {
     return style;
 }
 
-QDomElement LegacySkinParser::loadTemplate(const QString& path) {
+QDomElement LegacySkinParser::loadTemplate(const QString& path, QString* pAbsolutePath) {
     QFileInfo templateFileInfo(path);
 
     QString absolutePath = templateFileInfo.absoluteFilePath();
+    if (pAbsolutePath != nullptr) {
+        *pAbsolutePath = absolutePath;
+    }
 
     auto it = m_templateCache.constFind(absolutePath);
     if (it != m_templateCache.constEnd()) {
@@ -1896,7 +1905,8 @@ QList<QWidget*> LegacySkinParser::parseTemplate(const QDomElement& node) {
     std::unique_ptr<SkinContext> pOldContext = std::move(m_pContext);
     m_pContext = std::make_unique<SkinContext>(pOldContext.get());
 
-    QDomElement templateNode = loadTemplate(path);
+    QString templateAbsolutePath;
+    QDomElement templateNode = loadTemplate(path, &templateAbsolutePath);
 
     if (templateNode.isNull()) {
         SKIN_WARNING(node,
@@ -1914,7 +1924,7 @@ QList<QWidget*> LegacySkinParser::parseTemplate(const QDomElement& node) {
     // Take any <SetVariable> elements from this node and update the context
     // with them.
     m_pContext->updateVariables(node);
-    m_pContext->setXmlPath(path);
+    m_pContext->setXmlPath(templateAbsolutePath.isEmpty() ? path : templateAbsolutePath);
 
     QList<QWidget*> widgets;
 
@@ -2416,6 +2426,13 @@ void LegacySkinParser::setupBaseWidget(const QDomNode& node,
 void LegacySkinParser::setupWidget(const QDomNode& node,
                                    QWidget* pWidget,
                                    bool setPosition) {
+    pWidget->setProperty(mixxx::skin::legacy::kSkinEditXmlPathProperty,
+            m_pContext->getXmlPath());
+    pWidget->setProperty(mixxx::skin::legacy::kSkinEditNodeLineProperty,
+            node.lineNumber());
+    pWidget->setProperty(mixxx::skin::legacy::kSkinEditNodeNameProperty,
+            node.nodeName());
+
     // Override the widget object name.
     QString objectName = m_pContext->selectString(node, "ObjectName");
     if (!objectName.isEmpty()) {

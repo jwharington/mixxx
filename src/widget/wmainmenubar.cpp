@@ -576,6 +576,49 @@ void WMainMenuBar::initialize() {
         connect(pDeveloperReloadSkin, &QAction::triggered, this, &WMainMenuBar::reloadSkin);
         pDeveloperMenu->addAction(pDeveloperReloadSkin);
 
+        QString skinEditModeTitle = tr("Skin Edit &Mode");
+        QString skinEditModeText =
+                tr("Enable Ctrl+Alt+left-click skin editing mode for disabling skin XML elements.");
+        auto* pDeveloperSkinEditMode = new QAction(skinEditModeTitle, this);
+        pDeveloperSkinEditMode->setShortcut(
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "DeveloperMenu_SkinEditMode"),
+                        tr("Ctrl+Shift+M"))));
+        pDeveloperSkinEditMode->setShortcutContext(Qt::ApplicationShortcut);
+        pDeveloperSkinEditMode->setCheckable(true);
+        pDeveloperSkinEditMode->setChecked(false);
+        pDeveloperSkinEditMode->setStatusTip(skinEditModeText);
+        pDeveloperSkinEditMode->setWhatsThis(
+                buildWhatsThis(skinEditModeTitle, skinEditModeText));
+        connect(pDeveloperSkinEditMode,
+                &QAction::triggered,
+                this,
+                &WMainMenuBar::toggleSkinEditMode);
+        connect(this,
+                &WMainMenuBar::internalSkinEditModeStateChange,
+                pDeveloperSkinEditMode,
+                &QAction::setChecked);
+        pDeveloperMenu->addAction(pDeveloperSkinEditMode);
+
+        QString skinEditUndoTitle = tr("Skin Edit Undo Last Disable");
+        QString skinEditUndoText =
+                tr("Undo the most recently disabled skin XML element in this edit session.");
+        m_pDeveloperSkinEditUndoAction = new QAction(skinEditUndoTitle, this);
+        m_pDeveloperSkinEditUndoAction->setShortcut(
+                QKeySequence(m_pKbdConfig->getValue(
+                        ConfigKey("[KeyboardShortcuts]", "DeveloperMenu_SkinEditUndo"),
+                        tr("Ctrl+Shift+Z"))));
+        m_pDeveloperSkinEditUndoAction->setShortcutContext(Qt::ApplicationShortcut);
+        m_pDeveloperSkinEditUndoAction->setStatusTip(skinEditUndoText);
+        m_pDeveloperSkinEditUndoAction->setWhatsThis(
+                buildWhatsThis(skinEditUndoTitle, skinEditUndoText));
+        m_pDeveloperSkinEditUndoAction->setEnabled(false);
+        connect(m_pDeveloperSkinEditUndoAction,
+                &QAction::triggered,
+                this,
+                &WMainMenuBar::triggerSkinEditUndo);
+        pDeveloperMenu->addAction(m_pDeveloperSkinEditUndoAction);
+
         QString developerToolsTitle = tr("Developer &Tools");
         QString developerToolsText = tr("Opens the developer tools dialog");
         auto* pDeveloperTools = new QAction(developerToolsTitle, this);
@@ -822,6 +865,13 @@ void WMainMenuBar::onDeveloperToolsShown() {
 
 void WMainMenuBar::onDeveloperToolsHidden() {
     emit internalDeveloperToolsStateChange(false);
+}
+
+void WMainMenuBar::onSkinEditModeChanged(bool enabled) {
+    emit internalSkinEditModeStateChange(enabled);
+    if (m_pDeveloperSkinEditUndoAction != nullptr) {
+        m_pDeveloperSkinEditUndoAction->setEnabled(enabled);
+    }
 }
 
 void WMainMenuBar::onFullScreenStateChange(bool fullscreen) {

@@ -64,7 +64,7 @@ class LegacySkinParser : public QObject, public SkinParser {
     QList<QWidget*> parseNode(const QDomElement& node);
 
     // Load the given template from file and return its document element.
-    QDomElement loadTemplate(const QString& path);
+    QDomElement loadTemplate(const QString& path, QString* pAbsolutePath = nullptr);
 
     // Parsers for each node
 

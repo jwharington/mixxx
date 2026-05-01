@@ -1,10 +1,23 @@
 #include "mixxxmainwindow.h"
 
+#include <QAbstractButton>
+#include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
+#include <QCursor>
 #include <QDebug>
+#include <limits>
+#include <QDir>
+#include <QDomDocument>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QFrame>
+#include <QMouseEvent>
 #include <QOpenGLContext>
+#include <QPushButton>
+#include <QSaveFile>
+#include <QTextStream>
+#include <QTimer>
 #include <QUrl>
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -47,6 +60,7 @@
 #include "mixer/playermanager.h"
 #include "recording/recordingmanager.h"
 #include "skin/legacy/launchimage.h"
+#include "skin/legacy/skineditconstants.h"
 #include "skin/skinloader.h"
 #include "soundio/soundmanager.h"
 #include "sources/soundsourceproxy.h"
@@ -88,6 +102,108 @@ inline bool supportsGlobalMenu() {
 }
 #endif
 
+bool isDescendantOf(const QWidget* pWidget, const QWidget* pAncestor) {
+    if (pWidget == nullptr || pAncestor == nullptr) {
+        return false;
+    }
+
+    const QWidget* pCurrent = pWidget;
+    while (pCurrent != nullptr) {
+        if (pCurrent == pAncestor) {
+            return true;
+        }
+        pCurrent = pCurrent->parentWidget();
+    }
+
+    return false;
+}
+
+QDomElement findSkinElementByNodeNameAndLine(
+        const QDomElement& node,
+        const QString& nodeName,
+        int lineNumber) {
+    if (!node.isNull() && node.nodeName() == nodeName && node.lineNumber() == lineNumber) {
+        return node;
+    }
+
+    QDomNode child = node.firstChild();
+    while (!child.isNull()) {
+        if (child.isElement()) {
+            const QDomElement result = findSkinElementByNodeNameAndLine(
+                    child.toElement(), nodeName, lineNumber);
+            if (!result.isNull()) {
+                return result;
+            }
+        }
+        child = child.nextSibling();
+    }
+
+    return QDomElement();
+}
+
+QString skinEditChangeKey(const QString& xmlPath, int lineNumber, const QString& nodeName) {
+    return QStringLiteral("%1|%2|%3").arg(xmlPath, QString::number(lineNumber), nodeName);
+}
+
+QString resolveSkinEditXmlPath(const QString& xmlPath, const QString& skinBasePath) {
+    QFileInfo xmlPathInfo(xmlPath);
+    if (xmlPathInfo.isAbsolute()) {
+        return xmlPathInfo.absoluteFilePath();
+    }
+
+    if (xmlPath.startsWith(QStringLiteral("skin:"))) {
+        const QString relativePath = xmlPath.mid(QStringLiteral("skin:").size());
+        return QFileInfo(QDir(skinBasePath).filePath(relativePath)).absoluteFilePath();
+    }
+
+    if (xmlPath.startsWith(QStringLiteral("skins:"))) {
+        const QString relativePath = xmlPath.mid(QStringLiteral("skins:").size());
+        const QStringList searchPaths = QDir::searchPaths(QStringLiteral("skins"));
+        for (const QString& searchPath : searchPaths) {
+            QFileInfo candidate(QDir(searchPath).filePath(relativePath));
+            if (candidate.exists()) {
+                return candidate.absoluteFilePath();
+            }
+        }
+    }
+
+    return QFileInfo(QDir(skinBasePath).filePath(xmlPath)).absoluteFilePath();
+}
+
+QPoint mouseEventGlobalPos(const QMouseEvent* pMouseEvent) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return pMouseEvent->globalPosition().toPoint();
+#else
+    return pMouseEvent->globalPos();
+#endif
+}
+
+bool isSkinEditDisableGesture(const QMouseEvent* pMouseEvent) {
+    if (pMouseEvent == nullptr || pMouseEvent->button() != Qt::LeftButton) {
+        return false;
+    }
+
+    const Qt::KeyboardModifiers modifiers = pMouseEvent->modifiers();
+    return modifiers.testFlag(Qt::ControlModifier) &&
+            modifiers.testFlag(Qt::AltModifier);
+}
+
+bool isContainerSkinNodeName(const QString& nodeName) {
+    return nodeName == QStringLiteral("WidgetGroup") ||
+            nodeName == QStringLiteral("TrackWidgetGroup") ||
+            nodeName == QStringLiteral("WidgetStack") ||
+            nodeName == QStringLiteral("SizeAwareStack") ||
+            nodeName == QStringLiteral("Splitter") ||
+            nodeName == QStringLiteral("Scrollable");
+}
+
+QString skinEditNodeName(const QWidget* pWidget) {
+    if (pWidget == nullptr) {
+        return QString();
+    }
+    return pWidget->property(mixxx::skin::legacy::kSkinEditNodeNameProperty).toString();
+}
+
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 const ConfigKey kMenuBarHintConfigKey = ConfigKey("[Config]", "show_menubar_hint");
 } // namespace
@@ -110,7 +226,8 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
           m_inRebootMixxxView(false),
           m_pDeveloperToolsDlg(nullptr),
           m_pPrefDlg(nullptr),
-          m_toolTipsCfg(mixxx::preferences::Tooltips::On) {
+          m_toolTipsCfg(mixxx::preferences::Tooltips::On),
+          m_skinEditModeActive(false) {
     DEBUG_ASSERT(pCoreServices);
     // These depend on the settings
 #ifdef __LINUX__
@@ -904,6 +1021,16 @@ void MixxxMainWindow::connectMenuBar() {
             this,
             &MixxxMainWindow::slotDeveloperTools,
             Qt::UniqueConnection);
+    connect(m_pMenuBar,
+            &WMainMenuBar::toggleSkinEditMode,
+            this,
+            &MixxxMainWindow::slotToggleSkinEditMode,
+            Qt::UniqueConnection);
+    connect(m_pMenuBar,
+            &WMainMenuBar::triggerSkinEditUndo,
+            this,
+            &MixxxMainWindow::slotSkinEditUndoLastChange,
+            Qt::UniqueConnection);
 
     if (m_pCoreServices->getRecordingManager()) {
         connect(m_pCoreServices->getRecordingManager().get(),
@@ -1112,6 +1239,379 @@ void MixxxMainWindow::slotDeveloperTools(bool visible) {
 
 void MixxxMainWindow::slotDeveloperToolsClosed() {
     m_pDeveloperToolsDlg = nullptr;
+}
+
+void MixxxMainWindow::slotToggleSkinEditMode(bool enable) {
+    if (enable == m_skinEditModeActive) {
+        m_pMenuBar->onSkinEditModeChanged(m_skinEditModeActive);
+        return;
+    }
+
+    if (enable) {
+        clearSkinEditSessionState();
+        m_skinEditModeActive = true;
+        qApp->installEventFilter(this);
+
+        if (!m_pSkinEditHighlightTimer) {
+            m_pSkinEditHighlightTimer = make_parented<QTimer>(this);
+            m_pSkinEditHighlightTimer->setInterval(50);
+            connect(m_pSkinEditHighlightTimer.get(),
+                    &QTimer::timeout,
+                    this,
+                    &MixxxMainWindow::updateSkinEditHighlight,
+                    Qt::UniqueConnection);
+        }
+        m_pSkinEditHighlightTimer->start();
+
+        m_pMenuBar->onSkinEditModeChanged(true);
+        QMessageBox::information(this,
+                tr("Skin Edit Mode"),
+                tr("Skin Edit Mode is active. Press Ctrl+Alt and left-click a skin element in the decks or library to disable it.\n"
+                   "Use Skin Edit Undo Last Disable (Ctrl+Shift+Z) to undo the most recent disable.\n"
+                   "Toggle Skin Edit Mode off to save or cancel your changes."));
+        return;
+    }
+
+    if (m_skinEditPendingChanges.isEmpty()) {
+        m_skinEditModeActive = false;
+        qApp->removeEventFilter(this);
+        if (m_pSkinEditHighlightTimer) {
+            m_pSkinEditHighlightTimer->stop();
+        }
+        clearSkinEditSessionState();
+        m_pMenuBar->onSkinEditModeChanged(false);
+        return;
+    }
+
+    QMessageBox saveDialog(this);
+    saveDialog.setWindowTitle(tr("Skin Edit Mode"));
+    saveDialog.setText(tr("Save skin edits?"));
+    saveDialog.setInformativeText(tr("Changes will be written to skin XML files."));
+    QAbstractButton* pSaveButton = saveDialog.addButton(tr("Save"), QMessageBox::AcceptRole);
+    QAbstractButton* pDiscardButton =
+            saveDialog.addButton(tr("Discard"), QMessageBox::DestructiveRole);
+    QAbstractButton* pCancelButton = saveDialog.addButton(QMessageBox::Cancel);
+    saveDialog.setDefaultButton(qobject_cast<QPushButton*>(pSaveButton));
+    saveDialog.exec();
+
+    QAbstractButton* pClickedButton = saveDialog.clickedButton();
+    if (pClickedButton == pCancelButton) {
+        m_pMenuBar->onSkinEditModeChanged(true);
+        return;
+    }
+
+    if (pClickedButton == pSaveButton) {
+        if (!saveSkinEditChanges()) {
+            m_pMenuBar->onSkinEditModeChanged(true);
+            return;
+        }
+    }
+
+    m_skinEditModeActive = false;
+    qApp->removeEventFilter(this);
+    if (m_pSkinEditHighlightTimer) {
+        m_pSkinEditHighlightTimer->stop();
+    }
+    clearSkinEditSessionState();
+    m_pMenuBar->onSkinEditModeChanged(false);
+
+    if (pClickedButton == pSaveButton || pClickedButton == pDiscardButton) {
+        rebootMixxxView();
+    }
+}
+
+void MixxxMainWindow::slotSkinEditUndoLastChange() {
+    if (!m_skinEditModeActive || m_skinEditPendingChangeOrder.isEmpty()) {
+        return;
+    }
+
+    undoSkinEditChangeByKey(m_skinEditPendingChangeOrder.takeLast());
+    updateSkinEditHighlight();
+}
+
+void MixxxMainWindow::clearSkinEditSessionState() {
+    m_skinEditPendingChanges.clear();
+    m_skinEditPendingChangeOrder.clear();
+    m_skinEditHiddenWidgetStates.clear();
+
+    if (m_pSkinEditHighlightFrame) {
+        m_pSkinEditHighlightFrame->hide();
+    }
+}
+
+QWidget* MixxxMainWindow::findSkinEditTargetAtGlobalPos(const QPoint& globalPos) const {
+    if (m_pCentralWidget == nullptr) {
+        return nullptr;
+    }
+
+    QWidget* pDeepestWidget = QApplication::widgetAt(globalPos);
+    if (!isDescendantOf(pDeepestWidget, m_pCentralWidget) ||
+            isDescendantOf(pDeepestWidget, m_pMenuBar)) {
+        return nullptr;
+    }
+
+    while (pDeepestWidget != nullptr) {
+        const QPoint localPos = pDeepestWidget->mapFromGlobal(globalPos);
+        QWidget* pChildWidget = pDeepestWidget->childAt(localPos);
+        if (pChildWidget == nullptr || pChildWidget == pDeepestWidget) {
+            break;
+        }
+        pDeepestWidget = pChildWidget;
+    }
+
+    QWidget* pTargetFromHierarchy = findSkinEditTargetWidget(pDeepestWidget);
+    if (pTargetFromHierarchy != nullptr) {
+        return pTargetFromHierarchy;
+    }
+
+    const QPoint localPos = m_pCentralWidget->mapFromGlobal(globalPos);
+    QWidget* pBestNonContainer = nullptr;
+    int bestArea = std::numeric_limits<int>::max();
+    const auto childWidgets = m_pCentralWidget->findChildren<QWidget*>();
+    for (QWidget* pWidget : childWidgets) {
+        if (pWidget == nullptr || !pWidget->isVisible()) {
+            continue;
+        }
+
+        const QString xmlPath =
+                pWidget->property(mixxx::skin::legacy::kSkinEditXmlPathProperty).toString();
+        const int lineNumber =
+                pWidget->property(mixxx::skin::legacy::kSkinEditNodeLineProperty).toInt();
+        const QString nodeName = skinEditNodeName(pWidget);
+        if (xmlPath.isEmpty() || lineNumber <= 0 || nodeName.isEmpty() || nodeName == "skin" ||
+                isContainerSkinNodeName(nodeName)) {
+            continue;
+        }
+
+        const QRect widgetRect(pWidget->mapTo(m_pCentralWidget, QPoint(0, 0)), pWidget->size());
+        if (!widgetRect.contains(localPos)) {
+            continue;
+        }
+
+        const int area = widgetRect.width() * widgetRect.height();
+        if (area < bestArea) {
+            bestArea = area;
+            pBestNonContainer = pWidget;
+        }
+    }
+
+    return pBestNonContainer;
+}
+
+void MixxxMainWindow::updateSkinEditHighlight() {
+    if (!m_skinEditModeActive || m_pCentralWidget == nullptr) {
+        if (m_pSkinEditHighlightFrame) {
+            m_pSkinEditHighlightFrame->hide();
+        }
+        return;
+    }
+
+    QWidget* pTargetWidget = findSkinEditTargetAtGlobalPos(QCursor::pos());
+    if (pTargetWidget == nullptr || !pTargetWidget->isVisible()) {
+        if (m_pSkinEditHighlightFrame) {
+            m_pSkinEditHighlightFrame->hide();
+        }
+        return;
+    }
+
+    if (!m_pSkinEditHighlightFrame) {
+        m_pSkinEditHighlightFrame = make_parented<QFrame>(this);
+        m_pSkinEditHighlightFrame->setObjectName(QStringLiteral("SkinEditHighlightOverlay"));
+        m_pSkinEditHighlightFrame->setStyleSheet(
+                QStringLiteral("QFrame#SkinEditHighlightOverlay {"
+                               "border: 2px dashed #ff3366;"
+                               "background-color: rgba(255, 64, 129, 45);"
+                               "}"));
+        m_pSkinEditHighlightFrame->setAttribute(Qt::WA_TransparentForMouseEvents);
+    }
+
+    const QPoint topLeft = pTargetWidget->mapTo(this, QPoint(0, 0));
+    QRect targetRect(topLeft, pTargetWidget->size());
+    if (!targetRect.isValid() || targetRect.isEmpty()) {
+        m_pSkinEditHighlightFrame->hide();
+        return;
+    }
+
+    constexpr int kHighlightMargin = 1;
+    targetRect = targetRect.adjusted(
+            -kHighlightMargin,
+            -kHighlightMargin,
+            kHighlightMargin,
+            kHighlightMargin);
+
+    m_pSkinEditHighlightFrame->setGeometry(targetRect);
+    m_pSkinEditHighlightFrame->raise();
+    m_pSkinEditHighlightFrame->show();
+}
+
+QWidget* MixxxMainWindow::findSkinEditTargetWidget(QWidget* pWidget) const {
+    QWidget* pCurrentWidget = pWidget;
+    while (pCurrentWidget != nullptr && pCurrentWidget != m_pCentralWidget) {
+        const QString xmlPath =
+                pCurrentWidget->property(mixxx::skin::legacy::kSkinEditXmlPathProperty).toString();
+        const int lineNumber =
+                pCurrentWidget->property(mixxx::skin::legacy::kSkinEditNodeLineProperty).toInt();
+        const QString nodeName =
+                pCurrentWidget->property(mixxx::skin::legacy::kSkinEditNodeNameProperty).toString();
+
+        if (!xmlPath.isEmpty() && lineNumber > 0 && !nodeName.isEmpty() && nodeName != "skin" &&
+                !isContainerSkinNodeName(nodeName)) {
+            return pCurrentWidget;
+        }
+
+        pCurrentWidget = pCurrentWidget->parentWidget();
+    }
+
+    return nullptr;
+}
+
+void MixxxMainWindow::applySkinEditChangeToWidgets(
+        const QString& changeKey,
+        const SkinEditChange& change) {
+    if (m_pCentralWidget == nullptr) {
+        return;
+    }
+
+    QList<SkinEditWidgetState> hiddenWidgetStates;
+    const auto childWidgets = m_pCentralWidget->findChildren<QWidget*>();
+    for (QWidget* pWidget : childWidgets) {
+        if (pWidget->property(mixxx::skin::legacy::kSkinEditXmlPathProperty).toString() !=
+                change.xmlPath) {
+            continue;
+        }
+        if (pWidget->property(mixxx::skin::legacy::kSkinEditNodeLineProperty).toInt() !=
+                change.lineNumber) {
+            continue;
+        }
+        if (pWidget->property(mixxx::skin::legacy::kSkinEditNodeNameProperty).toString() !=
+                change.nodeName) {
+            continue;
+        }
+
+        hiddenWidgetStates.push_back(SkinEditWidgetState{pWidget, pWidget->isVisible()});
+        pWidget->hide();
+    }
+
+    m_skinEditHiddenWidgetStates.insert(changeKey, hiddenWidgetStates);
+}
+
+void MixxxMainWindow::undoSkinEditChangeByKey(const QString& changeKey) {
+    const QList<SkinEditWidgetState> hiddenWidgetStates =
+            m_skinEditHiddenWidgetStates.take(changeKey);
+    for (const SkinEditWidgetState& widgetState : hiddenWidgetStates) {
+        if (widgetState.pWidget) {
+            widgetState.pWidget->setVisible(widgetState.wasVisible);
+        }
+    }
+
+    m_skinEditPendingChanges.remove(changeKey);
+}
+
+bool MixxxMainWindow::saveSkinEditChanges() {
+    auto pSkin = m_pSkinLoader ? m_pSkinLoader->getConfiguredSkin() : nullptr;
+    const QString skinBasePath = pSkin ? pSkin->path().absoluteFilePath() : QString();
+
+    QHash<QString, QList<SkinEditChange>> changesByPath;
+    for (auto it = m_skinEditPendingChanges.constBegin(); it != m_skinEditPendingChanges.constEnd();
+            ++it) {
+        SkinEditChange change = it.value();
+        change.xmlPath = resolveSkinEditXmlPath(change.xmlPath, skinBasePath);
+        changesByPath[change.xmlPath].append(change);
+    }
+
+    QStringList errors;
+    for (auto changesIt = changesByPath.constBegin(); changesIt != changesByPath.constEnd();
+            ++changesIt) {
+        const QString xmlPath = changesIt.key();
+        QFile xmlFile(xmlPath);
+        if (!xmlFile.open(QIODevice::ReadOnly)) {
+            errors.append(tr("Could not open %1 for reading.").arg(xmlPath));
+            continue;
+        }
+
+        QDomDocument document;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+        const auto parseResult = document.setContent(&xmlFile);
+        if (!parseResult) {
+            errors.append(
+                    tr("Failed parsing %1 at line %2, column %3: %4")
+                            .arg(xmlPath,
+                                    QString::number(parseResult.errorLine),
+                                    QString::number(parseResult.errorColumn),
+                                    parseResult.errorMessage));
+            continue;
+        }
+#else
+        QString errorMessage;
+        int errorLine;
+        int errorColumn;
+        if (!document.setContent(&xmlFile, &errorMessage, &errorLine, &errorColumn)) {
+            errors.append(tr("Failed parsing %1 at line %2, column %3: %4")
+                                  .arg(xmlPath,
+                                          QString::number(errorLine),
+                                          QString::number(errorColumn),
+                                          errorMessage));
+            continue;
+        }
+#endif
+
+        bool hasFileChanges = false;
+        for (const SkinEditChange& change : changesIt.value()) {
+            QDomElement targetElement = findSkinElementByNodeNameAndLine(
+                    document.documentElement(), change.nodeName, change.lineNumber);
+            if (targetElement.isNull()) {
+                errors.append(tr("Could not locate <%1> at line %2 in %3.")
+                                      .arg(change.nodeName,
+                                              QString::number(change.lineNumber),
+                                              xmlPath));
+                continue;
+            }
+
+            QDomElement disabledElement =
+                    targetElement.firstChildElement(
+                            QString::fromUtf8(mixxx::skin::legacy::kSkinEditDisabledTagName));
+            if (disabledElement.isNull()) {
+                disabledElement = document.createElement(
+                        QString::fromUtf8(mixxx::skin::legacy::kSkinEditDisabledTagName));
+                disabledElement.appendChild(document.createTextNode(QStringLiteral("true")));
+                targetElement.appendChild(disabledElement);
+            } else {
+                QDomNode disabledNodeValue = disabledElement.firstChild();
+                if (disabledNodeValue.isNull()) {
+                    disabledElement.appendChild(document.createTextNode(QStringLiteral("true")));
+                } else {
+                    disabledNodeValue.setNodeValue(QStringLiteral("true"));
+                }
+            }
+            hasFileChanges = true;
+        }
+
+        if (!hasFileChanges) {
+            continue;
+        }
+
+        QSaveFile outputFile(xmlPath);
+        if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            errors.append(tr("Could not open %1 for writing.").arg(xmlPath));
+            continue;
+        }
+
+        QTextStream outputStream(&outputFile);
+        outputStream << document.toString(4);
+        if (!outputFile.commit()) {
+            errors.append(tr("Failed writing %1.").arg(xmlPath));
+            continue;
+        }
+    }
+
+    if (!errors.isEmpty()) {
+        QMessageBox::critical(this,
+                tr("Skin Edit Mode"),
+                tr("Some changes could not be saved:\n%1").arg(errors.join("\n")));
+        return false;
+    }
+
+    return true;
 }
 
 void MixxxMainWindow::slotViewFullScreen(bool toggle) {
@@ -1342,6 +1842,15 @@ void MixxxMainWindow::slotTooltipModeChanged(mixxx::preferences::Tooltips tt) {
 
 void MixxxMainWindow::rebootMixxxView() {
     qDebug() << "Now in rebootMixxxView...";
+    if (m_skinEditModeActive) {
+        m_skinEditModeActive = false;
+        qApp->removeEventFilter(this);
+        if (m_pSkinEditHighlightTimer) {
+            m_pSkinEditHighlightTimer->stop();
+        }
+        clearSkinEditSessionState();
+        m_pMenuBar->onSkinEditModeChanged(false);
+    }
     m_inRebootMixxxView = true;
 
     ScopedWaitCursor cursor;
@@ -1441,6 +1950,60 @@ void MixxxMainWindow::tryParseAndSetDefaultStyleSheet() {
 
 /// Catch ToolTip and WindowStateChange events
 bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
+    if (m_skinEditModeActive && event->type() == QEvent::MouseButtonPress) {
+        auto* pMouseEvent = dynamic_cast<QMouseEvent*>(event);
+        QWidget* pEventWidget = qobject_cast<QWidget*>(obj);
+        QWidget* pClickedWidgetFromEvent = findSkinEditTargetWidget(pEventWidget);
+        QWidget* pClickedWidgetFromPosition = pMouseEvent != nullptr
+                ? findSkinEditTargetAtGlobalPos(mouseEventGlobalPos(pMouseEvent))
+                : nullptr;
+
+        QWidget* pClickedWidget = pClickedWidgetFromPosition;
+        if (pClickedWidget == nullptr) {
+            pClickedWidget = pClickedWidgetFromEvent;
+        } else if (pClickedWidgetFromEvent != nullptr) {
+            const bool eventIsContainer = isContainerSkinNodeName(skinEditNodeName(pClickedWidgetFromEvent));
+            const bool posIsContainer = isContainerSkinNodeName(skinEditNodeName(pClickedWidget));
+            if (!eventIsContainer && posIsContainer) {
+                pClickedWidget = pClickedWidgetFromEvent;
+            }
+        }
+
+        if (pMouseEvent != nullptr &&
+                pClickedWidget != nullptr &&
+                isSkinEditDisableGesture(pMouseEvent) &&
+                isDescendantOf(pClickedWidget, m_pCentralWidget) &&
+                !isDescendantOf(pClickedWidget, m_pMenuBar)) {
+            QWidget* pTargetWidget = pClickedWidget;
+            if (pTargetWidget != nullptr) {
+                const QString xmlPath =
+                        pTargetWidget->property(mixxx::skin::legacy::kSkinEditXmlPathProperty)
+                                .toString();
+                const int lineNumber =
+                        pTargetWidget->property(mixxx::skin::legacy::kSkinEditNodeLineProperty)
+                                .toInt();
+                const QString nodeName =
+                        pTargetWidget->property(mixxx::skin::legacy::kSkinEditNodeNameProperty)
+                                .toString();
+
+                if (!xmlPath.isEmpty() && lineNumber > 0 && !nodeName.isEmpty()) {
+                    const QString changeKey = skinEditChangeKey(xmlPath, lineNumber, nodeName);
+                    if (!m_skinEditPendingChanges.contains(changeKey)) {
+                        m_skinEditPendingChanges.insert(
+                                changeKey,
+                                SkinEditChange{xmlPath, lineNumber, nodeName});
+                        m_skinEditPendingChangeOrder.push_back(changeKey);
+                        applySkinEditChangeToWidgets(
+                                changeKey,
+                                m_skinEditPendingChanges.value(changeKey));
+                    }
+                    updateSkinEditHighlight();
+                }
+            }
+            return true;
+        }
+    }
+
     if (event->type() == QEvent::ToolTip) {
         // Always show tooltips if Ctrl is held down
         if (QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
