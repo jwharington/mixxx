@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QHash>
+#include <QList>
 #include <QMainWindow>
+#include <QPointer>
 #include <QString>
 #include <memory>
 
@@ -15,6 +18,9 @@ class DlgPreferences;
 class DlgKeywheel;
 class GuiTick;
 class LaunchImage;
+class QPoint;
+class QFrame;
+class QTimer;
 class VisualsManager;
 class WMainMenuBar;
 struct LibraryScanResultSummary;
@@ -73,6 +79,8 @@ class MixxxMainWindow : public QMainWindow {
     /// open the developer tools dialog.
     void slotDeveloperTools(bool enable);
     void slotDeveloperToolsClosed();
+    void slotToggleSkinEditMode(bool enable);
+    void slotSkinEditUndoLastChange();
 
     void slotUpdateWindowTitle(TrackPointer pTrack);
 
@@ -105,12 +113,30 @@ class MixxxMainWindow : public QMainWindow {
     void closeEvent(QCloseEvent *event) override;
 
   private:
+    struct SkinEditChange {
+        QString xmlPath;
+        int lineNumber;
+        QString nodeName;
+    };
+
+    struct SkinEditWidgetState {
+        QPointer<QWidget> pWidget;
+        bool wasVisible;
+    };
+
     void initializeWindow();
     void checkDirectRendering();
 
     /// Load skin to a QWidget that we set as the central widget.
     bool loadConfiguredSkin();
     void tryParseAndSetDefaultStyleSheet();
+    QWidget* findSkinEditTargetWidget(QWidget* pWidget) const;
+    QWidget* findSkinEditTargetAtGlobalPos(const QPoint& globalPos) const;
+    void updateSkinEditHighlight();
+    void clearSkinEditSessionState();
+    void applySkinEditChangeToWidgets(const QString& changeKey, const SkinEditChange& change);
+    void undoSkinEditChangeByKey(const QString& changeKey);
+    bool saveSkinEditChanges();
 
     bool confirmExit();
 #ifndef __APPLE__
@@ -160,6 +186,13 @@ class MixxxMainWindow : public QMainWindow {
     mixxx::preferences::Tooltips m_toolTipsCfg;
 
     mixxx::preferences::ScreenSaver m_inhibitScreensaver;
+
+    bool m_skinEditModeActive;
+    QHash<QString, SkinEditChange> m_skinEditPendingChanges;
+    QList<QString> m_skinEditPendingChangeOrder;
+    QHash<QString, QList<SkinEditWidgetState>> m_skinEditHiddenWidgetStates;
+    parented_ptr<QFrame> m_pSkinEditHighlightFrame;
+    parented_ptr<QTimer> m_pSkinEditHighlightTimer;
 
     QSet<ControlObject*> m_skinCreatedControls;
 };

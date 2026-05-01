@@ -52,6 +52,7 @@ class WMainMenuBar : public QMenuBar {
     void onNewSkinLoaded();
     void onDeveloperToolsHidden();
     void onDeveloperToolsShown();
+    void onSkinEditModeChanged(bool enabled);
     void onFullScreenStateChange(bool fullscreen);
     void onVinylControlDeckEnabledStateChange(int deck, bool enabled);
     void onNumberOfDecksChanged(int decks);
@@ -77,6 +78,8 @@ class WMainMenuBar : public QMenuBar {
     void showKeywheel(bool visible);
     void showPreferences();
     void toggleDeveloperTools(bool toggle);
+    void toggleSkinEditMode(bool toggle);
+    void triggerSkinEditUndo();
     void toggleFullScreen(bool toggle);
     void toggleKeyboardShortcuts(bool toggle);
     void toggleBroadcasting(bool toggle);
@@ -90,6 +93,7 @@ class WMainMenuBar : public QMenuBar {
     void internalFullScreenStateChange(bool fullscreen);
     void internalLibraryScanActive(bool active);
     void internalDeveloperToolsStateChange(bool visible);
+    void internalSkinEditModeStateChange(bool enabled);
     void internalKeywheelStateChanged(int state);
     void internalOnNewSkinLoaded();
     void internalOnNewSkinAboutToLoad();
@@ -118,4 +122,5 @@ class WMainMenuBar : public QMenuBar {
     std::shared_ptr<KeyboardEventFilter> m_pKeyboard;
     QList<QAction*> m_loadToDeckActions;
     QList<QAction*> m_vinylControlEnabledActions;
+    QAction* m_pDeveloperSkinEditUndoAction{nullptr};
 };
