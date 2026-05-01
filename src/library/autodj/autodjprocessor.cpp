@@ -778,6 +778,17 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
             } else {
                 setCrossfader(1.0);
             }
+
+            if (m_queueMode == QueueMode::StaticQueue) {
+                const TrackPointer pTrack = thisDeck->getLoadedTrack();
+                if (pTrack) {
+                    const TrackId trackId = pTrack->getId();
+                    if (trackId.isValid() && findQueueRowByTrackId(trackId) >= 0) {
+                        m_staticQueuePlayedTrackIds.insert(trackId);
+                    }
+                }
+            }
+
             m_eState = ADJ_IDLE;
             // Invalidate threshold calculated for the old otherDeck
             // This avoids starting a fade back before the new track is
@@ -1168,6 +1179,16 @@ void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) 
         qDebug() << this << "playerPlayChanged" << thisDeck->group << playing;
     }
 
+    if (playing && m_queueMode == QueueMode::StaticQueue && !thisDeck->loading) {
+        const TrackPointer pTrack = thisDeck->getLoadedTrack();
+        if (pTrack) {
+            const TrackId trackId = pTrack->getId();
+            if (trackId.isValid() && findQueueRowByTrackId(trackId) >= 0) {
+                m_staticQueuePlayedTrackIds.insert(trackId);
+            }
+        }
+    }
+
     if (m_eState != ADJ_IDLE) {
         // We don't want to recalculate a running transition
         return;
@@ -1186,16 +1207,6 @@ void AutoDJProcessor::playerPlayChanged(DeckAttributes* thisDeck, bool playing) 
     }
 
     if (playing) {
-        if (m_queueMode == QueueMode::StaticQueue) {
-            const TrackPointer pTrack = thisDeck->getLoadedTrack();
-            if (pTrack) {
-                const TrackId trackId = pTrack->getId();
-                if (trackId.isValid()) {
-                    m_staticQueuePlayedTrackIds.insert(trackId);
-                }
-            }
-        }
-
         if (!otherDeck->isPlaying()) {
             // In case both decks were stopped and now this one just started, make
             // this deck the "from deck".

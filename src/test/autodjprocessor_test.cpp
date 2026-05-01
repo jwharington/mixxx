@@ -2007,3 +2007,77 @@ TEST_F(AutoDJProcessorTest, StaticQueue_StartsFromFirstUnplayedWhenRestartingWit
     ASSERT_TRUE(restartTrack);
     EXPECT_EQ(secondId, restartTrack->getId());
 }
+
+TEST_F(AutoDJProcessorTest,
+        StaticQueue_DisableWhilePlayingAfterTransition_UsesTrackAfterLastPlayedAsPreview) {
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    TrackPointer pFirstTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pFirstTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pFirstTrack);
+
+    TrackPointer loadedToSecondDeck;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel2]"), false))
+            .WillOnce(SaveArg<0>(&loadedToSecondDeck));
+    deck1.playposition.set(0.1);
+
+    ASSERT_TRUE(loadedToSecondDeck);
+    EXPECT_EQ(secondId, loadedToSecondDeck->getId());
+
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck2.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            false);
+    deck2.fakeTrackLoadedEvent(pSecondTrack);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_LEFT_FADING));
+    deck1.playposition.set(1.0);
+    EXPECT_EQ(AutoDJProcessor::ADJ_LEFT_FADING, pProcessor->getState());
+
+    deck1.playposition.set(9.9999);
+    EXPECT_DOUBLE_EQ(0.0, deck1.play.get());
+
+    TrackPointer loadedAfterSecondTrack;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false))
+            .WillOnce(SaveArg<0>(&loadedAfterSecondTrack));
+    deck2.playposition.set(0.1);
+
+    ASSERT_TRUE(loadedAfterSecondTrack);
+    EXPECT_EQ(thirdId, loadedAfterSecondTrack->getId());
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    err = pProcessor->toggleAutoDJ(false);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    deck2.play.set(0.0);
+    deck2.playposition.set(1.0);
+
+    TrackPointer pPreviewTrack = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewTrack);
+    EXPECT_EQ(thirdId, pPreviewTrack->getId());
+}
