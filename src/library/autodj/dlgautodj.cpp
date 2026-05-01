@@ -370,20 +370,20 @@ void DlgAutoDJ::slotCurrentPlayingTrackChanged(TrackPointer pTrack) {
 
 void DlgAutoDJ::updateHighlightedTrack() {
     TrackId highlightedTrackId;
+    QColor highlightColor = WTrackTableView::kPlayingTrackHighlightColor;
 
-    if (m_pAutoDJProcessor->getState() == AutoDJProcessor::ADJ_DISABLED) {
+    TrackPointer pPlayingTrack = PlayerInfo::instance().getCurrentPlayingTrack();
+    if (pPlayingTrack) {
+        highlightedTrackId = pPlayingTrack->getId();
+    } else {
         TrackPointer pPreviewTrack = m_pAutoDJProcessor->getEnablePreviewTrack();
         if (pPreviewTrack) {
             highlightedTrackId = pPreviewTrack->getId();
-        }
-    } else {
-        TrackPointer pTrack = PlayerInfo::instance().getCurrentPlayingTrack();
-        if (pTrack) {
-            highlightedTrackId = pTrack->getId();
+            highlightColor = WTrackTableView::kQueuedTrackHighlightColor;
         }
     }
 
-    m_pTrackTableView->setHighlightedTrackId(highlightedTrackId);
+    m_pTrackTableView->setHighlightedTrackId(highlightedTrackId, highlightColor);
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {

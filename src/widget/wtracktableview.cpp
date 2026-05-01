@@ -68,6 +68,7 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
                           kDefaultRatingStarScaleFactor),
                   kMinRatingStarScaleFactor,
                   kMaxRatingStarScaleFactor)),
+          m_highlightedTrackBorderColor(kPlayingTrackHighlightColor),
           m_sorting(false),
           m_selectionChangedSinceLastGuiTick(true),
           m_loadCachedOnly(false),
@@ -941,9 +942,9 @@ void WTrackTableView::paintEvent(QPaintEvent* e) {
                     continue;
                 }
 
-                QColor borderColor(0x53, 0xFF, 0x53);
+                QColor borderColor = m_highlightedTrackBorderColor;
                 borderColor.setAlpha(230);
-                QColor shadeColor(0x18, 0x66, 0x18);
+                QColor shadeColor = borderColor.darker(250);
                 shadeColor.setAlpha(200);
                 QColor fillColor = borderColor;
                 fillColor.setAlpha(36);
@@ -1010,11 +1011,14 @@ TrackModel* WTrackTableView::getTrackModel() const {
     return pTrackModel;
 }
 
-void WTrackTableView::setHighlightedTrackId(const TrackId& trackId) {
-    if (m_highlightedTrackId == trackId) {
+void WTrackTableView::setHighlightedTrackId(const TrackId& trackId,
+        const QColor& borderColor) {
+    if (m_highlightedTrackId == trackId &&
+            m_highlightedTrackBorderColor == borderColor) {
         return;
     }
     m_highlightedTrackId = trackId;
+    m_highlightedTrackBorderColor = borderColor;
     viewport()->update();
 }
 
