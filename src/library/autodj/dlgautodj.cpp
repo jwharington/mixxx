@@ -90,6 +90,12 @@ DlgAutoDJ::DlgAutoDJ(WLibrary* parent,
                 updateHighlightedTrack();
             });
     connect(m_pAutoDJTableModel,
+            &QAbstractItemModel::rowsMoved,
+            this,
+            [this](const QModelIndex&, int, int, const QModelIndex&, int) {
+                updateHighlightedTrack();
+            });
+    connect(m_pAutoDJTableModel,
             &QAbstractItemModel::modelReset,
             this,
             [this]() {

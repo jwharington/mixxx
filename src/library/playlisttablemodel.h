@@ -48,7 +48,7 @@ class PlaylistTableModel final : public TrackSetTableModel {
 
   signals:
     void firstTrackChanged();
-    /// Emitted whenever tracks are inserted into or reordered within the
+    /// Emitted whenever tracks are inserted, removed, or reordered within the
     /// playlist. Used by AutoDJ in StaticQueue mode to refresh the cued deck
     /// when the track immediately after the playing position changes.
     void playlistTracksChanged();

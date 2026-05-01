@@ -290,6 +290,7 @@ class AutoDJProcessor : public QObject {
 
     TrackPointer getNextTrackFromQueue();
     TrackPointer getNextTrackFromStaticQueue();
+    TrackId getPlayingOrFinishedTrackIdForStaticQueue();
     bool loadNextTrackFromQueue(const DeckAttributes& pDeck, bool play = false);
     void calculateTransition(DeckAttributes* pFromDeck,
             DeckAttributes* pToDeck,

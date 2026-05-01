@@ -241,7 +241,13 @@ bool PlaylistTableModel::appendTrack(TrackId trackId) {
     if (!trackId.isValid()) {
         return false;
     }
-    return m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().appendTrackToPlaylist(trackId, m_iPlaylistId);
+    const bool appended =
+            m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().appendTrackToPlaylist(
+                    trackId, m_iPlaylistId);
+    if (appended) {
+        emit playlistTracksChanged();
+    }
+    return appended;
 }
 
 void PlaylistTableModel::removeTrack(const QModelIndex& index) {
@@ -252,6 +258,11 @@ void PlaylistTableModel::removeTrack(const QModelIndex& index) {
     const int positionColumnIndex = fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION);
     int position = index.sibling(index.row(), positionColumnIndex).data().toInt();
     m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().removeTrackFromPlaylist(m_iPlaylistId, position);
+
+    if (position == 1) {
+        emit firstTrackChanged();
+    }
+    emit playlistTracksChanged();
 }
 
 void PlaylistTableModel::removeTracks(const QModelIndexList& indices) {
@@ -274,6 +285,7 @@ void PlaylistTableModel::removeTracks(const QModelIndexList& indices) {
     if (trackPositions.contains(1)) {
         emit firstTrackChanged();
     }
+    emit playlistTracksChanged();
 }
 
 void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
