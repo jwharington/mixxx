@@ -62,7 +62,11 @@ class WTrackTableView : public WLibraryTableView {
     void setSelectedTracks(const QList<TrackId>& tracks);
     TrackId getCurrentTrackId() const;
     bool setCurrentTrackId(const TrackId& trackId, int column = 0, bool scrollToTrack = false);
-    void setHighlightedTrackId(const TrackId& trackId);
+
+    static constexpr QColor kPlayingTrackHighlightColor = QColor(0x53, 0xFF, 0x53);
+    static constexpr QColor kQueuedTrackHighlightColor = QColor(0x5C, 0x82, 0xB6);
+    void setHighlightedTrackId(const TrackId& trackId,
+            const QColor& borderColor = kPlayingTrackHighlightColor);
 
     void addToAutoDJBottom();
     void addToAutoDJTop();
@@ -216,6 +220,7 @@ class WTrackTableView : public WLibraryTableView {
     QColor m_dropIndicatorColor;
     int m_ratingStarScaleFactor;
     TrackId m_highlightedTrackId;
+    QColor m_highlightedTrackBorderColor;
     bool m_sorting;
 
     // Control the delay to load a cover art.
