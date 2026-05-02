@@ -69,6 +69,7 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
                   kMinRatingStarScaleFactor,
                   kMaxRatingStarScaleFactor)),
           m_highlightedTrackBorderColor(kPlayingTrackHighlightColor),
+          m_secondaryHighlightedTrackBorderColor(kQueuedTrackHighlightColor),
           m_sorting(false),
           m_selectionChangedSinceLastGuiTick(true),
           m_loadCachedOnly(false),
@@ -922,43 +923,55 @@ void WTrackTableView::paintEvent(QPaintEvent* e) {
 
     QPainter painter(viewport());
 
-    if (m_highlightedTrackId.isValid()) {
-        TrackModel* pTrackModel = getTrackModel();
-        if (pTrackModel != nullptr) {
-            const QVector<int> rows = pTrackModel->getTrackRows(m_highlightedTrackId);
-            for (int row : rows) {
-                if (row < 0 || row >= model()->rowCount()) {
-                    continue;
-                }
-
-                const int y = rowViewportPosition(row);
-                const int h = rowHeight(row);
-                if (h <= 0 || y + h < 0 || y > viewport()->height()) {
-                    continue;
-                }
-
-                QRect borderRect(1, y + 1, viewport()->width() - 3, h - 3);
-                if (!borderRect.isValid()) {
-                    continue;
-                }
-
-                QColor borderColor = m_highlightedTrackBorderColor;
-                borderColor.setAlpha(230);
-                QColor shadeColor = borderColor.darker(250);
-                shadeColor.setAlpha(200);
-                QColor fillColor = borderColor;
-                fillColor.setAlpha(36);
-
-                painter.setRenderHint(QPainter::Antialiasing, false);
-                painter.fillRect(borderRect.adjusted(2, 2, -2, -2), fillColor);
-                painter.setPen(QPen(shadeColor, 3));
-                painter.drawRect(borderRect);
-                painter.setPen(QPen(borderColor, 1));
-                painter.drawRect(borderRect.adjusted(1, 1, -1, -1));
-                break;
-            }
+    auto drawHighlightedTrack = [this, &painter](
+                                      const TrackId& trackId,
+                                      const QColor& trackBorderColor) {
+        if (!trackId.isValid()) {
+            return;
         }
+        TrackModel* pTrackModel = getTrackModel();
+        if (pTrackModel == nullptr) {
+            return;
+        }
+        const QVector<int> rows = pTrackModel->getTrackRows(trackId);
+        for (int row : rows) {
+            if (row < 0 || row >= model()->rowCount()) {
+                continue;
+            }
+
+            const int y = rowViewportPosition(row);
+            const int h = rowHeight(row);
+            if (h <= 0 || y + h < 0 || y > viewport()->height()) {
+                continue;
+            }
+
+            QRect borderRect(1, y + 1, viewport()->width() - 3, h - 3);
+            if (!borderRect.isValid()) {
+                continue;
+            }
+
+            QColor borderColor = trackBorderColor;
+            borderColor.setAlpha(230);
+            QColor shadeColor = borderColor.darker(250);
+            shadeColor.setAlpha(200);
+            QColor fillColor = borderColor;
+            fillColor.setAlpha(36);
+
+            painter.setRenderHint(QPainter::Antialiasing, false);
+            painter.fillRect(borderRect.adjusted(2, 2, -2, -2), fillColor);
+            painter.setPen(QPen(shadeColor, 3));
+            painter.drawRect(borderRect);
+            painter.setPen(QPen(borderColor, 1));
+            painter.drawRect(borderRect.adjusted(1, 1, -1, -1));
+            break;
+        }
+    };
+
+    // Draw queued (secondary) first, then playing (primary) so playing takes precedence.
+    if (m_secondaryHighlightedTrackId != m_highlightedTrackId) {
+        drawHighlightedTrack(m_secondaryHighlightedTrackId, m_secondaryHighlightedTrackBorderColor);
     }
+    drawHighlightedTrack(m_highlightedTrackId, m_highlightedTrackBorderColor);
 
     if (m_dropRow < 0) {
         return;
@@ -1019,6 +1032,17 @@ void WTrackTableView::setHighlightedTrackId(const TrackId& trackId,
     }
     m_highlightedTrackId = trackId;
     m_highlightedTrackBorderColor = borderColor;
+    viewport()->update();
+}
+
+void WTrackTableView::setSecondaryHighlightedTrackId(const TrackId& trackId,
+        const QColor& borderColor) {
+    if (m_secondaryHighlightedTrackId == trackId &&
+            m_secondaryHighlightedTrackBorderColor == borderColor) {
+        return;
+    }
+    m_secondaryHighlightedTrackId = trackId;
+    m_secondaryHighlightedTrackBorderColor = borderColor;
     viewport()->update();
 }
 

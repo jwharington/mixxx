@@ -376,28 +376,37 @@ void DlgAutoDJ::slotCurrentPlayingTrackChanged(TrackPointer pTrack) {
 }
 
 void DlgAutoDJ::updateHighlightedTrack() {
-    TrackId highlightedTrackId;
-    QColor highlightColor = WTrackTableView::kPlayingTrackHighlightColor;
+    TrackId playingTrackId;
+    TrackId queuedTrackId;
 
     TrackPointer pPlayingTrack = PlayerInfo::instance().getCurrentPlayingTrack();
     if (pPlayingTrack) {
         m_pLatchedPlayingTrack = pPlayingTrack;
-        highlightedTrackId = pPlayingTrack->getId();
+        playingTrackId = pPlayingTrack->getId();
     } else if (m_pAutoDJProcessor->getQueueMode() == AutoDJProcessor::QueueMode::StaticQueue &&
             m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED &&
             m_pLatchedPlayingTrack) {
         // In StaticQueue mode, keep the currently live deck's track highlighted
         // while paused from Play/Pause.
-        highlightedTrackId = m_pLatchedPlayingTrack->getId();
-    } else {
-        TrackPointer pPreviewTrack = m_pAutoDJProcessor->getEnablePreviewTrack();
-        if (pPreviewTrack) {
-            highlightedTrackId = pPreviewTrack->getId();
-            highlightColor = WTrackTableView::kQueuedTrackHighlightColor;
-        }
+        playingTrackId = m_pLatchedPlayingTrack->getId();
     }
 
-    m_pTrackTableView->setHighlightedTrackId(highlightedTrackId, highlightColor);
+    TrackPointer pPreviewTrack = m_pAutoDJProcessor->getEnablePreviewTrack();
+    if (pPreviewTrack) {
+        queuedTrackId = pPreviewTrack->getId();
+    }
+
+    // If the same track is both playing and queued, show only the playing highlight.
+    if (queuedTrackId == playingTrackId) {
+        queuedTrackId = TrackId();
+    }
+
+    m_pTrackTableView->setHighlightedTrackId(
+            playingTrackId,
+            WTrackTableView::kPlayingTrackHighlightColor);
+    m_pTrackTableView->setSecondaryHighlightedTrackId(
+            queuedTrackId,
+            WTrackTableView::kQueuedTrackHighlightColor);
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {

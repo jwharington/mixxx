@@ -1,7 +1,7 @@
 <!--
 Description:
   Single-deck channel mixer for SwingSingle.
-  EQ + QuickEffect are shown as a horizontal row of vertical faders
+  EQ controls are shown as a horizontal row of vertical faders
   with labels underneath each element.
 Variables:
   group : [ChannelXY]
@@ -15,18 +15,18 @@ Variables:
       <WidgetGroup><ObjectName>Spacer0f</ObjectName><Size>1f,1min</Size></WidgetGroup>
 
       <WidgetGroup><Size>2f,1min</Size></WidgetGroup>
-      <!-- EQ/QuickEffect row | Vol + Gain -->
+      <!-- EQ row | Vol + Gain -->
       <WidgetGroup>
         <Layout>vertical</Layout>
         <SizePolicy>max,min</SizePolicy>
         <Children>
 
-          <WidgetGroup><!-- EQ/QuickEffect row | Vol + gain -->
+          <WidgetGroup><!-- EQ row | Vol + gain -->
             <Layout>horizontal</Layout>
             <SizePolicy>max,me</SizePolicy>
             <Children>
 
-              <WidgetGroup><!-- EQ + QuickEffect faders with labels -->
+              <WidgetGroup><!-- EQ faders with labels -->
                 <Layout>vertical</Layout>
                 <SizePolicy>max,min</SizePolicy>
                 <Children>
@@ -120,7 +120,7 @@ Variables:
                   <ConfigKey persist="true">[Skin],show_eq_knobs</ConfigKey>
                   <BindProperty>visible</BindProperty>
                 </Connection>
-              </WidgetGroup><!-- /EQ + QuickEffect faders with labels -->
+              </WidgetGroup><!-- /EQ faders with labels -->
 
               <WidgetGroup><!-- Volume Slider + Gain knob -->
                 <ObjectName>VolumeSliderGain</ObjectName>
@@ -153,11 +153,11 @@ Variables:
               </WidgetGroup><!-- /Volume Slider + Gain knob -->
 
             </Children>
-          </WidgetGroup><!-- /EQ/QuickEffect row | Vol + gain -->
+          </WidgetGroup><!-- /EQ row | Vol + gain -->
 
 
         </Children>
-      </WidgetGroup><!-- /EQ/QuickEffect row | Vol + gain -->
+      </WidgetGroup><!-- /EQ row | Vol + gain -->
 
 
       <WidgetGroup><!-- VU Meter + Pfl button -->
