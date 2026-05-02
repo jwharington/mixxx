@@ -88,6 +88,30 @@ T* findFirstStoppedPlayerInList(const QList<T*>& players) {
     return nullptr;
 }
 
+/// Returns the first object from a list of `BaseTrackPlayer` instances where
+/// the corresponding `play` CO is set to 1.
+template<class T>
+T* findFirstPlayingPlayerInList(const QList<T*>& players) {
+    for (T* pPlayer : players) {
+        VERIFY_OR_DEBUG_ASSERT(pPlayer != nullptr) {
+            continue;
+        }
+
+        ControlObject* pPlayControl = ControlObject::getControl(
+                ConfigKey(pPlayer->getGroup(), "play"));
+        VERIFY_OR_DEBUG_ASSERT(pPlayControl != nullptr) {
+            continue;
+        }
+
+        if (pPlayControl->toBool()) {
+            return pPlayer;
+        }
+    }
+
+    // There is no playing player in the list.
+    return nullptr;
+}
+
 inline QString getDefaultSamplerPath(UserSettingsPointer pConfig) {
     return pConfig->getSettingsPath() + QStringLiteral("/samplers.xml");
 }
@@ -734,17 +758,29 @@ void PlayerManager::slotLoadToSampler(const QString& location, int sampler) {
 
 void PlayerManager::slotLoadTrackIntoNextAvailableDeck(TrackPointer pTrack) {
     auto locker = lockMutex(&m_mutex);
-    BaseTrackPlayer* pDeck = findFirstStoppedPlayerInList(m_decks);
-    if (pDeck == nullptr) {
-        qDebug() << "PlayerManager: No stopped deck found, not loading track!";
-        return;
-    }
 
     const bool autoDjEnabled = ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0;
     const bool showAutoDJQueueSplit = m_pConfig->getValue(
             mixxx::library::prefs::kShowAutoDJQueueSplitConfigKey,
             mixxx::library::prefs::kShowAutoDJQueueSplitDefault);
     const bool playImmediately = !autoDjEnabled && !showAutoDJQueueSplit;
+
+    BaseTrackPlayer* pDeck = nullptr;
+    if (playImmediately) {
+        // Replace whichever deck is currently playing so only one track plays.
+        pDeck = findFirstPlayingPlayerInList(m_decks);
+    }
+    if (pDeck == nullptr) {
+        pDeck = findFirstStoppedPlayerInList(m_decks);
+    }
+    if (pDeck == nullptr) {
+        qDebug() << "PlayerManager: No suitable deck found, not loading track!";
+        return;
+    }
+
+    if (playImmediately) {
+        ControlObject::set(ConfigKey(pDeck->getGroup(), "play"), 0.0);
+    }
 #ifdef __STEM__
     // Reset the QuickFx of stem to their default value
     if (m_pConfig->getValue(
