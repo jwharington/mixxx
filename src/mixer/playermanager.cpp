@@ -8,6 +8,7 @@
 #include "engine/channels/enginedeck.h"
 #include "engine/enginemixer.h"
 #include "library/library.h"
+#include "library/library_prefs.h"
 #include "library/trackcollectionmanager.h"
 #include "mixer/auxiliary.h"
 #include "mixer/deck.h"
@@ -738,6 +739,12 @@ void PlayerManager::slotLoadTrackIntoNextAvailableDeck(TrackPointer pTrack) {
         qDebug() << "PlayerManager: No stopped deck found, not loading track!";
         return;
     }
+
+    const bool autoDjEnabled = ControlObject::get(ConfigKey("[AutoDJ]", "enabled")) > 0.0;
+    const bool showAutoDJQueueSplit = m_pConfig->getValue(
+            mixxx::library::prefs::kShowAutoDJQueueSplitConfigKey,
+            mixxx::library::prefs::kShowAutoDJQueueSplitDefault);
+    const bool playImmediately = !autoDjEnabled && !showAutoDJQueueSplit;
 #ifdef __STEM__
     // Reset the QuickFx of stem to their default value
     if (m_pConfig->getValue(
@@ -757,7 +764,7 @@ void PlayerManager::slotLoadTrackIntoNextAvailableDeck(TrackPointer pTrack) {
 #ifdef __STEM__
             mixxx::StemChannelSelection(),
 #endif
-            false);
+            playImmediately);
 }
 
 void PlayerManager::slotLoadLocationIntoNextAvailableDeck(const QString& location, bool play) {
