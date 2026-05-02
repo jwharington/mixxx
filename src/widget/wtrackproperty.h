@@ -115,6 +115,7 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     bool m_bPlaying;
     parented_ptr<WTrackPropertyEditor> m_pEditor;
     ControlProxy* m_pPlayControl;
+    ControlProxy* m_pPlayPositionControl;
 
     parented_ptr<WTrackMenu> m_pTrackMenu;
 };
