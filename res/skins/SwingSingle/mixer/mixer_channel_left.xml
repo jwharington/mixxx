@@ -28,21 +28,20 @@ Variables:
 
               <WidgetGroup><!-- EQ faders with labels -->
                 <Layout>vertical</Layout>
-                <SizePolicy>max,min</SizePolicy>
+                <SizePolicy>max,me</SizePolicy>
                 <Children>
-                  <WidgetGroup><Size>1min,4f</Size></WidgetGroup>
 
                   <WidgetGroup>
                     <ObjectName>EqSliderRow</ObjectName>
                     <Layout>horizontal</Layout>
-                    <SizePolicy>max,min</SizePolicy>
+                    <SizePolicy>max,me</SizePolicy>
                     <Children>
                       <WidgetGroup>
                         <Layout>vertical</Layout>
-                        <SizePolicy>min,min</SizePolicy>
+                        <SizePolicy>min,me</SizePolicy>
                         <Children>
                           <SliderComposed>
-                            <Size>34f,78f</Size>
+                            <Size>34f,1me</Size>
                             <ObjectName>EqSliderLow</ObjectName>
                             <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
                             <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
@@ -63,10 +62,10 @@ Variables:
 
                       <WidgetGroup>
                         <Layout>vertical</Layout>
-                        <SizePolicy>min,min</SizePolicy>
+                        <SizePolicy>min,me</SizePolicy>
                         <Children>
                           <SliderComposed>
-                            <Size>34f,78f</Size>
+                            <Size>34f,1me</Size>
                             <ObjectName>EqSliderMid</ObjectName>
                             <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
                             <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
@@ -87,10 +86,10 @@ Variables:
 
                       <WidgetGroup>
                         <Layout>vertical</Layout>
-                        <SizePolicy>min,min</SizePolicy>
+                        <SizePolicy>min,me</SizePolicy>
                         <Children>
                           <SliderComposed>
-                            <Size>34f,78f</Size>
+                            <Size>34f,1me</Size>
                             <ObjectName>EqSliderHigh</ObjectName>
                             <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
                             <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>

@@ -19,6 +19,19 @@ Variables:
     <SizePolicy>me,min</SizePolicy>
     <Children>
 
+      <WidgetGroup><!-- Mixer -->
+        <Layout>vertical</Layout>
+        <SizePolicy>f,min</SizePolicy>
+        <Children>
+          <Template src="skins:SwingSingle/mixer/mixer_channel_left.xml"/>
+          <WidgetGroup><ObjectName>Spacer1e</ObjectName><Size>0min,0me</Size></WidgetGroup>
+        </Children>
+        <Connection>
+          <ConfigKey persist="true">[Skin],show_mixer</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </WidgetGroup><!-- /Mixer -->
+
       <WidgetGroup><!-- [Overview, Comment, ArtistTitle] + [Loop/Beatjump, DeckButtons] -->
         <ObjectName>Deck<Variable name="chanNum"/></ObjectName>
         <SizePolicy>me,min</SizePolicy>
@@ -104,19 +117,6 @@ Variables:
           <BindProperty>visible</BindProperty>
         </Connection>
       </WidgetGroup><!-- /Spinny + VUMeter -->
-
-      <WidgetGroup><!-- Mixer -->
-        <Layout>vertical</Layout>
-        <SizePolicy>f,min</SizePolicy>
-        <Children>
-          <Template src="skins:SwingSingle/mixer/mixer_channel_left.xml"/>
-          <WidgetGroup><ObjectName>Spacer1e</ObjectName><Size>0min,0me</Size></WidgetGroup>
-        </Children>
-        <Connection>
-          <ConfigKey persist="true">[Skin],show_mixer</ConfigKey>
-          <BindProperty>visible</BindProperty>
-        </Connection>
-      </WidgetGroup><!-- /Mixer -->
 
       <!-- Pitch slider & Key controls -->
       <WidgetGroup>
