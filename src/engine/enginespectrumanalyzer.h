@@ -12,7 +12,7 @@ class FFTReal;
 
 class EngineSpectrumAnalyzer {
   public:
-    static constexpr int kNumBins = 32;
+    static constexpr int kNumBins = 64;
 
     EngineSpectrumAnalyzer(const QString& group,
             const QString& legacyGroup = QString(),
