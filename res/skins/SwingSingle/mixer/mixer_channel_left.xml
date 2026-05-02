@@ -203,7 +203,7 @@ Variables:
                           </Spectrum>
                           <Label>
                             <Size>120f,14f</Size>
-                            <Text>SPEC</Text>
+                            <Text>Spectrum</Text>
                             <Alignment>center</Alignment>
                           </Label>
                         </Children>
