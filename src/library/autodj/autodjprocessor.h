@@ -304,6 +304,8 @@ class AutoDJProcessor : public QObject {
     DeckAttributes* getLeftDeck();
     DeckAttributes* getRightDeck();
     DeckAttributes* getOtherDeck(const DeckAttributes* pThisDeck);
+    DeckAttributes* getSingleDeck();
+    bool isSingleDeckAutoDJMode() const;
 
     // Ensure AutoDJ has two decks available and oriented left/right.
     // Returns false if this cannot be established.
