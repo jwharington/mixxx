@@ -184,6 +184,31 @@ Variables:
                         </Children>
                       </WidgetGroup>
 
+                      <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
+                      <WidgetGroup>
+                        <ObjectName>SpectrumSection</ObjectName>
+                        <Layout>vertical</Layout>
+                        <SizePolicy>min,me</SizePolicy>
+                        <Children>
+                          <Spectrum>
+                            <ObjectName>SpectrumDisplay</ObjectName>
+                            <Group><Variable name="group"/></Group>
+                            <Size>120f,1me</Size>
+                            <NumberOfBins>64</NumberOfBins>
+                            <BarGap>1</BarGap>
+                            <DecayPerTick>6</DecayPerTick>
+                            <ShowFilteredLine>true</ShowFilteredLine>
+                            <FilteredLineLowPass>35</FilteredLineLowPass>
+                          </Spectrum>
+                          <Label>
+                            <Size>120f,14f</Size>
+                            <Text>SPEC</Text>
+                            <Alignment>center</Alignment>
+                          </Label>
+                        </Children>
+                      </WidgetGroup>
+
                     </Children>
                     <Connection>
                       <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],loaded</ConfigKey>

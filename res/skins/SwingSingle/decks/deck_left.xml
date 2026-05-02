@@ -50,25 +50,6 @@ Variables:
                 <Layout>horizontal</Layout>
                 <Size>0me,50f</Size>
                 <Children>
-                  <WidgetGroup>
-                    <ObjectName>SpectrumContainerDeck<Variable name="chanNum"/></ObjectName>
-                    <Layout>horizontal</Layout>
-                    <Size>160f,50f</Size>
-                    <Children>
-                      <Spectrum>
-                        <ObjectName>SpectrumDeck<Variable name="chanNum"/></ObjectName>
-                        <Group><Variable name="group"/></Group>
-                        <Size>144f,50f</Size>
-                        <NumberOfBins>64</NumberOfBins>
-                        <BarGap>1</BarGap>
-                        <DecayPerTick>6</DecayPerTick>
-                        <ShowFilteredLine>true</ShowFilteredLine>
-                        <FilteredLineLowPass>35</FilteredLineLowPass>
-                      </Spectrum>
-                      <WidgetGroup><Size>16f,1min</Size></WidgetGroup>
-                    </Children>
-                  </WidgetGroup>
-
                   <Template src="skins:Swing/decks/row_overview_left.xml"/>
                 </Children>
               </WidgetGroup>
