@@ -15,16 +15,97 @@ Variables:
       <WidgetGroup><ObjectName>Spacer0f</ObjectName><Size>1f,1min</Size></WidgetGroup>
 
       <WidgetGroup><Size>2f,1min</Size></WidgetGroup>
-      <!-- EQ row | Vol + Gain -->
+      <!-- Volumes + VU + EQ -->
       <WidgetGroup>
         <Layout>vertical</Layout>
         <SizePolicy>max,min</SizePolicy>
         <Children>
 
-          <WidgetGroup><!-- EQ row | Vol + gain -->
+          <WidgetGroup><!-- Volumes + VU + EQ row -->
             <Layout>horizontal</Layout>
             <SizePolicy>max,me</SizePolicy>
             <Children>
+
+              <WidgetGroup><!-- Main volume + gain + headphone volume -->
+                <ObjectName>VolumeSliderGain</ObjectName>
+                <Layout>horizontal</Layout>
+                <SizePolicy>f,me</SizePolicy>
+                <Children>
+                  <WidgetGroup><!-- Main volume slider + gain knob -->
+                    <Layout>vertical</Layout>
+                    <SizePolicy>f,me</SizePolicy>
+                    <Children>
+                      <SliderComposed><!-- Main volume slider -->
+                        <Size>34f,89min</Size>
+                        <ObjectName>VolumeSlider</ObjectName>
+                        <TooltipId>channel_volume</TooltipId>
+                        <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                        <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                        <Horizontal>false</Horizontal>
+                        <Connection>
+                          <ConfigKey><Variable name="group"/>,volume</ConfigKey>
+                        </Connection>
+                      </SliderComposed><!-- /Main volume slider -->
+
+                      <!-- Gain knob, centered below Main volume slider -->
+                      <Template src="skins:Swing/controls/knob_textless.xml">
+                        <SetVariable name="ObjectName">GainKnob</SetVariable>
+                        <SetVariable name="TooltipId">pregain</SetVariable>
+                        <SetVariable name="Size">34f,30f</SetVariable>
+                        <SetVariable name="Color">yellow</SetVariable>
+                        <SetVariable name="group"><Variable name="group"/></SetVariable>
+                        <SetVariable name="ConfigKey">pregain</SetVariable>
+                      </Template>
+
+                      <Label>
+                        <Size>34f,14f</Size>
+                        <Text>MAIN</Text>
+                        <Alignment>center</Alignment>
+                      </Label>
+                    </Children>
+                  </WidgetGroup><!-- /Main volume slider + gain knob -->
+
+                  <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
+                  <WidgetGroup><!-- Headphone volume slider -->
+                    <Layout>vertical</Layout>
+                    <SizePolicy>f,me</SizePolicy>
+                    <Children>
+                      <SliderComposed>
+                        <Size>34f,89min</Size>
+                        <ObjectName>HeadphoneVolumeSlider</ObjectName>
+                        <TooltipId>headphone_volume</TooltipId>
+                        <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                        <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                        <Horizontal>false</Horizontal>
+                        <Connection>
+                          <ConfigKey>[Master],headGain</ConfigKey>
+                        </Connection>
+                      </SliderComposed>
+
+                      <WidgetGroup><Size>34f,30f</Size></WidgetGroup>
+
+                      <Label>
+                        <Size>34f,14f</Size>
+                        <Text>HEAD</Text>
+                        <Alignment>center</Alignment>
+                      </Label>
+                    </Children>
+                  </WidgetGroup><!-- /Headphone volume slider -->
+                </Children>
+              </WidgetGroup><!-- /Main volume + gain + headphone volume -->
+
+              <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
+              <WidgetGroup><!-- VU Meter -->
+                <ObjectName>AlignCenter</ObjectName>
+                <Layout>vertical</Layout>
+                <Children>
+                  <Template src="skins:Swing/mixer/vumeter_mixer.xml"/>
+                </Children>
+              </WidgetGroup><!-- /VU Meter -->
+
+              <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
 
               <WidgetGroup><!-- EQ faders with labels -->
                 <Layout>vertical</Layout>
@@ -106,7 +187,6 @@ Variables:
                         </Children>
                       </WidgetGroup>
 
-
                     </Children>
                     <Connection>
                       <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],loaded</ConfigKey>
@@ -121,71 +201,12 @@ Variables:
                 </Connection>
               </WidgetGroup><!-- /EQ faders with labels -->
 
-              <WidgetGroup><!-- Volume Slider + Gain knob -->
-                <ObjectName>VolumeSliderGain</ObjectName>
-                <Layout>vertical</Layout>
-                <SizePolicy>f,me</SizePolicy>
-                <Children>
-                  <SliderComposed><!-- Volume slider -->
-                    <Size>34f,89min</Size>
-                    <ObjectName>VolumeSlider</ObjectName>
-                    <TooltipId>channel_volume</TooltipId>
-                    <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
-                    <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
-                    <Horizontal>false</Horizontal>
-                    <Connection>
-                      <ConfigKey><Variable name="group"/>,volume</ConfigKey>
-                    </Connection>
-                  </SliderComposed><!-- /Volume slider -->
-
-                  <!-- Gain knob, centered below Volume slider -->
-                  <Template src="skins:Swing/controls/knob_textless.xml">
-                    <SetVariable name="ObjectName">GainKnob</SetVariable>
-                    <SetVariable name="TooltipId">pregain</SetVariable>
-                    <SetVariable name="Size">34f,30f</SetVariable>
-                    <SetVariable name="Color">yellow</SetVariable>
-                    <SetVariable name="group"><Variable name="group"/></SetVariable>
-                    <SetVariable name="ConfigKey">pregain</SetVariable>
-                  </Template>
-
-                </Children>
-              </WidgetGroup><!-- /Volume Slider + Gain knob -->
-
             </Children>
-          </WidgetGroup><!-- /EQ row | Vol + gain -->
+          </WidgetGroup><!-- /Volumes + VU + EQ row -->
 
 
         </Children>
-      </WidgetGroup><!-- /EQ row | Vol + gain -->
-
-
-      <WidgetGroup><!-- VU Meter + Pfl button -->
-        <ObjectName>AlignCenter</ObjectName>
-        <Layout>vertical</Layout>
-        <Children>
-          <Template src="skins:Swing/mixer/vumeter_mixer.xml"/>
-
-          <WidgetGroup><Size>1min,0me</Size></WidgetGroup>
-
-          <WidgetGroup><!-- Pfl button, isolated with a 'gap' -->
-            <ObjectName>PflBoxLeft</ObjectName>
-            <Size>25f,25f</Size>
-            <Layout>stacked</Layout>
-            <Children>
-              <!-- Greyed out if no headphone device is configured -->
-              <Template src="skins:Swing/helpers/pfl_cover.xml"/>
-              <Template src="skins:Swing/controls/button_2state.xml">
-                <SetVariable name="TooltipId">pfl</SetVariable>
-                <SetVariable name="ObjectName">PflButton</SetVariable>
-                <SetVariable name="Size">24f,24f</SetVariable>
-                <SetVariable name="state_0_icon">pfl_off.svg</SetVariable>
-                <SetVariable name="state_1_icon">pfl_on.svg</SetVariable>
-                <SetVariable name="ConfigKey"><Variable name="group"/>,pfl</SetVariable>
-              </Template>
-            </Children>
-          </WidgetGroup><!-- /Pfl button, isolated with a 'gap' -->
-        </Children>
-      </WidgetGroup><!-- /VU Meter + Pfl button -->
+      </WidgetGroup><!-- /Volumes + VU + EQ -->
 
     </Children>
   </WidgetGroup>
