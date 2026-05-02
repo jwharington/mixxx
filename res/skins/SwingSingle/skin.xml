@@ -37,7 +37,7 @@
   -->
     <attributes>
       <!-- Set skin defaults. -->
-      <attribute config_key="[App],num_decks">2</attribute>
+      <attribute config_key="[App],num_decks">1</attribute>
       <attribute config_key="[App],num_samplers">16</attribute>
       <attribute persist="true" config_key="[Swing],stacked_waveforms">1</attribute>
       <attribute persist="true" config_key="[Swing],beatgrid_buttons">0</attribute>
