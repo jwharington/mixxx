@@ -67,6 +67,16 @@ Variables:
 
                   <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
 
+                  <WidgetGroup><!-- VU Meter -->
+                    <ObjectName>AlignCenter</ObjectName>
+                    <Layout>vertical</Layout>
+                    <Children>
+                      <Template src="skins:Swing/mixer/vumeter_mixer.xml"/>
+                    </Children>
+                  </WidgetGroup><!-- /VU Meter -->
+
+                  <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
                   <WidgetGroup><!-- Headphone volume slider -->
                     <Layout>vertical</Layout>
                     <SizePolicy>f,me</SizePolicy>
@@ -85,25 +95,14 @@ Variables:
 
                       <WidgetGroup><Size>34f,30f</Size></WidgetGroup>
 
-                      <Label>
+                      <WidgetGroup>
+                        <ObjectName>HeadphoneMixerLabel</ObjectName>
                         <Size>34f,14f</Size>
-                        <Text>HEAD</Text>
-                        <Alignment>center</Alignment>
-                      </Label>
+                      </WidgetGroup>
                     </Children>
                   </WidgetGroup><!-- /Headphone volume slider -->
                 </Children>
               </WidgetGroup><!-- /Main volume + gain + headphone volume -->
-
-              <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
-
-              <WidgetGroup><!-- VU Meter -->
-                <ObjectName>AlignCenter</ObjectName>
-                <Layout>vertical</Layout>
-                <Children>
-                  <Template src="skins:Swing/mixer/vumeter_mixer.xml"/>
-                </Children>
-              </WidgetGroup><!-- /VU Meter -->
 
               <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
 
