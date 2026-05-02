@@ -38,6 +38,10 @@ WTrackProperty::WTrackProperty(
           m_pPlayControl(new ControlProxy(group,
                   QStringLiteral("play_indicator"),
                   this,
+                  ControlFlag::NoAssertIfMissing)),
+          m_pPlayPositionControl(new ControlProxy(group,
+                  QStringLiteral("playposition"),
+                  this,
                   ControlFlag::NoAssertIfMissing)) {
     m_pPlayControl->connectValueChanged(this, &WTrackProperty::slotPlayStateChanged);
     m_bPlaying = m_pPlayControl->toBool();
@@ -112,13 +116,23 @@ void WTrackProperty::slotTrackChanged(TrackId trackId) {
 }
 
 void WTrackProperty::slotPlayStateChanged(double playState) {
-    // Keep the track label highlighted once this deck has gone live, even if
-    // playback is paused. This highlight resets when the track is unloaded.
-    if (playState <= 0.0 || m_bPlaying) {
+    if (playState > 0.0) {
+        // Deck went live.
+        if (!m_bPlaying) {
+            m_bPlaying = true;
+            restyleAndRepaint();
+        }
         return;
     }
-    m_bPlaying = true;
-    restyleAndRepaint();
+
+    // play_indicator turned off. Keep highlight latched for pause, but clear it
+    // when playback naturally reaches end-of-track.
+    const bool reachedTrackEnd = m_pPlayPositionControl &&
+            m_pPlayPositionControl->get() >= 0.999;
+    if (reachedTrackEnd && m_bPlaying) {
+        m_bPlaying = false;
+        restyleAndRepaint();
+    }
 }
 
 void WTrackProperty::updateLabel() {
