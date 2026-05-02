@@ -82,7 +82,7 @@ Variables:
                     <SizePolicy>f,me</SizePolicy>
                     <Children>
                       <SliderComposed>
-                        <Size>34f,89min</Size>
+                        <Size>34f,1me</Size>
                         <ObjectName>HeadphoneVolumeSlider</ObjectName>
                         <TooltipId>headphone_volume</TooltipId>
                         <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
@@ -92,8 +92,6 @@ Variables:
                           <ConfigKey>[Master],headGain</ConfigKey>
                         </Connection>
                       </SliderComposed>
-
-                      <WidgetGroup><Size>34f,30f</Size></WidgetGroup>
 
                       <WidgetGroup>
                         <ObjectName>HeadphoneMixerLabel</ObjectName>
@@ -124,7 +122,7 @@ Variables:
                             <Size>34f,1me</Size>
                             <ObjectName>EqSliderLow</ObjectName>
                             <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
-                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Handle scalemode="STRETCH_ASPECT">skins:SwingSingle/knobs_sliders/volume_handle_eq_low.svg</Handle>
                             <Horizontal>false</Horizontal>
                             <Connection>
                               <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],parameter1</ConfigKey>
@@ -148,7 +146,7 @@ Variables:
                             <Size>34f,1me</Size>
                             <ObjectName>EqSliderMid</ObjectName>
                             <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
-                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Handle scalemode="STRETCH_ASPECT">skins:SwingSingle/knobs_sliders/volume_handle_eq_mid.svg</Handle>
                             <Horizontal>false</Horizontal>
                             <Connection>
                               <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],parameter2</ConfigKey>
@@ -172,7 +170,7 @@ Variables:
                             <Size>34f,1me</Size>
                             <ObjectName>EqSliderHigh</ObjectName>
                             <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
-                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Handle scalemode="STRETCH_ASPECT">skins:SwingSingle/knobs_sliders/volume_handle_eq_high.svg</Handle>
                             <Horizontal>false</Horizontal>
                             <Connection>
                               <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],parameter3</ConfigKey>
