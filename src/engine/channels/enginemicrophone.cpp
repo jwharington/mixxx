@@ -35,6 +35,7 @@ EngineChannel::ActiveState EngineMicrophone::updateActiveState() {
     }
     if (m_active) {
         m_vuMeter.reset();
+        m_spectrumAnalyzer.reset();
         m_active = false;
         return ActiveState::WasActive;
     }
@@ -88,8 +89,9 @@ void EngineMicrophone::process(CSAMPLE* pOut, const std::size_t bufferSize) {
     }
     m_sampleBuffer = nullptr;
 
-    // Update VU meter
+    // Update VU meter and spectrum analyzer
     m_vuMeter.process(pOut, bufferSize);
+    m_spectrumAnalyzer.process(pOut, bufferSize);
 }
 
 void EngineMicrophone::collectFeatures(GroupFeatureState* pGroupFeatures) const {

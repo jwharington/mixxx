@@ -1342,6 +1342,7 @@ add_library(
   src/engine/enginepregain.cpp
   src/engine/enginesidechaincompressor.cpp
   src/engine/enginetalkoverducking.cpp
+  src/engine/enginespectrumanalyzer.cpp
   src/engine/enginevumeter.cpp
   src/engine/engineworker.cpp
   src/engine/engineworkerscheduler.cpp
@@ -1793,6 +1794,7 @@ add_library(
   src/widget/wsizeawarestack.cpp
   src/widget/wskincolor.cpp
   src/widget/wslidercomposed.cpp
+  src/widget/wspectrum.cpp
   src/widget/wspinny.cpp
   src/widget/wspinnybase.cpp
   src/widget/wsplitter.cpp

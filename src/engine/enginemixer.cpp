@@ -13,6 +13,7 @@
 #include "engine/effects/engineeffectsmanager.h"
 #include "engine/enginebuffer.h"
 #include "engine/enginedelay.h"
+#include "engine/enginespectrumanalyzer.h"
 #include "engine/enginetalkoverducking.h"
 #include "engine/enginevumeter.h"
 #include "engine/engineworkerscheduler.h"
@@ -94,6 +95,7 @@ EngineMixer::EngineMixer(UserSettingsPointer pConfig,
           m_pLatencyCompensationDelay(std::make_unique<EngineDelay>(
                   ConfigKey(group, "microphoneLatencyCompensation"))),
           m_pVumeter(std::make_unique<EngineVuMeter>(kMainGroup, kLegacyGroup)),
+          m_pSpectrumAnalyzer(std::make_unique<EngineSpectrumAnalyzer>(kMainGroup, kLegacyGroup)),
           // Starts a thread for recording and broadcast
           m_pEngineSideChain(bEnableSidechain
                           ? std::make_unique<EngineSideChain>(
@@ -764,10 +766,13 @@ void EngineMixer::process(const std::size_t bufferSize) {
         m_balleftOld = balleft;
         m_balrightOld = balright;
 
-        // Update VU meter (it does not return anything). Needs to be here so that
-        // main balance and talkover is reflected in the VU meter.
+        // Update VU meter/spectrum. Needs to be here so that main balance
+        // and talkover are reflected in the analysis.
         if (m_pVumeter != nullptr) {
             m_pVumeter->process(m_main.data(), bufferSize);
+        }
+        if (m_pSpectrumAnalyzer != nullptr) {
+            m_pSpectrumAnalyzer->process(m_main.data(), bufferSize);
         }
     }
 

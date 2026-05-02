@@ -76,6 +76,7 @@
 #include "widget/wsizeawarestack.h"
 #include "widget/wskincolor.h"
 #include "widget/wslidercomposed.h"
+#include "widget/wspectrum.h"
 #include "widget/wspinny.h"
 #include "widget/wspinnyglsl.h"
 #include "widget/wsplitter.h"
@@ -575,6 +576,8 @@ QList<QWidget*> LegacySkinParser::parseNode(const QDomElement& node) {
         result = wrapWidget(parseStarRating(node));
     } else if (nodeName == "VuMeter") {
         result = wrapWidget(parseVuMeter(node));
+    } else if (nodeName == "Spectrum") {
+        result = wrapWidget(parseSpectrum(node));
     } else if (nodeName == "StatusLight") {
         result = wrapWidget(parseStandardWidget<WStatusLight>(node));
     } else if (nodeName == "Display") {
@@ -1555,6 +1558,38 @@ QWidget* LegacySkinParser::parseVuMeter(const QDomElement& node) {
     pVuMeterWidget->Init();
 
     return pVuMeterWidget;
+}
+
+QWidget* LegacySkinParser::parseSpectrum(const QDomElement& node) {
+#ifdef MIXXX_USE_QML
+    if (CmdlineArgs::Instance().isQml()) {
+        return nullptr;
+    }
+#endif
+    const QString group = lookupNodeGroup(node);
+    if (group.isEmpty()) {
+        SKIN_WARNING(node,
+                *m_pContext,
+                QStringLiteral("Spectrum widget requires a non-empty group"));
+        return nullptr;
+    }
+
+    auto* pSpectrumWidget = new WSpectrum(m_pParent);
+    commonWidgetSetup(node, pSpectrumWidget, false);
+    pSpectrumWidget->setup(group, node, *m_pContext);
+    pSpectrumWidget->installEventFilter(m_pKeyboard);
+    pSpectrumWidget->installEventFilter(
+            m_pControllerManager->getControllerLearningEventFilter());
+
+    auto* pWaveformWidgetFactory = WaveformWidgetFactory::instance();
+    connect(pWaveformWidgetFactory,
+            &WaveformWidgetFactory::waveformUpdateTick,
+            pSpectrumWidget,
+            &WSpectrum::maybeUpdate,
+            Qt::QueuedConnection);
+
+    pSpectrumWidget->Init();
+    return pSpectrumWidget;
 }
 
 QWidget* LegacySkinParser::parseSearchBox(const QDomElement& node) {

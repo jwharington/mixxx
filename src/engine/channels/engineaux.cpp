@@ -36,6 +36,7 @@ EngineChannel::ActiveState EngineAux::updateActiveState() {
     }
     if (m_active) {
         m_vuMeter.reset();
+        m_spectrumAnalyzer.reset();
         m_active = false;
         return ActiveState::WasActive;
     }
@@ -87,8 +88,9 @@ void EngineAux::process(CSAMPLE* pOut, const std::size_t bufferSize) {
         SampleUtil::clear(pOut, bufferSize);
     }
 
-    // Update VU meter
+    // Update VU meter and spectrum analyzer
     m_vuMeter.process(pOut, bufferSize);
+    m_spectrumAnalyzer.process(pOut, bufferSize);
 }
 
 void EngineAux::collectFeatures(GroupFeatureState* pGroupFeatures) const {
