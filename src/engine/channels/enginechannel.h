@@ -3,6 +3,7 @@
 #include "control/pollingcontrolproxy.h"
 #include "engine/channelhandle.h"
 #include "engine/engineobject.h"
+#include "engine/enginespectrumanalyzer.h"
 #include "engine/enginevumeter.h"
 
 class EffectsManager;
@@ -80,6 +81,7 @@ class EngineChannel : public EngineObject {
     EffectsManager* m_pEffectsManager;
 
     EngineVuMeter m_vuMeter;
+    EngineSpectrumAnalyzer m_spectrumAnalyzer;
     PollingControlProxy m_sampleRate;
     const CSAMPLE* volatile m_sampleBuffer;
 

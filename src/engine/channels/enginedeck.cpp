@@ -270,8 +270,9 @@ void EngineDeck::process(CSAMPLE* pOut, const std::size_t bufferSize) {
                 mixxx::audio::SampleRate::fromDouble(m_sampleRate.get()));
     }
 
-    // Update VU meter
+    // Update VU meter and spectrum analyzer
     m_vuMeter.process(pOut, bufferSize);
+    m_spectrumAnalyzer.process(pOut, bufferSize);
 }
 
 void EngineDeck::collectFeatures(GroupFeatureState* pGroupFeatures) const {
@@ -306,6 +307,7 @@ EngineChannel::ActiveState EngineDeck::updateActiveState() {
     }
     if (m_active) {
         m_vuMeter.reset();
+        m_spectrumAnalyzer.reset();
 #ifdef __STEM__
         for (auto& stemVuMeter : m_stemVuMeter) {
             stemVuMeter->reset();
