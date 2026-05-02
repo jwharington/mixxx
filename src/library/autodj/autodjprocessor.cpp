@@ -2004,6 +2004,12 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
         loadNextTrackFromQueue(*pDeck, m_eState == ADJ_ENABLE_P1LOADED);
     } else if (m_eState == ADJ_IDLE) {
         if (isSingleDeckAutoDJMode()) {
+            if (m_transitionMode == TransitionMode::FixedStartCenterSkipSilence) {
+                const double firstSoundSecond = getFirstSoundSecond(pDeck);
+                if (firstSoundSecond > 0.0 && firstSoundSecond < duration) {
+                    pDeck->setPlayPosition(firstSoundSecond / duration);
+                }
+            }
             // No transition partner exists in single-deck mode.
             return;
         }
