@@ -1,0 +1,19 @@
+<!--
+Description:
+  Single-deck container based on Swing deck layout.
+-->
+<Template>
+  <SetVariable name="SignalColor"><Variable name="SignalColor_12"/></SetVariable>
+  <SetVariable name="SignalBgColor"><Variable name="SignalBgColor_12"/></SetVariable>
+  <SetVariable name="SpinnyCoverColor"><Variable name="SpinnyCoverColor_12"/></SetVariable>
+
+  <WidgetGroup>
+    <Layout>horizontal</Layout>
+    <SizePolicy>me,f</SizePolicy>
+    <Children>
+      <Template src="skins:SwingSingle/decks/deck_left.xml">
+        <SetVariable name="chanNum">1</SetVariable>
+      </Template>
+    </Children>
+  </WidgetGroup>
+</Template>

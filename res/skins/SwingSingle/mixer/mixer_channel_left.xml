@@ -1,0 +1,193 @@
+<!--
+Description:
+  Single-deck channel mixer for SwingSingle.
+  EQ + QuickEffect are shown as a horizontal row of vertical faders
+  with labels underneath each element.
+Variables:
+  group : [ChannelXY]
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>MixerChannelLeft</ObjectName>
+    <Layout>horizontal</Layout>
+    <Size>-1max,136f</Size>
+    <Children>
+      <WidgetGroup><ObjectName>Spacer0f</ObjectName><Size>1f,1min</Size></WidgetGroup>
+
+      <WidgetGroup><Size>2f,1min</Size></WidgetGroup>
+      <!-- EQ/QuickEffect row | Vol + Gain -->
+      <WidgetGroup>
+        <Layout>vertical</Layout>
+        <SizePolicy>max,min</SizePolicy>
+        <Children>
+
+          <WidgetGroup><!-- EQ/QuickEffect row | Vol + gain -->
+            <Layout>horizontal</Layout>
+            <SizePolicy>max,me</SizePolicy>
+            <Children>
+
+              <WidgetGroup><!-- EQ + QuickEffect faders with labels -->
+                <Layout>vertical</Layout>
+                <SizePolicy>max,min</SizePolicy>
+                <Children>
+                  <WidgetGroup><Size>1min,4f</Size></WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>EqSliderRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <SizePolicy>max,min</SizePolicy>
+                    <Children>
+                      <WidgetGroup>
+                        <Layout>vertical</Layout>
+                        <SizePolicy>min,min</SizePolicy>
+                        <Children>
+                          <SliderComposed>
+                            <Size>34f,78f</Size>
+                            <ObjectName>EqSliderLow</ObjectName>
+                            <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Horizontal>false</Horizontal>
+                            <Connection>
+                              <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],parameter1</ConfigKey>
+                            </Connection>
+                          </SliderComposed>
+                          <Label>
+                            <Size>34f,14f</Size>
+                            <Text>LOW</Text>
+                            <Alignment>center</Alignment>
+                          </Label>
+                        </Children>
+                      </WidgetGroup>
+
+                      <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
+                      <WidgetGroup>
+                        <Layout>vertical</Layout>
+                        <SizePolicy>min,min</SizePolicy>
+                        <Children>
+                          <SliderComposed>
+                            <Size>34f,78f</Size>
+                            <ObjectName>EqSliderMid</ObjectName>
+                            <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Horizontal>false</Horizontal>
+                            <Connection>
+                              <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],parameter2</ConfigKey>
+                            </Connection>
+                          </SliderComposed>
+                          <Label>
+                            <Size>34f,14f</Size>
+                            <Text>MID</Text>
+                            <Alignment>center</Alignment>
+                          </Label>
+                        </Children>
+                      </WidgetGroup>
+
+                      <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
+                      <WidgetGroup>
+                        <Layout>vertical</Layout>
+                        <SizePolicy>min,min</SizePolicy>
+                        <Children>
+                          <SliderComposed>
+                            <Size>34f,78f</Size>
+                            <ObjectName>EqSliderHigh</ObjectName>
+                            <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Horizontal>false</Horizontal>
+                            <Connection>
+                              <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],parameter3</ConfigKey>
+                            </Connection>
+                          </SliderComposed>
+                          <Label>
+                            <Size>34f,14f</Size>
+                            <Text>HIGH</Text>
+                            <Alignment>center</Alignment>
+                          </Label>
+                        </Children>
+                      </WidgetGroup>
+
+
+                    </Children>
+                    <Connection>
+                      <ConfigKey>[EqualizerRack1_<Variable name="group"/>_Effect1],loaded</ConfigKey>
+                      <BindProperty>visible</BindProperty>
+                    </Connection>
+                  </WidgetGroup>
+
+                </Children>
+                <Connection>
+                  <ConfigKey persist="true">[Skin],show_eq_knobs</ConfigKey>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
+              </WidgetGroup><!-- /EQ + QuickEffect faders with labels -->
+
+              <WidgetGroup><!-- Volume Slider + Gain knob -->
+                <ObjectName>VolumeSliderGain</ObjectName>
+                <Layout>vertical</Layout>
+                <SizePolicy>f,me</SizePolicy>
+                <Children>
+                  <SliderComposed><!-- Volume slider -->
+                    <Size>34f,89min</Size>
+                    <ObjectName>VolumeSlider</ObjectName>
+                    <TooltipId>channel_volume</TooltipId>
+                    <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                    <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                    <Horizontal>false</Horizontal>
+                    <Connection>
+                      <ConfigKey><Variable name="group"/>,volume</ConfigKey>
+                    </Connection>
+                  </SliderComposed><!-- /Volume slider -->
+
+                  <!-- Gain knob, centered below Volume slider -->
+                  <Template src="skins:Swing/controls/knob_textless.xml">
+                    <SetVariable name="ObjectName">GainKnob</SetVariable>
+                    <SetVariable name="TooltipId">pregain</SetVariable>
+                    <SetVariable name="Size">34f,30f</SetVariable>
+                    <SetVariable name="Color">yellow</SetVariable>
+                    <SetVariable name="group"><Variable name="group"/></SetVariable>
+                    <SetVariable name="ConfigKey">pregain</SetVariable>
+                  </Template>
+
+                </Children>
+              </WidgetGroup><!-- /Volume Slider + Gain knob -->
+
+            </Children>
+          </WidgetGroup><!-- /EQ/QuickEffect row | Vol + gain -->
+
+
+        </Children>
+      </WidgetGroup><!-- /EQ/QuickEffect row | Vol + gain -->
+
+
+      <WidgetGroup><!-- VU Meter + Pfl button -->
+        <ObjectName>AlignCenter</ObjectName>
+        <Layout>vertical</Layout>
+        <Children>
+          <Template src="skins:Swing/mixer/vumeter_mixer.xml"/>
+
+          <WidgetGroup><Size>1min,0me</Size></WidgetGroup>
+
+          <WidgetGroup><!-- Pfl button, isolated with a 'gap' -->
+            <ObjectName>PflBoxLeft</ObjectName>
+            <Size>25f,25f</Size>
+            <Layout>stacked</Layout>
+            <Children>
+              <!-- Greyed out if no headphone device is configured -->
+              <Template src="skins:Swing/helpers/pfl_cover.xml"/>
+              <Template src="skins:Swing/controls/button_2state.xml">
+                <SetVariable name="TooltipId">pfl</SetVariable>
+                <SetVariable name="ObjectName">PflButton</SetVariable>
+                <SetVariable name="Size">24f,24f</SetVariable>
+                <SetVariable name="state_0_icon">pfl_off.svg</SetVariable>
+                <SetVariable name="state_1_icon">pfl_on.svg</SetVariable>
+                <SetVariable name="ConfigKey"><Variable name="group"/>,pfl</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup><!-- /Pfl button, isolated with a 'gap' -->
+        </Children>
+      </WidgetGroup><!-- /VU Meter + Pfl button -->
+
+    </Children>
+  </WidgetGroup>
+</Template>
