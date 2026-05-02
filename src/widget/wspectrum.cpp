@@ -1,7 +1,6 @@
 #include "widget/wspectrum.h"
 
 #include <QPainter>
-#include <QPainterPath>
 #include <QStyleOption>
 #include <cmath>
 
@@ -102,8 +101,18 @@ void WSpectrum::maybeUpdate() {
                 0.001,
                 1.0);
         for (int i = 0; i < m_numBins; ++i) {
-            m_lineFilteredValues[i] +=
-                    temporalAlpha * (targetLine[i] - m_lineFilteredValues[i]);
+            const double oldValue = m_lineFilteredValues[i];
+            if (targetLine[i] >= oldValue) {
+                // Fast attack, similar to VU peak tracking.
+                m_lineFilteredValues[i] = targetLine[i];
+            } else {
+                // Slow decay.
+                m_lineFilteredValues[i] +=
+                        temporalAlpha * (targetLine[i] - oldValue);
+            }
+            if (std::fabs(m_lineFilteredValues[i] - oldValue) > kUpdateEpsilon) {
+                changed = true;
+            }
         }
     }
 
@@ -127,9 +136,11 @@ void WSpectrum::paintEvent(QPaintEvent* /*unused*/) {
     const int barWidth = math_max(1, (content.width() - totalGap) / m_numBins);
     const QColor barColor = palette().highlight().color();
 
+    const int filteredMarkerHeight = math_max(1, content.height() / 25);
+    QColor filteredColor = barColor;
+    filteredColor.setAlpha(120);
+
     int x = content.left();
-    QVector<QPointF> filteredPoints;
-    filteredPoints.reserve(m_numBins);
     for (int i = 0; i < m_numBins; ++i) {
         const double value = math_clamp(m_binValues[i], 0.0, 1.0);
         const int height = math_clamp(
@@ -149,38 +160,17 @@ void WSpectrum::paintEvent(QPaintEvent* /*unused*/) {
                     static_cast<int>(std::round(filteredValue * content.height())),
                     0,
                     content.height());
-            filteredPoints.append(QPointF(
-                    x + barWidth / 2.0,
-                    content.bottom() - filteredHeight + 1));
+
+            if (filteredHeight > height) {
+                const int markerY = content.bottom() - filteredHeight + 1;
+                QRect markerRect(x, markerY, barWidth, filteredMarkerHeight);
+                markerRect = markerRect.intersected(content);
+                p.fillRect(markerRect, filteredColor);
+            }
         }
 
         m_lastPaintedValues[i] = value;
         x += barWidth + m_barGap;
     }
 
-    if (m_showFilteredLine && filteredPoints.size() > 1) {
-        p.setRenderHint(QPainter::Antialiasing, true);
-
-        QPainterPath areaPath;
-        areaPath.moveTo(filteredPoints.first().x(), content.bottom() + 1.0);
-        for (const QPointF& point : filteredPoints) {
-            areaPath.lineTo(point);
-        }
-        areaPath.lineTo(filteredPoints.last().x(), content.bottom() + 1.0);
-        areaPath.closeSubpath();
-
-        QColor outlineColor = palette().mid().color();
-        outlineColor.setAlpha(40);
-        QPen outlinePen(outlineColor);
-        outlinePen.setWidthF(1.0);
-        p.setPen(outlinePen);
-        p.setBrush(Qt::NoBrush);
-        p.drawPolyline(filteredPoints.constData(), filteredPoints.size());
-
-        QColor overlayColor = palette().mid().color();
-        overlayColor.setAlpha(80);
-        p.setPen(Qt::NoPen);
-        p.setBrush(overlayColor);
-        p.drawPath(areaPath);
-    }
 }
