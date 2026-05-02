@@ -1,9 +1,9 @@
 #include "widget/wspectrum.h"
 
-#include <cmath>
-
 #include <QPainter>
+#include <QPainterPath>
 #include <QStyleOption>
+#include <cmath>
 
 #include "moc_wspectrum.cpp"
 #include "skin/legacy/skincontext.h"
@@ -13,6 +13,7 @@ namespace {
 constexpr int kDefaultBarGap = 1;
 constexpr double kDefaultDecayPerTick = 0.04;
 constexpr double kDefaultFilteredLineAlpha = 0.35;
+constexpr double kFilteredLineTemporalSlowdown = 5.0;
 constexpr double kUpdateEpsilon = 0.001;
 } // namespace
 
@@ -82,16 +83,27 @@ void WSpectrum::maybeUpdate() {
 
     if (m_showFilteredLine && m_numBins > 0) {
         std::array<double, EngineSpectrumAnalyzer::kNumBins> forward{};
+        std::array<double, EngineSpectrumAnalyzer::kNumBins> targetLine{};
+
         forward[0] = m_binValues[0];
         for (int i = 1; i < m_numBins; ++i) {
             forward[i] = m_filteredLineAlpha * m_binValues[i] +
                     (1.0 - m_filteredLineAlpha) * forward[i - 1];
         }
 
-        m_lineFilteredValues[m_numBins - 1] = forward[m_numBins - 1];
+        targetLine[m_numBins - 1] = forward[m_numBins - 1];
         for (int i = m_numBins - 2; i >= 0; --i) {
-            m_lineFilteredValues[i] = m_filteredLineAlpha * forward[i] +
-                    (1.0 - m_filteredLineAlpha) * m_lineFilteredValues[i + 1];
+            targetLine[i] = m_filteredLineAlpha * forward[i] +
+                    (1.0 - m_filteredLineAlpha) * targetLine[i + 1];
+        }
+
+        const double temporalAlpha = math_clamp(
+                m_filteredLineAlpha / kFilteredLineTemporalSlowdown,
+                0.001,
+                1.0);
+        for (int i = 0; i < m_numBins; ++i) {
+            m_lineFilteredValues[i] +=
+                    temporalAlpha * (targetLine[i] - m_lineFilteredValues[i]);
         }
     }
 
@@ -148,11 +160,27 @@ void WSpectrum::paintEvent(QPaintEvent* /*unused*/) {
 
     if (m_showFilteredLine && filteredPoints.size() > 1) {
         p.setRenderHint(QPainter::Antialiasing, true);
-        QColor lineColor = palette().highlightedText().color();
-        lineColor.setAlpha(220);
-        QPen linePen(lineColor);
-        linePen.setWidthF(1.5);
-        p.setPen(linePen);
+
+        QPainterPath areaPath;
+        areaPath.moveTo(filteredPoints.first().x(), content.bottom() + 1.0);
+        for (const QPointF& point : filteredPoints) {
+            areaPath.lineTo(point);
+        }
+        areaPath.lineTo(filteredPoints.last().x(), content.bottom() + 1.0);
+        areaPath.closeSubpath();
+
+        QColor outlineColor = palette().mid().color();
+        outlineColor.setAlpha(40);
+        QPen outlinePen(outlineColor);
+        outlinePen.setWidthF(1.0);
+        p.setPen(outlinePen);
+        p.setBrush(Qt::NoBrush);
         p.drawPolyline(filteredPoints.constData(), filteredPoints.size());
+
+        QColor overlayColor = palette().mid().color();
+        overlayColor.setAlpha(80);
+        p.setPen(Qt::NoPen);
+        p.setBrush(overlayColor);
+        p.drawPath(areaPath);
     }
 }
