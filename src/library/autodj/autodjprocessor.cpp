@@ -20,6 +20,21 @@ constexpr double kKeepPosition = -1.0;
 constexpr double kMinimumTrackDurationSec = 0.2;
 
 constexpr bool sDebug = false;
+
+class ScopedPlaylistMutation {
+  public:
+    explicit ScopedPlaylistMutation(int* pDepth)
+            : m_pDepth(pDepth) {
+        ++(*m_pDepth);
+    }
+
+    ~ScopedPlaylistMutation() {
+        --(*m_pDepth);
+    }
+
+  private:
+    int* m_pDepth;
+};
 } // anonymous namespace
 
 DeckAttributes::DeckAttributes(int index,
@@ -362,11 +377,14 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
         TrackId nextId = m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(0, 0));
         TrackId leftId = pLeftDeck->getLoadedTrack()->getId();
         TrackId rightId = pRightDeck->getLoadedTrack()->getId();
-        if (nextId == leftId || nextId == rightId) {
-            // One of the playing tracks is still on top of playlist, remove second item
-            m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(1, 0));
-        } else {
-            m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
+        {
+            ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+            if (nextId == leftId || nextId == rightId) {
+                // One of the playing tracks is still on top of playlist, remove second item
+                m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(1, 0));
+            } else {
+                m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
+            }
         }
         maybeFillRandomTracks();
     }
@@ -946,8 +964,11 @@ TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
             } else {
                 // Remove missing track from auto DJ playlist.
                 qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
-                m_pAutoDJTableModel->removeTrack(
-                        m_pAutoDJTableModel->index(0, 0));
+                {
+                    ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+                    m_pAutoDJTableModel->removeTrack(
+                            m_pAutoDJTableModel->index(0, 0));
+                }
                 // Don't "Requeue" missing tracks to avoid andless loops
                 maybeFillRandomTracks();
             }
@@ -1125,7 +1146,10 @@ TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
         }
         if (pNextTrack) {
             qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
-            m_pAutoDJTableModel->removeTrack(nextIndex);
+            {
+                ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+                m_pAutoDJTableModel->removeTrack(nextIndex);
+            }
             return getNextTrackFromStaticQueue();
         }
     }
@@ -1148,7 +1172,10 @@ TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
         }
 
         qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
-        m_pAutoDJTableModel->removeTrack(index);
+        {
+            ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+            m_pAutoDJTableModel->removeTrack(index);
+        }
         return getNextTrackFromStaticQueue();
     }
 
@@ -1209,12 +1236,15 @@ bool AutoDJProcessor::removeTrackFromTopOfQueue(TrackPointer pTrack) {
         return true;
     }
 
-    // Remove the top track.
-    m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
+    {
+        ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+        // Remove the top track.
+        m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(0, 0));
 
-    // Re-queue if configured.
-    if (m_queueMode == QueueMode::Requeue) {
-        m_pAutoDJTableModel->appendTrack(nextId);
+        // Re-queue if configured.
+        if (m_queueMode == QueueMode::Requeue) {
+            m_pAutoDJTableModel->appendTrack(nextId);
+        }
     }
 
     maybeFillRandomTracks();
@@ -1835,6 +1865,7 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
         // Remove track with duration smaller than two callbacks.
         const int row = findQueueRowByTrackId(pTrack ? pTrack->getId() : TrackId());
         if (row >= 0) {
+            ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
             m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(row, 0));
         }
 
@@ -1905,6 +1936,7 @@ void AutoDJProcessor::playerLoadingTrack(DeckAttributes* pDeck,
         // this track seams to be undesired. Remove the bad track from the queue.
         const int row = findQueueRowByTrackId(pOldTrack ? pOldTrack->getId() : TrackId());
         if (row >= 0) {
+            ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
             m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(row, 0));
         }
 
@@ -1951,6 +1983,9 @@ void AutoDJProcessor::playlistFirstTrackChanged() {
     if constexpr (sDebug) {
         qDebug() << this << "playlistFirstTrackChanged";
     }
+    if (m_playlistMutationDepth > 0) {
+        return;
+    }
     if (m_eState != ADJ_DISABLED) {
         DeckAttributes* pLeftDeck = getLeftDeck();
         DeckAttributes* pRightDeck = getRightDeck();
@@ -1966,6 +2001,9 @@ void AutoDJProcessor::playlistFirstTrackChanged() {
 void AutoDJProcessor::playlistTracksChanged() {
     if constexpr (sDebug) {
         qDebug() << this << "playlistTracksChanged";
+    }
+    if (m_playlistMutationDepth > 0) {
+        return;
     }
     // In StaticQueue mode the next track is determined by the playing track's
     // position in the queue, not by row 0. Re-evaluate the cued deck whenever
