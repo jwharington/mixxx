@@ -444,39 +444,6 @@
 
                             <Template src="skins:SwingSingle/decks_single.xml"/>
 
-                            <WidgetGroup>
-                              <Layout>vertical</Layout>
-                              <SizePolicy>me,min</SizePolicy>
-                              <Children>
-                                <SingletonContainer>
-                                  <ObjectName>FxUnits_12_Singleton</ObjectName>
-                                </SingletonContainer>
-                              </Children>
-                              <Connection>
-                                <ConfigKey persist="true">[Skin],show_4effectunits</ConfigKey>
-                                <BindProperty>visible</BindProperty>
-                              </Connection>
-                            </WidgetGroup>
-
-
-                            <WidgetGroup>
-                              <Layout>vertical</Layout>
-                              <Children>
-                                <SingletonContainer>
-                                  <ObjectName>FxUnits_12_Singleton</ObjectName>
-                                </SingletonContainer>
-                              </Children>
-                              <Connection>
-                                <ConfigKey persist="true">[Skin],show_4effectunits</ConfigKey>
-                                <Transform><Not/></Transform>
-                                <BindProperty>visible</BindProperty>
-                              </Connection>
-                            </WidgetGroup>
-
-                            <Template src="skins:Swing/sampler_rack.xml"/>
-
-                            <Template src="skins:Swing/mic_aux_rack.xml"/>
-
                             <SingletonContainer>
                               <ObjectName>Library_Singleton</ObjectName>
                             </SingletonContainer>

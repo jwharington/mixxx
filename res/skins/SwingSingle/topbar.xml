@@ -148,37 +148,6 @@ Description:
 
               <WidgetGroup><Size>10f,1min</Size></WidgetGroup>
 
-              <Template src="skins:Swing/controls/button_2state_persist.xml"><!-- FX -->
-                <SetVariable name="TooltipId">show_effects</SetVariable>
-                <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
-                <SetVariable name="Size">30f,20f</SetVariable>
-                <SetVariable name="state_0_text">FX</SetVariable>
-                <SetVariable name="state_1_text">FX</SetVariable>
-                <SetVariable name="ConfigKey">[Skin],show_effectrack</SetVariable>
-              </Template>
-
-              <WidgetGroup><Size>3f,1min</Size></WidgetGroup>
-
-              <Template src="skins:Swing/controls/button_2state_persist.xml"><!-- Samplers -->
-                <SetVariable name="TooltipId">show_samplers</SetVariable>
-                <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
-                <SetVariable name="Size">30f,20f</SetVariable>
-                <SetVariable name="state_0_icon">samplers_off.svg</SetVariable>
-                <SetVariable name="state_1_icon">samplers_on.svg</SetVariable>
-                <SetVariable name="ConfigKey">[Skin],show_samplers</SetVariable>
-              </Template>
-
-              <WidgetGroup><Size>3f,1min</Size></WidgetGroup>
-
-              <Template src="skins:Swing/controls/button_2state_persist.xml">
-                <SetVariable name="TooltipId">show_microphone</SetVariable>
-                <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
-                <SetVariable name="Size">30f,20f</SetVariable>
-                <SetVariable name="state_0_icon">mic_aux_off.svg</SetVariable>
-                <SetVariable name="state_1_icon">mic_aux_on.svg</SetVariable>
-                <SetVariable name="ConfigKey">[Skin],show_microphones</SetVariable>
-              </Template>
-
               <WidgetGroup><Size>10f,1min</Size></WidgetGroup>
 
               <Template src="skins:Swing/controls/button_2state_persist.xml"><!-- Mixer -->
@@ -192,15 +161,6 @@ Description:
 
               <WidgetGroup><Size>3f,1min</Size></WidgetGroup>
 
-              <Template src="skins:Swing/controls/button_2state_persist.xml"><!-- Loop/Beatjump -->
-                <SetVariable name="ObjectName">GuiToggleButton</SetVariable>
-                <SetVariable name="Size">20f,20f</SetVariable>
-                <SetVariable name="state_0_icon">loop_beatjump_off.svg</SetVariable>
-                <SetVariable name="state_1_icon">loop_beatjump_on.svg</SetVariable>
-                <SetVariable name="ConfigKey">[Skin],show_loop_beatjump_controls</SetVariable>
-              </Template>
-
-
             </Children>
             <Connection>
               <ConfigKey>[Skin],show_maximized_library</ConfigKey>
@@ -211,54 +171,6 @@ Description:
 
           <WidgetGroup><Size>10f,1min</Size></WidgetGroup>
 
-          <WidgetGroup><!-- Recording button & recording duration label -->
-            <ObjectName>RecBox</ObjectName>
-            <Layout>stacked</Layout>
-            <Size>70f,20f</Size>
-            <Children>
-              <!-- invisible Rec button -->
-              <Template src="skins:Swing/controls/button_3state_display.xml">
-                <SetVariable name="ObjectName">RecButton</SetVariable>
-                <SetVariable name="TooltipId">toggle_recording</SetVariable>
-                <SetVariable name="Size">70f,20f</SetVariable>
-                <SetVariable name="ConfigKey">[Recording],toggle_recording</SetVariable>
-                <SetVariable name="ConfigKeyDisp">[Recording],status</SetVariable>
-              </Template>
-
-              <WidgetGroup><!-- Rec dot + RecDuration -->
-                <Layout>horizontal</Layout>
-                <Size>70f,20f</Size>
-                <Children>
-                  <Template src="skins:Swing/controls/button_3state_display.xml">
-                    <SetVariable name="ObjectName">RecDot</SetVariable>
-                    <SetVariable name="TooltipId">toggle_recording</SetVariable>
-                    <SetVariable name="Size">15f,16f</SetVariable>
-                    <SetVariable name="state_0_text">&#9679;</SetVariable>
-                    <SetVariable name="state_1_text">&#9679;</SetVariable>
-                    <SetVariable name="state_2_text">&#9679;</SetVariable>
-                    <SetVariable name="Align">right</SetVariable>
-                    <SetVariable name="ConfigKeyDisp">[Recording],status</SetVariable>
-                  </Template>
-                  <RecordingDuration>
-                    <ObjectName>RecDuration</ObjectName>
-                    <Size>55f,20f</Size>
-                    <InactiveText>REC</InactiveText>
-                    <Alignment>center</Alignment>
-                  </RecordingDuration>
-                </Children>
-              </WidgetGroup><!-- /Rec dot + RecDuration -->
-            </Children>
-          </WidgetGroup><!-- /Recording button & recording duration label -->
-
-          <WidgetGroup><Size>7f,1min</Size></WidgetGroup>
-
-          <Template src="skins:Swing/controls/button_5state_display.xml">
-            <SetVariable name="TooltipId">broadcast_enabled</SetVariable>
-            <SetVariable name="ObjectName">BroadcastButton</SetVariable>
-            <SetVariable name="Size">20f,28f</SetVariable>
-            <SetVariable name="ConfigKey">[Shoutcast],enabled</SetVariable>
-            <SetVariable name="ConfigKeyDisp">[Shoutcast],status</SetVariable>
-          </Template>
 
           <Battery>
             <ObjectName>Battery</ObjectName>

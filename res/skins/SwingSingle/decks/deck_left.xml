@@ -72,10 +72,6 @@ Variables:
 
           <Template src="skins:Swing/decks/row_transport_left.xml"/>
 
-          <Template src="skins:Swing/decks/row_loop_jump.xml">
-            <SetVariable name="SpaceLeft">-1</SetVariable>
-            <SetVariable name="SpaceRight">70</SetVariable>
-          </Template>
 
         </Children>
       </WidgetGroup><!-- / [Overview, Comment, ArtistTitle] + [Loop/Beatjump, DeckButtons] -->
