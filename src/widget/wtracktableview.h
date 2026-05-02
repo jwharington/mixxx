@@ -67,6 +67,8 @@ class WTrackTableView : public WLibraryTableView {
     static constexpr QColor kQueuedTrackHighlightColor = QColor(0x5C, 0x82, 0xB6);
     void setHighlightedTrackId(const TrackId& trackId,
             const QColor& borderColor = kPlayingTrackHighlightColor);
+    void setSecondaryHighlightedTrackId(const TrackId& trackId,
+            const QColor& borderColor = kQueuedTrackHighlightColor);
 
     void addToAutoDJBottom();
     void addToAutoDJTop();
@@ -221,6 +223,8 @@ class WTrackTableView : public WLibraryTableView {
     int m_ratingStarScaleFactor;
     TrackId m_highlightedTrackId;
     QColor m_highlightedTrackBorderColor;
+    TrackId m_secondaryHighlightedTrackId;
+    QColor m_secondaryHighlightedTrackBorderColor;
     bool m_sorting;
 
     // Control the delay to load a cover art.
