@@ -319,6 +319,10 @@ class AutoDJProcessor : public QObject {
     UserSettingsPointer m_pConfig;
     parented_ptr<PlaylistTableModel> m_pAutoDJTableModel;
 
+    // Guards against re-entrant queue loads caused by reacting to playlist
+    // model signals emitted by AutoDJ's own queue mutations.
+    int m_playlistMutationDepth{0};
+
     AutoDJState m_eState;
     double m_transitionProgress;
     double m_transitionTime; // the desired value set by the user
