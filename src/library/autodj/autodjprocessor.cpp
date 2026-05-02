@@ -372,7 +372,27 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
             emit autoDJError(ADJ_NOT_TWO_DECKS);
             return ADJ_NOT_TWO_DECKS;
         }
-        removeLoadedTrackFromTopOfQueue(*pDeck);
+
+        const TrackPointer pLoadedTrack = pDeck->getLoadedTrack();
+        const TrackId loadedTrackId = pLoadedTrack ? pLoadedTrack->getId() : TrackId();
+        const int loadedTrackRow = findQueueRowByTrackId(loadedTrackId);
+
+        if (loadedTrackRow >= 0) {
+            if (m_queueMode == QueueMode::StaticQueue) {
+                m_staticQueuePlayedTrackIds.insert(loadedTrackId);
+            } else {
+                ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+                m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(loadedTrackRow, 0));
+                if (m_queueMode == QueueMode::Requeue) {
+                    m_pAutoDJTableModel->appendTrack(loadedTrackId);
+                }
+            }
+            maybeFillRandomTracks();
+        } else {
+            // Fallback for edge cases where the loaded track is not in queue row lookup.
+            removeLoadedTrackFromTopOfQueue(*pDeck);
+        }
+
         pDeck->stop();
         loadNextTrackFromQueue(*pDeck, true);
         return ADJ_OK;
