@@ -344,7 +344,7 @@
     <SingletonDefinition>
       <ObjectName>Library_Singleton</ObjectName>
       <Children>
-        <Template src="skins:Swing/library.xml"/>
+        <Template src="skins:SwingSingle/library.xml"/>
       </Children>
     </SingletonDefinition>
 
