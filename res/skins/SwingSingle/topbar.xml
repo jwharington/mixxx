@@ -69,7 +69,7 @@ Description:
               </Label>
 
               <!-- Main & Headphone mixer -->
-              <Template src="skins:Swing/mixer/mixer_main.xml"/>
+              <Template src="skins:SwingSingle/mixer/mixer_main.xml"/>
 
               <WidgetGroup>
                 <SizePolicy>me,min</SizePolicy>
