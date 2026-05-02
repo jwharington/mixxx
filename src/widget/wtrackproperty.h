@@ -50,7 +50,9 @@ class WTrackProperty : public WLabel, public TrackDropTarget {
     // if no second click is registered within the specified interval.
     // Usage in css: WTrackProperty[selected="true"/"false"] { /* styles */ }
     Q_PROPERTY(bool selected READ isSelected NOTIFY selectedStateChanged);
-    // Custom property to style track properties by deck playback state.
+    // Custom property to style track properties by deck live state.
+    // It becomes true once deck playback starts and remains true when paused
+    // until the track is unloaded.
     // Usage in css: WTrackProperty[playing="true"/"false"] { /* styles */ }
     Q_PROPERTY(bool playing READ isPlaying NOTIFY playingStateChanged);
 
