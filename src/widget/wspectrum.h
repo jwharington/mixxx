@@ -28,9 +28,12 @@ class WSpectrum : public WWidget {
     int m_numBins;
     int m_barGap;
     double m_decayPerTick;
+    bool m_showFilteredLine;
+    double m_filteredLineAlpha;
 
     std::array<std::unique_ptr<PollingControlProxy>, EngineSpectrumAnalyzer::kNumBins>
             m_binControls;
     std::array<double, EngineSpectrumAnalyzer::kNumBins> m_binValues;
+    std::array<double, EngineSpectrumAnalyzer::kNumBins> m_lineFilteredValues;
     std::array<double, EngineSpectrumAnalyzer::kNumBins> m_lastPaintedValues;
 };

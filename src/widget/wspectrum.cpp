@@ -12,6 +12,7 @@
 namespace {
 constexpr int kDefaultBarGap = 1;
 constexpr double kDefaultDecayPerTick = 0.04;
+constexpr double kDefaultFilteredLineAlpha = 0.35;
 constexpr double kUpdateEpsilon = 0.001;
 } // namespace
 
@@ -20,7 +21,10 @@ WSpectrum::WSpectrum(QWidget* pParent)
           m_numBins(EngineSpectrumAnalyzer::kNumBins),
           m_barGap(kDefaultBarGap),
           m_decayPerTick(kDefaultDecayPerTick),
+          m_showFilteredLine(true),
+          m_filteredLineAlpha(kDefaultFilteredLineAlpha),
           m_binValues{},
+          m_lineFilteredValues{},
           m_lastPaintedValues{} {
 }
 
@@ -40,6 +44,12 @@ void WSpectrum::setup(const QString& group, const QDomNode& node, const SkinCont
     const int decayPercent = context.selectInt(node, "DecayPerTick");
     if (decayPercent > 0 && decayPercent <= 100) {
         m_decayPerTick = decayPercent / 100.0;
+    }
+
+    m_showFilteredLine = context.selectBool(node, "ShowFilteredLine", true);
+    const int filteredLineAlphaPercent = context.selectInt(node, "FilteredLineLowPass");
+    if (filteredLineAlphaPercent > 0 && filteredLineAlphaPercent < 100) {
+        m_filteredLineAlpha = filteredLineAlphaPercent / 100.0;
     }
 
     for (int i = 0; i < m_numBins; ++i) {
@@ -70,6 +80,21 @@ void WSpectrum::maybeUpdate() {
         }
     }
 
+    if (m_showFilteredLine && m_numBins > 0) {
+        std::array<double, EngineSpectrumAnalyzer::kNumBins> forward{};
+        forward[0] = m_binValues[0];
+        for (int i = 1; i < m_numBins; ++i) {
+            forward[i] = m_filteredLineAlpha * m_binValues[i] +
+                    (1.0 - m_filteredLineAlpha) * forward[i - 1];
+        }
+
+        m_lineFilteredValues[m_numBins - 1] = forward[m_numBins - 1];
+        for (int i = m_numBins - 2; i >= 0; --i) {
+            m_lineFilteredValues[i] = m_filteredLineAlpha * forward[i] +
+                    (1.0 - m_filteredLineAlpha) * m_lineFilteredValues[i + 1];
+        }
+    }
+
     if (changed) {
         repaint();
     }
@@ -91,6 +116,8 @@ void WSpectrum::paintEvent(QPaintEvent* /*unused*/) {
     const QColor barColor = palette().highlight().color();
 
     int x = content.left();
+    QVector<QPointF> filteredPoints;
+    filteredPoints.reserve(m_numBins);
     for (int i = 0; i < m_numBins; ++i) {
         const double value = math_clamp(m_binValues[i], 0.0, 1.0);
         const int height = math_clamp(
@@ -104,7 +131,28 @@ void WSpectrum::paintEvent(QPaintEvent* /*unused*/) {
                 height);
         p.fillRect(barRect, barColor);
 
+        if (m_showFilteredLine) {
+            const double filteredValue = math_clamp(m_lineFilteredValues[i], 0.0, 1.0);
+            const int filteredHeight = math_clamp(
+                    static_cast<int>(std::round(filteredValue * content.height())),
+                    0,
+                    content.height());
+            filteredPoints.append(QPointF(
+                    x + barWidth / 2.0,
+                    content.bottom() - filteredHeight + 1));
+        }
+
         m_lastPaintedValues[i] = value;
         x += barWidth + m_barGap;
+    }
+
+    if (m_showFilteredLine && filteredPoints.size() > 1) {
+        p.setRenderHint(QPainter::Antialiasing, true);
+        QColor lineColor = palette().highlightedText().color();
+        lineColor.setAlpha(220);
+        QPen linePen(lineColor);
+        linePen.setWidthF(1.5);
+        p.setPen(linePen);
+        p.drawPolyline(filteredPoints.constData(), filteredPoints.size());
     }
 }
