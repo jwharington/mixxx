@@ -664,6 +664,34 @@ TEST_F(AutoDJProcessorTest, QueueEmpty) {
     EXPECT_EQ(AutoDJProcessor::ADJ_QUEUE_EMPTY, err);
 }
 
+TEST_F(AutoDJProcessorTest, EnabledSuccess_SingleDeckAutoCreatesSecondDeck) {
+    pPlayerManager->numDecks.set(1);
+
+    EXPECT_CALL(*pPlayerManager, getDeckBase(0)).Times(1);
+    pProcessor.reset();
+    pProcessor.reset(new MockAutoDJProcessor(nullptr,
+            config(),
+            pPlayerManager.data(),
+            trackCollectionManager(),
+            m_iAutoDJPlaylistId));
+
+    TrackId testId = addTrackToCollection(kTrackLocationTest);
+    ASSERT_TRUE(testId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(testId);
+    pAutoDJTableModel->appendTrack(testId);
+
+    EXPECT_CALL(*pPlayerManager, getDeckBase(1)).Times(1);
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true));
+
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+    EXPECT_EQ(AutoDJProcessor::ADJ_ENABLE_P1LOADED, pProcessor->getState());
+    EXPECT_GE(pPlayerManager->numberOfDecks(), 2);
+}
+
 TEST_F(AutoDJProcessorTest, EnabledSuccess_DecksStopped) {
     TrackId testId = addTrackToCollection(kTrackLocationTest);
     ASSERT_TRUE(testId.isValid());

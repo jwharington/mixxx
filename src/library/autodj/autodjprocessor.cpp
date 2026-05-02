@@ -1,6 +1,7 @@
 #include "library/autodj/autodjprocessor.h"
 
 #include "engine/channels/enginedeck.h"
+#include "control/controlobject.h"
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
 #include "moc_autodjprocessor.cpp"
@@ -10,6 +11,7 @@
 namespace {
 const QString kPreferenceGroup = QStringLiteral("[Auto DJ]");
 const QString kControlGroup = QStringLiteral("[AutoDJ]");
+const QString kAppGroup = QStringLiteral("[App]");
 const char* kTransitionPreferenceName = "Transition";
 const char* kTransitionModePreferenceName = "TransitionMode";
 const char* kQueueModePreferenceName = "QueueMode";
@@ -240,14 +242,14 @@ void AutoDJProcessor::fadeNow() {
     }
 
     double crossfader = getCrossfader();
-    DeckAttributes* pLeftDeck = getLeftDeck();
-    DeckAttributes* pRightDeck = getRightDeck();
-    if (!pLeftDeck || !pRightDeck) {
-        // User has changed the orientation, disable Auto DJ
+    if (!ensureTwoDecksAssignedOppositeSides()) {
+        // Could not establish two usable decks.
         toggleAutoDJ(false);
         emit autoDJError(ADJ_NOT_TWO_DECKS);
         return;
     }
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
 
     DeckAttributes* pFromDeck;
     DeckAttributes* pToDeck;
@@ -357,14 +359,14 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
         return ADJ_IS_INACTIVE;
     }
     // Load the next song from the queue.
-    DeckAttributes* pLeftDeck = getLeftDeck();
-    DeckAttributes* pRightDeck = getRightDeck();
-    if (!pLeftDeck || !pRightDeck) {
-        // User has changed the orientation, disable Auto DJ
+    if (!ensureTwoDecksAssignedOppositeSides()) {
+        // Could not establish two usable decks.
         toggleAutoDJ(false);
         emit autoDJError(ADJ_NOT_TWO_DECKS);
         return ADJ_NOT_TWO_DECKS;
     }
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
 
     if (!pLeftDeck->isPlaying()) {
         removeLoadedTrackFromTopOfQueue(*pLeftDeck);
@@ -393,14 +395,15 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
 
 AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
     if (enable) { // Enable Auto DJ
-        DeckAttributes* pLeftDeck = getLeftDeck();
-        DeckAttributes* pRightDeck = getRightDeck();
-        if (!pLeftDeck || !pRightDeck) {
+        if (!ensureTwoDecksAssignedOppositeSides()) {
             // Keep the current state.
             emitAutoDJStateChanged(m_eState);
             emit autoDJError(ADJ_NOT_TWO_DECKS);
             return ADJ_NOT_TWO_DECKS;
         }
+
+        DeckAttributes* pLeftDeck = getLeftDeck();
+        DeckAttributes* pRightDeck = getRightDeck();
 
         bool leftDeckPlaying = pLeftDeck->isPlaying();
         bool rightDeckPlaying = pRightDeck->isPlaying();
@@ -1987,8 +1990,15 @@ void AutoDJProcessor::playlistFirstTrackChanged() {
         return;
     }
     if (m_eState != ADJ_DISABLED) {
+        if (!ensureTwoDecksAssignedOppositeSides()) {
+            return;
+        }
+
         DeckAttributes* pLeftDeck = getLeftDeck();
         DeckAttributes* pRightDeck = getRightDeck();
+        if (!pLeftDeck || !pRightDeck) {
+            return;
+        }
 
         if (!pLeftDeck->isPlaying()) {
             loadNextTrackFromQueue(*pLeftDeck);
@@ -2010,6 +2020,10 @@ void AutoDJProcessor::playlistTracksChanged() {
     // the playlist is modified (insertion or reorder) so that the deck always
     // shows the track immediately following the currently playing one.
     if (m_eState == ADJ_DISABLED || m_queueMode != QueueMode::StaticQueue) {
+        return;
+    }
+
+    if (!ensureTwoDecksAssignedOppositeSides()) {
         return;
     }
 
@@ -2080,14 +2094,15 @@ void AutoDJProcessor::setTransitionTime(int time) {
 
     // Then re-calculate fade thresholds for the decks.
     if (m_eState == ADJ_IDLE) {
-        DeckAttributes* pLeftDeck = getLeftDeck();
-        DeckAttributes* pRightDeck = getRightDeck();
-        if (!pLeftDeck || !pRightDeck) {
-            // User has changed the orientation, disable Auto DJ
+        if (!ensureTwoDecksAssignedOppositeSides()) {
+            // Could not establish two usable decks.
             toggleAutoDJ(false);
             emit autoDJError(ADJ_NOT_TWO_DECKS);
             return;
         }
+
+        DeckAttributes* pLeftDeck = getLeftDeck();
+        DeckAttributes* pRightDeck = getRightDeck();
         if (pLeftDeck->isPlaying()) {
             calculateTransition(pLeftDeck, pRightDeck, false);
         }
@@ -2108,15 +2123,15 @@ void AutoDJProcessor::setTransitionMode(TransitionMode newMode) {
     }
 
     // Then re-calculate fade thresholds for the decks.
-    DeckAttributes* pLeftDeck = getLeftDeck();
-    DeckAttributes* pRightDeck = getRightDeck();
-
-    if (!pLeftDeck || !pRightDeck) {
-        // User has changed the orientation, disable Auto DJ
+    if (!ensureTwoDecksAssignedOppositeSides()) {
+        // Could not establish two usable decks.
         toggleAutoDJ(false);
         emit autoDJError(ADJ_NOT_TWO_DECKS);
         return;
     }
+
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
 
     if (pLeftDeck->isPlaying() && !pRightDeck->isPlaying()) {
         calculateTransition(pLeftDeck, pRightDeck, true);
@@ -2154,6 +2169,41 @@ void AutoDJProcessor::setQueueMode(QueueMode newMode) {
     if (newMode != QueueMode::StaticQueue) {
         m_staticQueuePlayedTrackIds.clear();
     }
+}
+
+bool AutoDJProcessor::ensureTwoDecksAssignedOppositeSides() {
+    if (m_pPlayerManager->numberOfDecks() < 2) {
+        // AutoDJ requires two decks for seamless transitions. If fewer decks
+        // are configured, request deck 2 so AutoDJ can run without manual
+        // reconfiguration.
+        ControlObject::set(ConfigKey(kAppGroup, QStringLiteral("num_decks")), 2);
+
+        // Keep our cached deck list up to date in case no signal is emitted.
+        slotNumberOfDecksChanged(m_pPlayerManager->numberOfDecks());
+    }
+
+    if (m_decks.size() < 2) {
+        return false;
+    }
+
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
+    if (pLeftDeck && pRightDeck) {
+        return true;
+    }
+
+    DeckAttributes* pDeck1 = m_decks.at(0).get();
+    DeckAttributes* pDeck2 = m_decks.at(1).get();
+    if (!pDeck1 || !pDeck2) {
+        return false;
+    }
+
+    ControlObject::set(ConfigKey(pDeck1->group, QStringLiteral("orientation")),
+            static_cast<double>(EngineChannel::LEFT));
+    ControlObject::set(ConfigKey(pDeck2->group, QStringLiteral("orientation")),
+            static_cast<double>(EngineChannel::RIGHT));
+
+    return getLeftDeck() && getRightDeck();
 }
 
 DeckAttributes* AutoDJProcessor::getLeftDeck() {
@@ -2202,11 +2252,12 @@ bool AutoDJProcessor::nextTrackLoaded() {
         return false;
     }
 
-    DeckAttributes* pLeftDeck = getLeftDeck();
-    DeckAttributes* pRightDeck = getRightDeck();
-    if (!pLeftDeck || !pRightDeck) {
+    if (!ensureTwoDecksAssignedOppositeSides()) {
         return false;
     }
+
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
 
     bool leftDeckPlaying = pLeftDeck->isPlaying();
     bool rightDeckPlaying = pRightDeck->isPlaying();
