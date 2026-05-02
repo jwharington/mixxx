@@ -99,6 +99,10 @@ class Library : public QObject {
     void setRowHeight(int rowHeight);
     void setEditMetadataSelectedClick(bool enable);
     void setAutoDJSplitEnabled(bool enable);
+    void toggleAutoDJSplitEnabled();
+    bool isAutoDJSplitEnabled() const {
+        return m_showAutoDJQueueSplit;
+    }
     bool isAutoDJSplitActive() const {
         return m_autoDJSplitActive;
     }

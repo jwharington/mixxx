@@ -961,6 +961,10 @@ ControlPickerMenu::ControlPickerMenu(QWidget* pParent)
             tr("Add to Auto DJ Queue (replace)"),
             tr("Replace Auto DJ Queue with selected tracks"),
             pLibraryMenu);
+    addLibraryControl("ToggleAutoDjQueueRight",
+            tr("Toggle Auto DJ Queue on Right"),
+            tr("Show or hide the Auto DJ queue panel on the right"),
+            pLibraryMenu);
     pLibraryMenu->addSeparator();
     // Search box
     addLibraryControl("search_history_next",
