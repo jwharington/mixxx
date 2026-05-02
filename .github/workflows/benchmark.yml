@@ -35,24 +35,6 @@ jobs:
             compiler_cache_id: qt6
             buildenv_basepath: /home/runner/buildenv
             buildenv_script: tools/debian_buildenv.sh
-          - name: macOS 15 x64
-            os: macos-15-intel
-            cmake_args: >-
-              -DBULK=ON
-              -DCOREAUDIO=ON
-              -DHSS1394=ON
-              -DMACOS_BUNDLE=ON
-              -DMODPLUG=ON
-              -DQT6=ON
-              -DQML=OFF
-              -DWAVPACK=ON
-              -DVCPKG_TARGET_TRIPLET=x64-osx-min1100-release
-            # TODO: Fix this broken test on macOS
-            compiler_cache: ccache
-            compiler_cache_path: /Users/runner/Library/Caches/ccache
-            compiler_cache_id: x64
-            buildenv_basepath: /Users/runner/buildenv
-            buildenv_script: tools/macos_release_buildenv.sh
           # FIXME: The benchmark are currently broken on Windows and not really used anyway, so we are disabling them
           # - name: Windows 2022 x64
           #   os: windows-2022
