@@ -21,6 +21,7 @@ WLibrary::WLibrary(QWidget* parent)
           m_pAutoDJQueueWidget(nullptr),
           m_autoDJSplitLeftRatioPermille(667),
           m_showAutoDJSplitEnabled(false),
+          m_autoDJSplitActive(false),
           m_trackTableBackgroundColorOpacity(kDefaultTrackTableBackgroundColorOpacity),
           m_bShowButtonText(true) {
     auto* pLayout = new QHBoxLayout(this);
@@ -263,6 +264,10 @@ void WLibrary::updateAutoDJQueueVisibility() {
     const bool shouldShow = m_showAutoDJSplitEnabled &&
             !m_autoDJViewName.isEmpty() &&
             m_currentViewName != m_autoDJViewName;
+    if (m_autoDJSplitActive != shouldShow) {
+        m_autoDJSplitActive = shouldShow;
+        emit autoDJSplitActiveChanged(shouldShow);
+    }
     if (shouldShow) {
         m_pAutoDJQueueWidget->show();
         if (m_visibleSplitterSizes.size() == 2) {

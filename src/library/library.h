@@ -99,6 +99,9 @@ class Library : public QObject {
     void setRowHeight(int rowHeight);
     void setEditMetadataSelectedClick(bool enable);
     void setAutoDJSplitEnabled(bool enable);
+    bool isAutoDJSplitActive() const {
+        return m_autoDJSplitActive;
+    }
 
     /// Switches to the internal track collection view
     /// and focuses the search box.
@@ -175,6 +178,7 @@ class Library : public QObject {
     void setTrackTableFont(const QFont& font);
     void setTrackTableRowHeight(int rowHeight);
     void setSelectedClick(bool enable);
+    void autoDJSplitActiveChanged(bool active);
 
     void setSidebarHoverExpandDelay(int delay);
 
@@ -209,5 +213,6 @@ class Library : public QObject {
     bool m_editMetadataSelectedClick;
     bool m_showAutoDJQueueSplit;
     int m_autoDJQueueSplitLeftRatioPermille;
+    bool m_autoDJSplitActive;
     std::unique_ptr<ControlObject> m_pKeyNotation;
 };
