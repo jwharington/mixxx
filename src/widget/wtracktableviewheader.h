@@ -64,6 +64,7 @@ class WTrackTableViewHeader : public QHeaderView {
     void saveHeaderState();
     void restoreHeaderState();
     void loadDefaultHeaderState();
+    void setHeaderStateSuffix(const QString& suffix);
     // Returns false if the header state is not stored in the database (on first time usage)
     bool hasPersistedHeaderState();
 
@@ -98,10 +99,12 @@ class WTrackTableViewHeader : public QHeaderView {
     TrackModel* getTrackModel();
 
     void setHeightForFont();
+    QString headerStateSettingName() const;
 
     QMenu m_menu;
     QMap<int, QCheckBox*> m_columnCheckBoxes;
 
+    QString m_headerStateSuffix;
     int m_preferredHeight;
     QMap<int, int> m_hiddenColumnSizes;
     int m_hoveredSection;

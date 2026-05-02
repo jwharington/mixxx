@@ -73,6 +73,7 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
           m_sorting(false),
           m_selectionChangedSinceLastGuiTick(true),
           m_loadCachedOnly(false),
+          m_isAutoDJSplitActive(m_pLibrary ? m_pLibrary->isAutoDJSplitActive() : false),
           m_dropRow(-1) {
     // Connect slots and signals to make the world go 'round.
     connect(this, &WTrackTableView::doubleClicked, this, &WTrackTableView::slotMouseDoubleClicked);
@@ -93,6 +94,13 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
             &WTrackTableView::scrollValueChanged,
             this,
             &WTrackTableView::slotScrollValueChanged);
+
+    if (m_pLibrary) {
+        connect(m_pLibrary,
+                &Library::autoDJSplitActiveChanged,
+                this,
+                &WTrackTableView::slotAutoDJSplitActiveChanged);
+    }
 }
 
 WTrackTableView::~WTrackTableView() {
@@ -237,6 +245,10 @@ void WTrackTableView::loadTrackModel(QAbstractItemModel* pNewModel, bool restore
 
     setVisible(false);
 
+    if (m_pLibrary) {
+        m_isAutoDJSplitActive = m_pLibrary->isAutoDJSplitActive();
+    }
+
     // Save the previous track model's header state
     WTrackTableViewHeader* pOldheader =
             qobject_cast<WTrackTableViewHeader*>(horizontalHeader());
@@ -250,6 +262,7 @@ void WTrackTableView::loadTrackModel(QAbstractItemModel* pNewModel, bool restore
     // else problems occur. Since we parent the WtrackTableViewHeader's to the
     // WTrackTableView, they are automatically deleted.
     auto* pHeader = new WTrackTableViewHeader(Qt::Horizontal, this);
+    pHeader->setHeaderStateSuffix(headerStateSuffixForCurrentLayout());
 
     // WTF(rryan) The following saves on unnecessary work on the part of
     // WTrackTableHeaderView. setHorizontalHeader() calls setModel() on the
@@ -2013,12 +2026,34 @@ void WTrackTableView::slotRandomSorting() {
     applySortingIfVisible();
 }
 
+void WTrackTableView::slotAutoDJSplitActiveChanged(bool active) {
+    if (m_isAutoDJSplitActive == active) {
+        return;
+    }
+
+    auto* pHeader = qobject_cast<WTrackTableViewHeader*>(horizontalHeader());
+    if (pHeader && getTrackModel()) {
+        pHeader->saveHeaderState();
+    }
+
+    m_isAutoDJSplitActive = active;
+
+    if (pHeader && getTrackModel()) {
+        pHeader->setHeaderStateSuffix(headerStateSuffixForCurrentLayout());
+        pHeader->restoreHeaderState();
+    }
+}
+
 bool WTrackTableView::hasFocus() const {
     return QWidget::hasFocus();
 }
 
 void WTrackTableView::setFocus() {
     QWidget::setFocus(Qt::OtherFocusReason);
+}
+
+QString WTrackTableView::headerStateSuffixForCurrentLayout() const {
+    return m_isAutoDJSplitActive ? QStringLiteral("_autodj_split") : QString();
 }
 
 QString WTrackTableView::getModelStateKey() const {

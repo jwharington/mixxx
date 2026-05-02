@@ -174,6 +174,7 @@ class WTrackTableView : public WLibraryTableView {
     void slotSortingChanged(int headerSection, Qt::SortOrder order);
     void slotRandomSorting();
     void keyNotationChanged();
+    void slotAutoDJSplitActiveChanged(bool active);
 
   protected:
     QString getModelStateKey() const override;
@@ -206,6 +207,7 @@ class WTrackTableView : public WLibraryTableView {
 
     void initTrackMenu();
     void showTrackMenu(const QPoint pos, const QModelIndex& index);
+    QString headerStateSuffixForCurrentLayout() const;
 
     void hideOrRemoveSelectedTracks();
 
@@ -237,5 +239,6 @@ class WTrackTableView : public WLibraryTableView {
     ControlProxy* m_pSortColumn;
     ControlProxy* m_pSortOrder;
 
+    bool m_isAutoDJSplitActive;
     int m_dropRow;
 };

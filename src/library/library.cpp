@@ -72,6 +72,7 @@ Library::Library(
           m_pSidebarModel(make_parented<SidebarModel>(this)),
           m_pLibraryControl(make_parented<LibraryControl>(this)),
           m_pLibraryWidget(nullptr),
+          m_autoDJSplitActive(false),
           m_pKeyNotation(std::make_unique<ControlObject>(
                   mixxx::library::prefs::kKeyNotationConfigKey, false)) {
     qRegisterMetaType<LibraryRemovalType>("LibraryRemovalType");
@@ -472,8 +473,16 @@ void Library::bindLibraryWidget(
             pTrackTableView,
             &WTrackTableView::setSelectedClick);
 
-    m_pLibraryWidget->setAutoDJSplitLeftRatioPermille(m_autoDJQueueSplitLeftRatioPermille);
-    m_pLibraryWidget->setAutoDJSplitEnabled(m_showAutoDJQueueSplit);
+    connect(m_pLibraryWidget,
+            &WLibrary::autoDJSplitActiveChanged,
+            this,
+            [this](bool active) {
+                if (m_autoDJSplitActive == active) {
+                    return;
+                }
+                m_autoDJSplitActive = active;
+                emit autoDJSplitActiveChanged(active);
+            });
     connect(m_pLibraryWidget,
             &WLibrary::autoDJSplitLeftRatioPermilleChanged,
             this,
@@ -482,6 +491,10 @@ void Library::bindLibraryWidget(
                 m_pConfig->set(kAutoDJQueueSplitLeftRatioPermilleConfigKey,
                         ConfigValue(leftRatioPermille));
             });
+
+    m_pLibraryWidget->setAutoDJSplitLeftRatioPermille(m_autoDJQueueSplitLeftRatioPermille);
+    m_pLibraryWidget->setAutoDJSplitEnabled(m_showAutoDJQueueSplit);
+    m_autoDJSplitActive = m_pLibraryWidget->isAutoDJSplitActive();
 
     m_pLibraryControl->bindLibraryWidget(m_pLibraryWidget, pKeyboard);
 

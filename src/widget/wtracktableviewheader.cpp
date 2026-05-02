@@ -152,6 +152,15 @@ WTrackTableViewHeader::WTrackTableViewHeader(Qt::Orientation orientation,
           m_previousHoveredSection(-1) {
 }
 
+void WTrackTableViewHeader::setHeaderStateSuffix(const QString& suffix) {
+    m_headerStateSuffix = suffix;
+}
+
+QString WTrackTableViewHeader::headerStateSettingName() const {
+    static const QString kHeaderStatePrefix = QStringLiteral("header_state_pb");
+    return m_headerStateSuffix.isEmpty() ? kHeaderStatePrefix : kHeaderStatePrefix + m_headerStateSuffix;
+}
+
 void WTrackTableViewHeader::contextMenuEvent(QContextMenuEvent* pEvent) {
     pEvent->accept();
     m_menu.popup(pEvent->globalPos());
@@ -276,7 +285,7 @@ void WTrackTableViewHeader::saveHeaderState() {
     }
     // Convert the QByteArray to a Base64 string and save it.
     HeaderViewState view_state(*this);
-    pTrackModel->setModelSetting("header_state_pb", view_state.saveState());
+    pTrackModel->setModelSetting(headerStateSettingName(), view_state.saveState());
     //qDebug() << "Saving old header state:" << result << headerState;
 }
 
@@ -287,7 +296,7 @@ void WTrackTableViewHeader::restoreHeaderState() {
         return;
     }
 
-    const QString headerStateString = pTrackModel->getModelSetting("header_state_pb");
+    const QString headerStateString = pTrackModel->getModelSetting(headerStateSettingName());
     if (headerStateString.isNull()) {
         loadDefaultHeaderState();
     } else {
@@ -321,7 +330,7 @@ bool WTrackTableViewHeader::hasPersistedHeaderState() {
     if (!pTrackModel) {
         return false;
     }
-    const QString headerStateString = pTrackModel->getModelSetting("header_state_pb");
+    const QString headerStateString = pTrackModel->getModelSetting(headerStateSettingName());
     return !headerStateString.isNull();
 }
 

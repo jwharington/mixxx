@@ -40,6 +40,9 @@ class WLibrary : public QWidget, public WBaseWidget {
     void setAutoDJViewName(const QString& name);
     void setAutoDJSplitEnabled(bool enabled);
     void setAutoDJSplitLeftRatioPermille(int leftRatioPermille);
+    bool isAutoDJSplitActive() const {
+        return m_autoDJSplitActive;
+    }
 
     LibraryView* getActiveView() const;
     WTrackTableView* getCurrentTrackTableView() const;
@@ -73,6 +76,7 @@ class WLibrary : public QWidget, public WBaseWidget {
     FocusWidget setLibraryFocus(FocusWidget newFocus,
             Qt::FocusReason focusReason = Qt::OtherFocusReason);
     void autoDJSplitLeftRatioPermilleChanged(int leftRatioPermille);
+    void autoDJSplitActiveChanged(bool active);
 
   public slots:
     // Show the view registered with the given name. Does nothing if the current
@@ -101,6 +105,7 @@ class WLibrary : public QWidget, public WBaseWidget {
     QList<int> m_visibleSplitterSizes;
     int m_autoDJSplitLeftRatioPermille;
     bool m_showAutoDJSplitEnabled;
+    bool m_autoDJSplitActive;
     double m_trackTableBackgroundColorOpacity;
     bool m_bShowButtonText;
     WaveformSignalColors m_overviewSignalColors;
