@@ -53,17 +53,17 @@ Variables:
                   <WidgetGroup>
                     <ObjectName>SpectrumContainerDeck<Variable name="chanNum"/></ObjectName>
                     <Layout>horizontal</Layout>
-                    <Size>80f,50f</Size>
+                    <Size>160f,50f</Size>
                     <Children>
                       <Spectrum>
                         <ObjectName>SpectrumDeck<Variable name="chanNum"/></ObjectName>
                         <Group><Variable name="group"/></Group>
-                        <Size>72f,50f</Size>
-                        <NumberOfBins>32</NumberOfBins>
+                        <Size>144f,50f</Size>
+                        <NumberOfBins>64</NumberOfBins>
                         <BarGap>1</BarGap>
                         <DecayPerTick>6</DecayPerTick>
                       </Spectrum>
-                      <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+                      <WidgetGroup><Size>16f,1min</Size></WidgetGroup>
                     </Children>
                   </WidgetGroup>
 
