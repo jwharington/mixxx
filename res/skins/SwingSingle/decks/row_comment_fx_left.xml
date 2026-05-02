@@ -1,0 +1,44 @@
+<!--
+Description:
+  Comment row without FX assign buttons.
+Variables:
+  chanNum : the channel number
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>DeckRowCommentFx</ObjectName>
+    <Layout>vertical</Layout>
+    <SizePolicy>me,min</SizePolicy>
+    <Children>
+      <WidgetGroup><!-- Track comment -->
+        <Layout>horizontal</Layout>
+        <SizePolicy>i,min</SizePolicy>
+        <Children>
+          <TrackProperty>
+            <ObjectName>TrackComment</ObjectName>
+            <Size>1me,16f</Size>
+            <Property>comment</Property>
+            <Elide>right</Elide>
+            <Channel><Variable name="chanNum"/></Channel>
+            <Connection>
+              <ConfigKey persist="true">[Swing],trackComment</ConfigKey>
+              <BindProperty>visible</BindProperty>
+            </Connection>
+          </TrackProperty>
+
+          <WidgetGroup>
+            <ObjectName>Spacer33</ObjectName>
+            <Size>1me,16f</Size>
+            <Connection>
+              <ConfigKey persist="true">[Swing],trackComment</ConfigKey>
+              <Transform><Not/></Transform>
+              <BindProperty>visible</BindProperty>
+            </Connection>
+          </WidgetGroup>
+        </Children>
+      </WidgetGroup>
+
+      <WidgetGroup><Size>1me,1f</Size></WidgetGroup>
+    </Children>
+  </WidgetGroup>
+</Template>
