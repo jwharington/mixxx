@@ -323,6 +323,18 @@ LibraryControl::LibraryControl(Library* pLibrary)
                 &LibraryControl::slotAutoDjAddReplace);
     }
 
+    m_pToggleAutoDjQueueRight = std::make_unique<ControlPushButton>(
+            ConfigKey("[Library]", "ToggleAutoDjQueueRight"));
+#ifdef MIXXX_USE_QML
+    if (!CmdlineArgs::Instance().isQml())
+#endif
+    {
+        connect(m_pToggleAutoDjQueueRight.get(),
+                &ControlPushButton::valueChanged,
+                this,
+                &LibraryControl::slotToggleAutoDjQueueRight);
+    }
+
     // Sort controls
     m_pSortColumn = std::make_unique<ControlEncoder>(ConfigKey("[Library]", "sort_column"));
     m_pSortOrder = std::make_unique<ControlPushButton>(ConfigKey("[Library]", "sort_order"));
@@ -703,6 +715,13 @@ void LibraryControl::slotAutoDjAddReplace(double v) {
     if (pTrackTableView) {
         pTrackTableView->addToAutoDJReplace();
     }
+}
+
+void LibraryControl::slotToggleAutoDjQueueRight(double v) {
+    if (v <= 0) {
+        return;
+    }
+    m_pLibrary->toggleAutoDJSplitEnabled();
 }
 
 void LibraryControl::slotSelectNextTrack(double v) {

@@ -122,6 +122,7 @@ class LibraryControl : public QObject {
     void slotAutoDjAddTop(double v);
     void slotAutoDjAddBottom(double v);
     void slotAutoDjAddReplace(double v);
+    void slotToggleAutoDjQueueRight(double v);
 
     void maybeCreateGroupController(const QString& group);
     void slotNumDecksChanged(double v);
@@ -180,6 +181,7 @@ class LibraryControl : public QObject {
     std::unique_ptr<ControlObject> m_pAutoDjAddTop;
     std::unique_ptr<ControlObject> m_pAutoDjAddBottom;
     std::unique_ptr<ControlObject> m_pAutoDjAddReplace;
+    std::unique_ptr<ControlPushButton> m_pToggleAutoDjQueueRight;
 
     // Controls to sort the track view
     std::unique_ptr<ControlEncoder> m_pSortColumn;

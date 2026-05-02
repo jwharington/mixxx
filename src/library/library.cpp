@@ -794,6 +794,10 @@ void Library::setAutoDJSplitEnabled(bool enabled) {
     }
 }
 
+void Library::toggleAutoDJSplitEnabled() {
+    setAutoDJSplitEnabled(!m_showAutoDJQueueSplit);
+}
+
 void Library::slotSearchInCurrentView() {
     m_pLibraryControl->setLibraryFocus(FocusWidget::Searchbar, Qt::ShortcutFocusReason);
 }
