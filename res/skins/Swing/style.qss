@@ -1396,7 +1396,13 @@ WLabel#TrackComment {
   margin-top: 2px;
 }
 
-/* SwingSingle spectrum section: match speed-control background */
+/* SwingSingle EQ/spectrum section: match speed-control background */
+#EqSliderRow {
+  background-color: #252525;
+  border-radius: 3px;
+  padding: 0px 5px 0px 5px;
+}
+
 #SpectrumSection {
   background-color: #252525;
   border-radius: 3px;
