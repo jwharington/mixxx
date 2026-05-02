@@ -62,6 +62,8 @@ Variables:
                         <NumberOfBins>64</NumberOfBins>
                         <BarGap>1</BarGap>
                         <DecayPerTick>6</DecayPerTick>
+                        <ShowFilteredLine>true</ShowFilteredLine>
+                        <FilteredLineLowPass>35</FilteredLineLowPass>
                       </Spectrum>
                       <WidgetGroup><Size>16f,1min</Size></WidgetGroup>
                     </Children>
