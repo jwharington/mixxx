@@ -70,7 +70,7 @@ Variables:
 
           <WidgetGroup><ObjectName>Spacer0f</ObjectName><Size>1min,1f</Size></WidgetGroup>
 
-          <Template src="skins:Swing/decks/row_transport_left.xml"/>
+          <Template src="skins:SwingSingle/decks/row_transport_left.xml"/>
 
 
         </Children>
