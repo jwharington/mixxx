@@ -79,4 +79,8 @@ class DlgAutoDJ : public QWidget, public Ui::DlgAutoDJ, public LibraryView {
 
     QString m_enableBtnTooltip;
     QString m_disableBtnTooltip;
+
+    // In StaticQueue mode, keep highlighting the last playing track while the
+    // playing deck is paused, until AutoDJ is disabled or playback resumes.
+    TrackPointer m_pLatchedPlayingTrack;
 };

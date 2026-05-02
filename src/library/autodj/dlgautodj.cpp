@@ -340,6 +340,7 @@ void DlgAutoDJ::transitionSliderChanged(int value) {
 
 void DlgAutoDJ::autoDJStateChanged(AutoDJProcessor::AutoDJState state) {
     if (state == AutoDJProcessor::ADJ_DISABLED) {
+        m_pLatchedPlayingTrack.reset();
         pushButtonAutoDJ->setChecked(false);
         pushButtonAutoDJ->setToolTip(m_enableBtnTooltip);
         if (m_bShowButtonText) {
@@ -380,7 +381,14 @@ void DlgAutoDJ::updateHighlightedTrack() {
 
     TrackPointer pPlayingTrack = PlayerInfo::instance().getCurrentPlayingTrack();
     if (pPlayingTrack) {
+        m_pLatchedPlayingTrack = pPlayingTrack;
         highlightedTrackId = pPlayingTrack->getId();
+    } else if (m_pAutoDJProcessor->getQueueMode() == AutoDJProcessor::QueueMode::StaticQueue &&
+            m_pAutoDJProcessor->getState() != AutoDJProcessor::ADJ_DISABLED &&
+            m_pLatchedPlayingTrack) {
+        // In StaticQueue mode, keep the currently live deck's track highlighted
+        // while paused from Play/Pause.
+        highlightedTrackId = m_pLatchedPlayingTrack->getId();
     } else {
         TrackPointer pPreviewTrack = m_pAutoDJProcessor->getEnablePreviewTrack();
         if (pPreviewTrack) {
