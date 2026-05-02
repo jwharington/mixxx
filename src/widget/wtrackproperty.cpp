@@ -99,6 +99,10 @@ void WTrackProperty::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldT
     if (m_pEditor && m_pEditor->hasFocus()) {
         m_pEditor->hide();
     }
+    if (m_bPlaying) {
+        m_bPlaying = false;
+        restyleAndRepaint();
+    }
     updateLabel();
 }
 
@@ -108,11 +112,12 @@ void WTrackProperty::slotTrackChanged(TrackId trackId) {
 }
 
 void WTrackProperty::slotPlayStateChanged(double playState) {
-    const bool playing = playState > 0.0;
-    if (m_bPlaying == playing) {
+    // Keep the track label highlighted once this deck has gone live, even if
+    // playback is paused. This highlight resets when the track is unloaded.
+    if (playState <= 0.0 || m_bPlaying) {
         return;
     }
-    m_bPlaying = playing;
+    m_bPlaying = true;
     restyleAndRepaint();
 }
 
