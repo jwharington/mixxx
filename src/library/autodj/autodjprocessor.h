@@ -292,6 +292,7 @@ class AutoDJProcessor : public QObject {
     TrackPointer getNextTrackFromStaticQueue();
     TrackId getPlayingOrFinishedTrackIdForStaticQueue();
     bool loadNextTrackFromQueue(const DeckAttributes& pDeck, bool play = false);
+    void advanceSingleDeckQueue(const DeckAttributes& deck);
     void calculateTransition(DeckAttributes* pFromDeck,
             DeckAttributes* pToDeck,
             bool seekToStartPoint);
@@ -336,6 +337,7 @@ class AutoDJProcessor : public QObject {
     QueueMode m_queueMode;
     bool m_crossfaderStartCenter;
     QSet<TrackId> m_staticQueuePlayedTrackIds;
+    bool m_singleDeckLoadPending{false};
 
     PlayerManagerInterface* m_pPlayerManager;
     std::vector<std::unique_ptr<DeckAttributes>> m_decks;

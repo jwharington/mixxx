@@ -8,6 +8,8 @@
 #include "track/track.h"
 #include "util/math.h"
 
+#include <QTimer>
+
 namespace {
 const QString kPreferenceGroup = QStringLiteral("[Auto DJ]");
 const QString kControlGroup = QStringLiteral("[AutoDJ]");
@@ -373,28 +375,8 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
             return ADJ_NOT_TWO_DECKS;
         }
 
-        const TrackPointer pLoadedTrack = pDeck->getLoadedTrack();
-        const TrackId loadedTrackId = pLoadedTrack ? pLoadedTrack->getId() : TrackId();
-        const int loadedTrackRow = findQueueRowByTrackId(loadedTrackId);
-
-        if (loadedTrackRow >= 0) {
-            if (m_queueMode == QueueMode::StaticQueue) {
-                m_staticQueuePlayedTrackIds.insert(loadedTrackId);
-            } else {
-                ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
-                m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(loadedTrackRow, 0));
-                if (m_queueMode == QueueMode::Requeue) {
-                    m_pAutoDJTableModel->appendTrack(loadedTrackId);
-                }
-            }
-            maybeFillRandomTracks();
-        } else {
-            // Fallback for edge cases where the loaded track is not in queue row lookup.
-            removeLoadedTrackFromTopOfQueue(*pDeck);
-        }
-
         pDeck->stop();
-        loadNextTrackFromQueue(*pDeck, true);
+        advanceSingleDeckQueue(*pDeck);
         return ADJ_OK;
     }
 
@@ -436,6 +418,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::skipNext() {
 AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
     if (enable) { // Enable Auto DJ
         if (isSingleDeckAutoDJMode()) {
+            m_singleDeckLoadPending = false;
             DeckAttributes* pDeck = getSingleDeck();
             if (!pDeck) {
                 emitAutoDJStateChanged(m_eState);
@@ -722,6 +705,7 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
         m_enabledAutoDJ.setAndConfirm(0.0);
         qDebug() << "Auto DJ disabled";
         m_eState = ADJ_DISABLED;
+        m_singleDeckLoadPending = false;
         disconnect(&m_coCrossfader,
                 &ControlProxy::valueChanged,
                 this,
@@ -834,17 +818,23 @@ void AutoDJProcessor::playerPositionChanged(DeckAttributes* pAttributes,
             return;
         }
 
-        if (m_eState == ADJ_IDLE && !thisDeck->loading && thisPlayPosition >= 1.0) {
-            if (m_queueMode == QueueMode::StaticQueue) {
-                const TrackPointer pTrack = thisDeck->getLoadedTrack();
-                if (pTrack) {
-                    const TrackId trackId = pTrack->getId();
-                    if (trackId.isValid() && findQueueRowByTrackId(trackId) >= 0) {
-                        m_staticQueuePlayedTrackIds.insert(trackId);
+        if (m_eState == ADJ_IDLE && !thisDeck->loading) {
+            double transitionTriggerPos = 1.0;
+            if (m_transitionMode == TransitionMode::FixedStartCenterSkipSilence) {
+                const double duration = getEndSecond(thisDeck);
+                if (duration > 0.0) {
+                    const double lastSoundSecond = getLastSoundSecond(thisDeck);
+                    if (lastSoundSecond >= 0.0 && lastSoundSecond <= duration) {
+                        transitionTriggerPos = lastSoundSecond / duration;
                     }
                 }
             }
-            loadNextTrackFromQueue(*thisDeck, true);
+
+            if (!m_singleDeckLoadPending && thisPlayPosition >= transitionTriggerPos) {
+                m_singleDeckLoadPending = true;
+                thisDeck->stop();
+                advanceSingleDeckQueue(*thisDeck);
+            }
         }
         return;
     }
@@ -1327,6 +1317,32 @@ bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool pl
 
     emitLoadTrackToPlayer(nextTrack, deck.group, play);
     return true;
+}
+
+void AutoDJProcessor::advanceSingleDeckQueue(const DeckAttributes& deck) {
+    const TrackPointer pLoadedTrack = deck.getLoadedTrack();
+    const TrackId loadedTrackId = pLoadedTrack ? pLoadedTrack->getId() : TrackId();
+    const int loadedTrackRow = findQueueRowByTrackId(loadedTrackId);
+
+    if (loadedTrackRow >= 0) {
+        if (m_queueMode == QueueMode::StaticQueue) {
+            m_staticQueuePlayedTrackIds.insert(loadedTrackId);
+        } else {
+            ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+            m_pAutoDJTableModel->removeTrack(m_pAutoDJTableModel->index(loadedTrackRow, 0));
+            if (m_queueMode == QueueMode::Requeue) {
+                m_pAutoDJTableModel->appendTrack(loadedTrackId);
+            }
+        }
+        maybeFillRandomTracks();
+    } else {
+        // Fallback for edge cases where the loaded track is not in queue row lookup.
+        removeLoadedTrackFromTopOfQueue(deck);
+    }
+
+    const bool seekBeforePlay =
+            m_transitionMode == TransitionMode::FixedStartCenterSkipSilence;
+    loadNextTrackFromQueue(deck, !seekBeforePlay);
 }
 
 bool AutoDJProcessor::removeLoadedTrackFromTopOfQueue(const DeckAttributes& deck) {
@@ -1985,6 +2001,7 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
     }
 
     pDeck->loading = false;
+    m_singleDeckLoadPending = false;
 
     // Since the end position is measured in seconds from 0:00 it is also
     // the track duration.
@@ -2006,8 +2023,42 @@ void AutoDJProcessor::playerTrackLoaded(DeckAttributes* pDeck, TrackPointer pTra
         if (isSingleDeckAutoDJMode()) {
             if (m_transitionMode == TransitionMode::FixedStartCenterSkipSilence) {
                 const double firstSoundSecond = getFirstSoundSecond(pDeck);
-                if (firstSoundSecond > 0.0 && firstSoundSecond < duration) {
-                    pDeck->setPlayPosition(firstSoundSecond / duration);
+                double targetStartSecond = firstSoundSecond;
+                int delayMs = 0;
+
+                if (m_transitionTime < 0.0) {
+                    const double requestedSilenceGapSec = -m_transitionTime;
+                    targetStartSecond = firstSoundSecond - requestedSilenceGapSec;
+                    if (targetStartSecond < 0.0) {
+                        delayMs = static_cast<int>(std::round(-targetStartSecond * 1000.0));
+                        targetStartSecond = 0.0;
+                    }
+                }
+
+                if (targetStartSecond > 0.0 && targetStartSecond < duration) {
+                    pDeck->setPlayPosition(targetStartSecond / duration);
+                }
+
+                const TrackPointer pLoadedTrack = pDeck->getLoadedTrack();
+                const TrackId loadedTrackId = pLoadedTrack ? pLoadedTrack->getId() : TrackId();
+                if (delayMs > 0) {
+                    QTimer::singleShot(delayMs, this, [this, loadedTrackId]() {
+                        if (m_eState == ADJ_DISABLED) {
+                            return;
+                        }
+                        DeckAttributes* pSingleDeck = getSingleDeck();
+                        if (!pSingleDeck) {
+                            return;
+                        }
+                        const TrackPointer pCurrentTrack = pSingleDeck->getLoadedTrack();
+                        const TrackId currentTrackId = pCurrentTrack ? pCurrentTrack->getId() : TrackId();
+                        if (currentTrackId != loadedTrackId) {
+                            return;
+                        }
+                        pSingleDeck->play();
+                    });
+                } else {
+                    pDeck->play();
                 }
             }
             // No transition partner exists in single-deck mode.
