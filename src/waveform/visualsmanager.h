@@ -40,6 +40,9 @@ class DeckVisuals {
 
     std::unique_ptr<ControlProxy> m_pEngineBpm;
     std::unique_ptr<ControlProxy> m_pVisualBpm;
+    std::unique_ptr<ControlProxy> m_pVisualSwing;
+    std::unique_ptr<ControlProxy> m_pVisualSwingStart;
+    std::unique_ptr<ControlProxy> m_pVisualSwingEnd;
 
     std::unique_ptr<ControlProxy> m_pEngineKey;
     std::unique_ptr<ControlProxy> m_pVisualKey;

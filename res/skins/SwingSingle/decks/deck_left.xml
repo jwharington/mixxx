@@ -123,6 +123,22 @@ Variables:
         </Connection>
       </WidgetGroup>
 
+      <TempoSwingDisplay>
+        <ObjectName>BpmSwingLabelSingle</ObjectName>
+        <Size>50f,24min</Size>
+        <Channel><Variable name="chanNum" /></Channel>
+        <Alignment>center</Alignment>
+        <Compact>false</Compact>
+        <BpmDecimals>1</BpmDecimals>
+        <SwingDecimals>0</SwingDecimals>
+        <NoTrackText>--.-&#10;--%</NoTrackText>
+        <FontSize>7</FontSize>
+        <Connection>
+          <ConfigKey persist="true">[Skin],show_rate_controls</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </TempoSwingDisplay>
+
       <Template src="skins:Swing/decks/rate_pitch_key.xml"/>
       <!-- /Pitch slider & Key controls -->
 

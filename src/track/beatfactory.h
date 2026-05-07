@@ -16,6 +16,9 @@ class BeatFactory {
     static QString getPreferredSubVersion(
             const QHash<QString, QString>& extraVersionInfo);
 
+    static QHash<QString, QString> parseSubVersion(
+            const QString& subVersion);
+
     static mixxx::BeatsPointer makePreferredBeats(
             const QVector<mixxx::audio::FramePos>& beats,
             const QHash<QString, QString>& extraVersionInfo,

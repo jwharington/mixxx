@@ -1,5 +1,7 @@
 #include "waveform/visualsmanager.h"
 
+#include <algorithm>
+
 #include "control/controlobject.h"
 #include "waveform/visualplayposition.h"
 
@@ -11,6 +13,9 @@ DeckVisuals::DeckVisuals(const QString& group)
           m_pLoopEnabled(std::make_unique<ControlProxy>(ConfigKey(group, "loop_enabled"))),
           m_pEngineBpm(std::make_unique<ControlProxy>(ConfigKey(group, "bpm"))),
           m_pVisualBpm(std::make_unique<ControlProxy>(ConfigKey(m_group, "visual_bpm"))),
+          m_pVisualSwing(std::make_unique<ControlProxy>(ConfigKey(m_group, "visual_swing"))),
+          m_pVisualSwingStart(std::make_unique<ControlProxy>(ConfigKey(m_group, "visual_swing_start"))),
+          m_pVisualSwingEnd(std::make_unique<ControlProxy>(ConfigKey(m_group, "visual_swing_end"))),
           m_pEngineKey(std::make_unique<ControlProxy>(ConfigKey(group, "key"))),
           m_pVisualKey(std::make_unique<ControlProxy>(ConfigKey(m_group, "visual_key"))),
           m_pTimeElapsed(std::make_unique<ControlProxy>(ConfigKey(m_group, "time_elapsed"))),
@@ -48,6 +53,15 @@ void DeckVisuals::process(double remainingTimeTriggerSeconds) {
     m_SlowTickCnt = (m_SlowTickCnt + 1) % kSlowUpdateDivider;
     if (m_SlowTickCnt == 0 || !trackLoaded) {
         m_pVisualBpm->set(m_pEngineBpm->get());
+
+        const double swingStart = m_pVisualSwingStart->get();
+        const double swingEnd = m_pVisualSwingEnd->get();
+        if (swingStart >= 0.0 && swingEnd >= 0.0 && trackLoaded) {
+            const double clampedPlayPos = std::clamp(playPosition, 0.0, 1.0);
+            const double interpolatedSwing =
+                    swingStart + (swingEnd - swingStart) * clampedPlayPos;
+            m_pVisualSwing->set(interpolatedSwing);
+        }
     }
     m_pVisualKey->set(m_pEngineKey->get());
 

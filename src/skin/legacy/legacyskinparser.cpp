@@ -85,6 +85,7 @@
 #ifdef __STEM__
 #include "widget/wstemlabel.h"
 #endif
+#include "widget/wtemposwingdisplay.h"
 #include "widget/wtime.h"
 #include "widget/wtrackproperty.h"
 #include "widget/wtrackwidgetgroup.h"
@@ -595,6 +596,8 @@ QList<QWidget*> LegacySkinParser::parseNode(const QDomElement& node) {
         result = wrapWidget(parseLabelWidget<WNumber>(node));
     } else if (nodeName == "BpmEditor") {
         result = wrapWidget(parseBpmEditor(node));
+    } else if (nodeName == "TempoSwingDisplay") {
+        result = wrapWidget(parseTempoSwingDisplay(node));
     } else if (nodeName == "NumberDb") {
         result = wrapWidget(parseLabelWidget<WNumberDb>(node));
     } else if (nodeName == "Label") {
@@ -1067,6 +1070,20 @@ QWidget* LegacySkinParser::parseBpmEditor(const QDomElement& node) {
     pBpmEditor->setTapButtonTooltip(tapTooltip);
     pBpmEditor->setEditButtonTooltip(editTooltip);
     return pBpmEditor;
+}
+
+QWidget* LegacySkinParser::parseTempoSwingDisplay(const QDomElement& node) {
+    const QString group = lookupNodeGroup(node);
+    BaseTrackPlayer* pPlayer = m_pPlayerManager->getPlayer(group);
+    if (!pPlayer) {
+        SKIN_WARNING(node, *m_pContext, QStringLiteral("No player found for group: %1").arg(group));
+        return nullptr;
+    }
+
+    WTempoSwingDisplay* pDisplay = new WTempoSwingDisplay(group, m_pParent);
+    pDisplay->setup(node, *m_pContext);
+    commonWidgetSetup(node, pDisplay);
+    return pDisplay;
 }
 
 QWidget* LegacySkinParser::parseOverview(const QDomElement& node) {

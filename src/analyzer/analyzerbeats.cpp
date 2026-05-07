@@ -7,16 +7,34 @@
 
 #include "analyzer/analyzertrack.h"
 #include "analyzer/constants.h"
+#include "analyzer/plugins/analyzerlarocheswingbeats.h"
 #include "analyzer/plugins/analyzerqueenmarybeats.h"
 #include "analyzer/plugins/analyzersoundtouchbeats.h"
 #include "library/rekordbox/rekordboxconstants.h"
 #include "track/beatfactory.h"
 #include "track/track.h"
 
+namespace {
+
+bool subVersionContainsExpectedFields(
+        const QString& subVersion,
+        const QHash<QString, QString>& expectedFields) {
+    const auto actualFields = BeatFactory::parseSubVersion(subVersion);
+    for (auto it = expectedFields.cbegin(); it != expectedFields.cend(); ++it) {
+        if (actualFields.value(it.key()) != it.value()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
 // static
 QList<mixxx::AnalyzerPluginInfo> AnalyzerBeats::availablePlugins() {
     QList<mixxx::AnalyzerPluginInfo> plugins;
     // First one below is the default
+    plugins.append(mixxx::AnalyzerLarocheSwingBeats::pluginInfo());
     plugins.append(mixxx::AnalyzerQueenMaryBeats::pluginInfo());
     plugins.append(mixxx::AnalyzerSoundTouchBeats::pluginInfo());
     return plugins;
@@ -107,6 +125,8 @@ bool AnalyzerBeats::initialize(const AnalyzerTrack& track,
             m_pPlugin = std::make_unique<mixxx::AnalyzerQueenMaryBeats>();
         } else if (m_pluginId == mixxx::AnalyzerSoundTouchBeats::pluginInfo().id()) {
             m_pPlugin = std::make_unique<mixxx::AnalyzerSoundTouchBeats>();
+        } else if (m_pluginId == mixxx::AnalyzerLarocheSwingBeats::pluginInfo().id()) {
+            m_pPlugin = std::make_unique<mixxx::AnalyzerLarocheSwingBeats>();
         } else {
             // This must not happen, because we have already verified above
             // that the PlugInId is valid
@@ -177,12 +197,12 @@ bool AnalyzerBeats::shouldAnalyze(TrackPointer pTrack) const {
             m_bPreferencesFastAnalysis);
     QString newVersion = BeatFactory::getPreferredVersion(
             m_bPreferencesFixedTempo);
-    QString newSubVersion = BeatFactory::getPreferredSubVersion(
-            extraVersionInfo);
 
-    if (version == newVersion && subVersion == newSubVersion) {
-        // If the version and settings have not changed then if the world is
-        // sane, re-analyzing will do nothing.
+    if (version == newVersion &&
+            subVersionContainsExpectedFields(subVersion, extraVersionInfo)) {
+        // If the version and analysis settings have not changed then if the
+        // world is sane, re-analyzing will do nothing. Unknown additional
+        // sub-version fields are ignored.
         return false;
     }
     // Beat grid exists but version and settings differ
@@ -262,6 +282,10 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
         QVector<mixxx::audio::FramePos> beats = m_pPlugin->getBeats();
         QHash<QString, QString> extraVersionInfo = getExtraVersionInfo(
                 m_pluginId, m_bPreferencesFastAnalysis);
+        const auto pluginExtraInfo = m_pPlugin->getExtraVersionInfo();
+        for (auto it = pluginExtraInfo.constBegin(); it != pluginExtraInfo.constEnd(); ++it) {
+            extraVersionInfo.insert(it.key(), it.value());
+        }
         pBeats = BeatFactory::makePreferredBeats(
                 beats,
                 extraVersionInfo,

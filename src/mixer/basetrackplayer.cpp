@@ -15,6 +15,7 @@
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "moc_basetrackplayer.cpp"
+#include "track/beatfactory.h"
 #include "track/track.h"
 #include "util/sandbox.h"
 #include "vinylcontrol/defs_vinylcontrol.h"
@@ -23,12 +24,53 @@
 namespace {
 
 constexpr double kNoTrackColor = -1;
+constexpr double kNoSwingPercent = -1;
 constexpr double kShiftCuesOffsetMillis = 10;
 constexpr double kShiftCuesOffsetSmallMillis = 1;
 const QString kEffectGroupFormat = QStringLiteral("[EqualizerRack1_%1_Effect1]");
 
 inline double trackColorToDouble(mixxx::RgbColor::optional_t color) {
     return (color ? static_cast<double>(*color) : kNoTrackColor);
+}
+
+struct SwingEstimate {
+    double now = kNoSwingPercent;
+    double start = kNoSwingPercent;
+    double end = kNoSwingPercent;
+};
+
+inline SwingEstimate extractSwingEstimateFromTrack(const TrackPointer& pTrack) {
+    SwingEstimate estimate;
+    if (!pTrack) {
+        return estimate;
+    }
+
+    const auto pBeats = pTrack->getBeats();
+    if (!pBeats) {
+        return estimate;
+    }
+
+    const auto info = BeatFactory::parseSubVersion(pBeats->getSubVersion());
+
+    bool ok = false;
+    estimate.now = info.value(QStringLiteral("swing_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.now = kNoSwingPercent;
+    }
+
+    ok = false;
+    estimate.start = info.value(QStringLiteral("swing_start_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.start = estimate.now;
+    }
+
+    ok = false;
+    estimate.end = info.value(QStringLiteral("swing_end_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.end = estimate.now;
+    }
+
+    return estimate;
 }
 } // namespace
 
@@ -315,6 +357,12 @@ BaseTrackPlayerImpl::BaseTrackPlayerImpl(
     // BPM and key of the current song
     m_pFileBPM = std::make_unique<ControlObject>(ConfigKey(getGroup(), "file_bpm"));
     m_pVisualBpm = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_bpm"));
+    m_pVisualSwing = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_swing"));
+    m_pVisualSwingStart = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_swing_start"));
+    m_pVisualSwingEnd = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_swing_end"));
+    m_pVisualSwing->set(kNoSwingPercent);
+    m_pVisualSwingStart->set(kNoSwingPercent);
+    m_pVisualSwingEnd->set(kNoSwingPercent);
     m_pKey = make_parented<ControlProxy>(getGroup(), "file_key", this);
     m_pVisualKey = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_key"));
 
@@ -535,6 +583,10 @@ TrackPointer BaseTrackPlayerImpl::unloadTrack() {
 
     disconnectLoadedTrack();
 
+    m_pVisualSwing->set(kNoSwingPercent);
+    m_pVisualSwingStart->set(kNoSwingPercent);
+    m_pVisualSwingEnd->set(kNoSwingPercent);
+
     // Do not reset m_pReplayGain here, because the track might be still
     // playing and the last buffer will be processed.
 
@@ -574,6 +626,16 @@ void BaseTrackPlayerImpl::connectLoadedTrack() {
                     const auto key = pTrack->getKeys().getGlobalKey();
                     m_pKey->set(static_cast<double>(key));
                 }
+            });
+
+    connect(m_pLoadedTrack.get(),
+            &Track::beatsUpdated,
+            this,
+            [this] {
+                const auto swing = extractSwingEstimateFromTrack(m_pLoadedTrack);
+                m_pVisualSwing->set(swing.now);
+                m_pVisualSwingStart->set(swing.start);
+                m_pVisualSwingEnd->set(swing.end);
             });
 
     // Listen for updates to the file's Replay Gain
@@ -696,6 +758,9 @@ void BaseTrackPlayerImpl::slotTrackLoaded(TrackPointer pNewTrack,
         emit loadingTrack(pNewTrack, pOldTrack);
         m_pDuration->set(0);
         m_pFileBPM->set(0);
+        m_pVisualSwing->set(kNoSwingPercent);
+        m_pVisualSwingStart->set(kNoSwingPercent);
+        m_pVisualSwingEnd->set(kNoSwingPercent);
         m_pKey->set(0);
         slotSetTrackColor(std::nullopt);
         m_pLoopInPoint->set(kNoTrigger);
@@ -715,6 +780,10 @@ void BaseTrackPlayerImpl::slotTrackLoaded(TrackPointer pNewTrack,
         // Update the BPM and duration values that are stored in ControlObjects
         m_pDuration->set(m_pLoadedTrack->getDuration());
         m_pFileBPM->set(m_pLoadedTrack->getBpm());
+        const auto swing = extractSwingEstimateFromTrack(m_pLoadedTrack);
+        m_pVisualSwing->set(swing.now);
+        m_pVisualSwingStart->set(swing.start);
+        m_pVisualSwingEnd->set(swing.end);
         m_pKey->set(m_pLoadedTrack->getKey());
         slotSetTrackColor(m_pLoadedTrack->getColor());
 
