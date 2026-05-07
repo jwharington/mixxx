@@ -48,6 +48,32 @@ QString BeatFactory::getPreferredSubVersion(
                                   : "";
 }
 
+QHash<QString, QString> BeatFactory::parseSubVersion(
+        const QString& subVersion) {
+    const QChar kSubVersionFragmentSeparator('|');
+    const QChar kSubVersionKeyValueSeparator('=');
+    QHash<QString, QString> result;
+
+    if (subVersion.isEmpty()) {
+        return result;
+    }
+
+    const auto fragments = subVersion.split(
+            kSubVersionFragmentSeparator, Qt::SkipEmptyParts);
+    for (const auto& fragment : fragments) {
+        const auto parts = fragment.split(kSubVersionKeyValueSeparator);
+        if (parts.size() != 2) {
+            continue;
+        }
+        const auto key = parts.at(0).trimmed();
+        if (key.isEmpty()) {
+            continue;
+        }
+        result.insert(key, parts.at(1).trimmed());
+    }
+    return result;
+}
+
 mixxx::BeatsPointer BeatFactory::makePreferredBeats(
         const QVector<mixxx::audio::FramePos>& beats,
         const QHash<QString, QString>& extraVersionInfo,

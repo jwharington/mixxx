@@ -1181,6 +1181,7 @@ add_library(
   src/analyzer/analyzerthread.cpp
   src/analyzer/analyzertrack.cpp
   src/analyzer/analyzerwaveform.cpp
+  src/analyzer/plugins/analyzerlarocheswingbeats.cpp
   src/analyzer/plugins/analyzerqueenmarybeats.cpp
   src/analyzer/plugins/analyzerqueenmarykey.cpp
   src/analyzer/plugins/analyzersoundtouchbeats.cpp
@@ -1818,6 +1819,7 @@ add_library(
   src/widget/wstatuslight.cpp
   src/widget/wtime.cpp
   src/widget/wtrackmenu.cpp
+  src/widget/wtemposwingdisplay.cpp
   src/widget/wtrackproperty.cpp
   src/widget/wtracktableview.cpp
   src/widget/wtracktableviewheader.cpp
@@ -2860,9 +2862,12 @@ if(BUILD_TESTING)
   set(
     src-mixxx-test
     src/test/analyserwaveformtest.cpp
+    src/test/analyzerlaroche_balboa_smoketest.cpp
+    src/test/analyzerlarocheswingbeats_test.cpp
     src/test/analyzersilence_test.cpp
     src/test/audiotaperpot_test.cpp
     src/test/autodjprocessor_test.cpp
+    src/test/beatfactorytest.cpp
     src/test/beatgridtest.cpp
     src/test/beatmaptest.cpp
     src/test/beatstest.cpp

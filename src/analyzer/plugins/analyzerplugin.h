@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QString>
 
 #include "audio/frame.h"
@@ -74,6 +75,9 @@ class AnalyzerBeatsPlugin : public AnalyzerPlugin {
         return {};
     }
     virtual QVector<mixxx::audio::FramePos> getBeats() const {
+        return {};
+    }
+    virtual QHash<QString, QString> getExtraVersionInfo() const {
         return {};
     }
 };
