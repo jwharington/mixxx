@@ -2,10 +2,13 @@
 
 #include <QDragEnterEvent>
 #include <QEvent>
+#include <QHelpEvent>
 
 #include "control/controlproxy.h"
 #include "moc_wwaveformviewer.cpp"
+#include "track/track.h"
 #include "util/dnd.h"
+#include "util/duration.h"
 #include "util/math.h"
 #include "waveform/waveformwidgetfactory.h"
 #include "waveform/widgets/waveformwidgetabstract.h"
@@ -52,6 +55,69 @@ void WWaveformViewer::setup(const QDomNode& node, const SkinContext& context) {
         m_waveformWidget->setup(node, context);
         m_dimBrightThreshold = m_waveformWidget->getDimBrightThreshold();
     }
+}
+
+bool WWaveformViewer::event(QEvent* event) {
+    if (event->type() == QEvent::ToolTip) {
+        auto* helpEvent = static_cast<QHelpEvent*>(event);
+        updateTooltipFromMousePosition(helpEvent->pos());
+    }
+
+    return WWidget::event(event);
+}
+
+QString WWaveformViewer::hoverTimeTooltipText(const QPoint& point) const {
+    if (!m_waveformWidget || m_waveformWidget->getType() == WaveformWidgetType::Empty) {
+        return {};
+    }
+
+    const auto currentTrack = m_waveformWidget->getTrackInfo();
+    if (!currentTrack) {
+        return {};
+    }
+
+    const double durationSeconds = currentTrack->getDuration();
+    const double trackSamples = m_waveformWidget->getTrackSamples();
+    const double audioSamplesPerPixel = m_waveformWidget->getAudioSamplePerPixel();
+    const int waveformLength = m_waveformWidget->getLength();
+    if (durationSeconds <= 0.0 ||
+            trackSamples <= 0.0 ||
+            audioSamplesPerPixel <= 0.0 ||
+            waveformLength <= 0) {
+        return {};
+    }
+
+    int pointInWaveform = m_waveformWidget->getOrientation() == Qt::Horizontal
+            ? point.x()
+            : point.y();
+    pointInWaveform = math_clamp(pointInWaveform, 0, waveformLength);
+
+    const double firstDisplayedSample =
+            m_waveformWidget->getFirstDisplayedPosition() * trackSamples;
+    const double hoveredSample = math_clamp(
+            firstDisplayedSample + pointInWaveform * 2.0 * audioSamplesPerPixel,
+            0.0,
+            trackSamples);
+    const double hoveredTimeSeconds = (hoveredSample / trackSamples) * durationSeconds;
+
+    return mixxx::Duration::formatTime(hoveredTimeSeconds);
+}
+
+void WWaveformViewer::updateTooltipFromMousePosition(const QPoint& point) {
+    setWaveformTooltipText(hoverTimeTooltipText(point));
+}
+
+void WWaveformViewer::setWaveformTooltipText(const QString& text) {
+    if (toolTip() != text) {
+        setToolTip(text);
+    }
+
+#ifdef MIXXX_USE_QOPENGL
+    if (m_waveformWidget && m_waveformWidget->getGLWidget() &&
+            m_waveformWidget->getGLWidget()->toolTip() != text) {
+        m_waveformWidget->getGLWidget()->setToolTip(text);
+    }
+#endif
 }
 
 void WWaveformViewer::resizeEvent(QResizeEvent* event) {
@@ -131,6 +197,8 @@ void WWaveformViewer::mouseMoveEvent(QMouseEvent* event) {
     if (!m_waveformWidget || m_waveformWidget->getType() == WaveformWidgetType::Empty) {
         return;
     }
+
+    updateTooltipFromMousePosition(event->pos());
 
     // Only send signals for mouse moving if the left button is pressed
     if (m_bScratching) {
@@ -215,6 +283,8 @@ bool WWaveformViewer::handleDragAndDropEventFromWindow(QEvent* pEvent) {
 }
 
 void WWaveformViewer::leaveEvent(QEvent*) {
+    setWaveformTooltipText(baseTooltip());
+
     if (m_pHoveredMark) {
         unhighlightMark(m_pHoveredMark);
         m_pHoveredMark = nullptr;
@@ -246,6 +316,7 @@ void WWaveformViewer::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOld
     if (m_waveformWidget) {
         m_waveformWidget->setTrack(TrackPointer());
     }
+    setWaveformTooltipText(baseTooltip());
 }
 
 void WWaveformViewer::onZoomChange(double zoom) {
@@ -305,10 +376,9 @@ void WWaveformViewer::setWaveformWidget(WaveformWidgetAbstract* waveformWidget) 
 #ifdef MIXXX_USE_QOPENGL
         if (m_waveformWidget->getGLWidget()) {
             // The OpenGLWindow used to display the waveform widget interferes with the
-            // normal Qt tooltip mechanism and uses it's own mechanism. We set the tooltip
-            // of the waveform widget to the tooltip of its parent WWaveformViewer so the
-            // OpenGLWindow will display it.
-            m_waveformWidget->getGLWidget()->setToolTip(toolTip());
+            // normal Qt tooltip mechanism and uses it's own mechanism. Keep both widget
+            // tooltips in sync so the OpenGLWindow can display the same text.
+            setWaveformTooltipText(toolTip());
 
             // Tell the WGLWidget that this is its drag&drop target
             m_waveformWidget->getGLWidget()->setTrackDropTarget(this);
