@@ -3,10 +3,12 @@
 #include <QBrush>
 #include <QColor>
 #include <QGuiApplication>
+#include <QHelpEvent>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QPen>
+#include <QToolTip>
 #include <QVBoxLayout>
 
 #include "analyzer/analyzerprogress.h"
@@ -533,7 +535,60 @@ void WOverview::receiveCuesUpdated() {
     onMarkChanged(0);
 }
 
+bool WOverview::event(QEvent* event) {
+    if (event->type() == QEvent::ToolTip) {
+        auto* helpEvent = static_cast<QHelpEvent*>(event);
+        updateTooltipFromMousePosition(helpEvent->pos(), helpEvent->globalPos());
+        return true;
+    }
+
+    return WWidget::event(event);
+}
+
+QString WOverview::hoverTimeTooltipText(const QPoint& point) {
+    if (!m_pCurrentTrack) {
+        return {};
+    }
+
+    const double trackSamples = getTrackSamples();
+    const int widgetLength = length();
+    if (trackSamples <= 0.0 || widgetLength <= 0) {
+        return {};
+    }
+
+    const int pointInWidget = m_orientation == Qt::Horizontal
+            ? math_clamp(point.x(), 0, widgetLength)
+            : math_clamp(point.y(), 0, widgetLength);
+    const double widgetPositionFraction = static_cast<double>(pointInWidget) / widgetLength;
+    const double timePosition = samplePositionToSeconds(widgetPositionFraction * trackSamples);
+    if (timePosition < 0.0) {
+        return {};
+    }
+
+    return mixxx::Duration::formatTime(timePosition);
+}
+
+void WOverview::updateTooltipFromMousePosition(
+        const QPoint& point,
+        const QPoint& globalPoint) {
+    const QString tooltipText = hoverTimeTooltipText(point);
+    if (tooltipText.isEmpty()) {
+        QToolTip::hideText();
+        return;
+    }
+
+    QToolTip::showText(globalPoint, tooltipText, this);
+}
+
 void WOverview::mouseMoveEvent(QMouseEvent* e) {
+    if (QToolTip::isVisible()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        updateTooltipFromMousePosition(e->pos(), e->globalPosition().toPoint());
+#else
+        updateTooltipFromMousePosition(e->pos(), e->globalPos());
+#endif
+    }
+
     if (m_bLeftClickDragging) {
         if (isPosInAllowedPosDragZone(e->pos())) {
             m_bTimeRulerActive = true;
@@ -691,6 +746,7 @@ void WOverview::slotCueMenuPopupAboutToHide() {
 
 void WOverview::leaveEvent(QEvent* pEvent) {
     Q_UNUSED(pEvent);
+    QToolTip::hideText();
     // Reset our dragging only if the left button is not pressed.
     // This works around a Qt mouse event change after Qt 6.5 which causes
     // leaveEvents to be emitted when we hover another widget which has set the

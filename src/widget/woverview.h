@@ -45,7 +45,7 @@ class WOverview : public WWidget, public TrackDropTarget {
     void cloneDeck(const QString& sourceGroup, const QString& targetGroup) override;
 
   protected:
-
+    bool event(QEvent* event) override;
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
@@ -102,6 +102,8 @@ class WOverview : public WWidget, public TrackDropTarget {
     void drawPassthroughOverlay(QPainter* pPainter);
     void paintText(const QString& text, QPainter* pPainter);
     double samplePositionToSeconds(double sample);
+    QString hoverTimeTooltipText(const QPoint& point);
+    void updateTooltipFromMousePosition(const QPoint& point, const QPoint& globalPoint);
     inline int valueToPosition(double value) const {
         return static_cast<int>(m_maxPixelPos * value);
     }
