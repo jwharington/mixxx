@@ -2264,17 +2264,27 @@ WTrackProperty#SamplerTitle_mini {
   qproperty-layoutAlignment: 'AlignLeft | AlignTop';
 }
 #PreviewMeta WTrackProperty#TrackTitle,
+#PreviewMeta WTrackProperty#TrackTitle[playing="true"] {
+  color: #b5a458;
+  font-size: 16px/16px;
+  font-weight: bold;
+}
 #PreviewMeta WTrackProperty#TrackArtist,
-#PreviewMeta WTrackProperty#TrackTitle[playing="true"],
 #PreviewMeta WTrackProperty#TrackArtist[playing="true"] {
   color: #b5a458;
+  font-size: 14px/14px;
+  font-weight: bold;
 }
 #PreviewMeta WLabel#TrackBy,
 #PreviewMeta #PreviewBpmField {
   color: #888;
 }
-#PreviewMeta #PreviewBpmField {
+#PreviewMeta WLabel#TrackBy {
   font-size: 14px/14px;
+  font-weight: bold;
+}
+#PreviewMeta #PreviewBpmField {
+  font-size: 12px/12px;
   font-weight: bold;
 }
 #PreviewPlay #PlayCue,

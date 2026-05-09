@@ -179,14 +179,20 @@ Variables:
 
               <WidgetGroup><Size>2f,0min</Size></WidgetGroup>
 
-              <Template src="skins:Swing/controls/button_1state.xml">
-                <SetVariable name="TooltipId">eject</SetVariable>
-                <SetVariable name="ObjectName">PreviewEject</SetVariable>
-                <SetVariable name="Size">18f,1me</SetVariable>
-                <SetVariable name="state_0_pressed">eject_pressed.svg</SetVariable>
-                <SetVariable name="state_0_unpressed">eject.svg</SetVariable>
-                <SetVariable name="ConfigKey"><Variable name="group"/>,eject</SetVariable>
-              </Template>
+              <WidgetGroup>
+                <Layout>stacked</Layout>
+                <Size>25f,1me</Size>
+                <Children>
+                  <Template src="skins:Swing/controls/button_1state.xml">
+                    <SetVariable name="TooltipId">eject</SetVariable>
+                    <SetVariable name="ObjectName">PreviewEject</SetVariable>
+                    <SetVariable name="Size">24f,1me</SetVariable>
+                    <SetVariable name="state_0_pressed">eject_pressed.svg</SetVariable>
+                    <SetVariable name="state_0_unpressed">eject.svg</SetVariable>
+                    <SetVariable name="ConfigKey"><Variable name="group"/>,eject</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup>
             </Children>
           </WidgetGroup>
 
