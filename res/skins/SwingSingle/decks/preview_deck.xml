@@ -95,34 +95,26 @@ Variables:
             <SizePolicy>me,me</SizePolicy>
             <Children>
               <WidgetGroup>
-                <Layout>vertical</Layout>
+                <ObjectName>PreviewPlay</ObjectName>
+                <Layout>stacked</Layout>
                 <Size>25f,1me</Size>
                 <Children>
-                  <WidgetGroup><Size>0f,1me</Size></WidgetGroup>
-                  <WidgetGroup>
-                    <ObjectName>PreviewPlay</ObjectName>
-                    <Layout>stacked</Layout>
-                    <Size>25f,24f</Size>
-                    <Children>
-                      <Template src="skins:Swing/controls/button_2state_right_display.xml">
-                        <SetVariable name="ObjectName">PlayCue</SetVariable>
-                        <SetVariable name="TooltipId">play_start</SetVariable>
-                        <SetVariable name="Size">24f,24f</SetVariable>
-                        <SetVariable name="state_0_icon">play_previewdeck.svg</SetVariable>
-                        <SetVariable name="state_1_icon">pause_previewdeck.svg</SetVariable>
-                        <SetVariable name="ConfigKey"><Variable name="group"/>,play</SetVariable>
-                        <SetVariable name="ConfigKeyRight"><Variable name="group"/>,start</SetVariable>
-                        <SetVariable name="ConfigKeyDisp"><Variable name="group"/>,play_indicator</SetVariable>
-                      </Template>
-                      <!-- Preview indicator, indicates previewing from Cue or Hotcue -->
-                      <Template src="skins:Swing/controls/button_2state.xml">
-                        <SetVariable name="ObjectName">PreviewIndicator</SetVariable>
-                        <SetVariable name="Size">24f,24f</SetVariable>
-                        <SetVariable name="ConfigKey"><Variable name="group"/>,play</SetVariable>
-                      </Template>
-                    </Children>
-                  </WidgetGroup>
-                  <WidgetGroup><Size>0f,1me</Size></WidgetGroup>
+                  <Template src="skins:Swing/controls/button_2state_right_display.xml">
+                    <SetVariable name="ObjectName">PlayCue</SetVariable>
+                    <SetVariable name="TooltipId">play_start</SetVariable>
+                    <SetVariable name="Size">24f,1me</SetVariable>
+                    <SetVariable name="state_0_icon">play_previewdeck.svg</SetVariable>
+                    <SetVariable name="state_1_icon">pause_previewdeck.svg</SetVariable>
+                    <SetVariable name="ConfigKey"><Variable name="group"/>,play</SetVariable>
+                    <SetVariable name="ConfigKeyRight"><Variable name="group"/>,start</SetVariable>
+                    <SetVariable name="ConfigKeyDisp"><Variable name="group"/>,play_indicator</SetVariable>
+                  </Template>
+                  <!-- Preview indicator, indicates previewing from Cue or Hotcue -->
+                  <Template src="skins:Swing/controls/button_2state.xml">
+                    <SetVariable name="ObjectName">PreviewIndicator</SetVariable>
+                    <SetVariable name="Size">24f,1me</SetVariable>
+                    <SetVariable name="ConfigKey"><Variable name="group"/>,play</SetVariable>
+                  </Template>
                 </Children>
               </WidgetGroup>
 
@@ -187,22 +179,14 @@ Variables:
 
               <WidgetGroup><Size>2f,0min</Size></WidgetGroup>
 
-              <WidgetGroup>
-                <Layout>vertical</Layout>
-                <Size>18f,1me</Size>
-                <Children>
-                  <WidgetGroup><Size>0f,1me</Size></WidgetGroup>
-                  <Template src="skins:Swing/controls/button_1state.xml">
-                    <SetVariable name="TooltipId">eject</SetVariable>
-                    <SetVariable name="ObjectName">PreviewEject</SetVariable>
-                    <SetVariable name="Size">18f,18f</SetVariable>
-                    <SetVariable name="state_0_pressed">eject_pressed.svg</SetVariable>
-                    <SetVariable name="state_0_unpressed">eject.svg</SetVariable>
-                    <SetVariable name="ConfigKey"><Variable name="group"/>,eject</SetVariable>
-                  </Template>
-                  <WidgetGroup><Size>0f,1me</Size></WidgetGroup>
-                </Children>
-              </WidgetGroup>
+              <Template src="skins:Swing/controls/button_1state.xml">
+                <SetVariable name="TooltipId">eject</SetVariable>
+                <SetVariable name="ObjectName">PreviewEject</SetVariable>
+                <SetVariable name="Size">18f,1me</SetVariable>
+                <SetVariable name="state_0_pressed">eject_pressed.svg</SetVariable>
+                <SetVariable name="state_0_unpressed">eject.svg</SetVariable>
+                <SetVariable name="ConfigKey"><Variable name="group"/>,eject</SetVariable>
+              </Template>
             </Children>
           </WidgetGroup>
 
