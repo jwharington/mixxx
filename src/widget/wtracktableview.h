@@ -66,9 +66,19 @@ class WTrackTableView : public WLibraryTableView {
     static constexpr QColor kPlayingTrackHighlightColor = QColor(0x53, 0xFF, 0x53);
     static constexpr QColor kQueuedTrackHighlightColor = QColor(0x5C, 0x82, 0xB6);
     void setHighlightedTrackId(const TrackId& trackId,
-            const QColor& borderColor = kPlayingTrackHighlightColor);
+            const QColor& borderColor = kPlayingTrackHighlightColor,
+            int preferredMinRow = -1);
     void setSecondaryHighlightedTrackId(const TrackId& trackId,
-            const QColor& borderColor = kQueuedTrackHighlightColor);
+            const QColor& borderColor = kQueuedTrackHighlightColor,
+            int preferredMinRow = -1);
+    TrackId highlightedTrackId() const {
+        return m_highlightedTrackId;
+    }
+    TrackId secondaryHighlightedTrackId() const {
+        return m_secondaryHighlightedTrackId;
+    }
+    int highlightedTrackRow() const;
+    int secondaryHighlightedTrackRow() const;
 
     void addToAutoDJBottom();
     void addToAutoDJTop();
@@ -187,6 +197,7 @@ class WTrackTableView : public WLibraryTableView {
     void dropEvent(QDropEvent* event) override;
 
     void paintEvent(QPaintEvent* e) override;
+    int resolveHighlightedRow(const TrackId& trackId, int preferredMinRow) const;
 
     void enableCachedOnly();
     void selectionChanged(const QItemSelection& selected,
@@ -225,8 +236,10 @@ class WTrackTableView : public WLibraryTableView {
     int m_ratingStarScaleFactor;
     TrackId m_highlightedTrackId;
     QColor m_highlightedTrackBorderColor;
+    int m_highlightedTrackPreferredMinRow{-1};
     TrackId m_secondaryHighlightedTrackId;
     QColor m_secondaryHighlightedTrackBorderColor;
+    int m_secondaryHighlightedTrackPreferredMinRow{-1};
     bool m_sorting;
 
     // Control the delay to load a cover art.

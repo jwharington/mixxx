@@ -157,7 +157,7 @@ void WTrackTableView::selectionChanged(
     // If 'selectedClick' is enabled Ctrl+click opens the editor instead of
     // toggling the clicked item.
     // TODO Remove or adjust version guard as soon as the bug is fixed.
-    if (m_pLibrary->selectedClickEnabled()) {
+    if (m_pLibrary && m_pLibrary->selectedClickEnabled()) {
         if (selectionModel()->selectedRows().size() > 1) {
             setSelectedClick(false);
         } else {
@@ -416,6 +416,11 @@ void WTrackTableView::initTrackMenu() {
 
     if (m_pTrackMenu) {
         m_pTrackMenu->deleteLater();
+    }
+
+    if (!m_pLibrary) {
+        m_pTrackMenu = nullptr;
+        return;
     }
 
     m_pTrackMenu = make_parented<WTrackMenu>(this,
@@ -938,53 +943,49 @@ void WTrackTableView::paintEvent(QPaintEvent* e) {
 
     auto drawHighlightedTrack = [this, &painter](
                                       const TrackId& trackId,
-                                      const QColor& trackBorderColor) {
-        if (!trackId.isValid()) {
+                                      const QColor& trackBorderColor,
+                                      int preferredMinRow) {
+        const int row = resolveHighlightedRow(trackId, preferredMinRow);
+        if (row < 0) {
             return;
         }
-        TrackModel* pTrackModel = getTrackModel();
-        if (pTrackModel == nullptr) {
+
+        const int y = rowViewportPosition(row);
+        const int h = rowHeight(row);
+        if (h <= 0 || y + h < 0 || y > viewport()->height()) {
             return;
         }
-        const QVector<int> rows = pTrackModel->getTrackRows(trackId);
-        for (int row : rows) {
-            if (row < 0 || row >= model()->rowCount()) {
-                continue;
-            }
 
-            const int y = rowViewportPosition(row);
-            const int h = rowHeight(row);
-            if (h <= 0 || y + h < 0 || y > viewport()->height()) {
-                continue;
-            }
-
-            QRect borderRect(1, y + 1, viewport()->width() - 3, h - 3);
-            if (!borderRect.isValid()) {
-                continue;
-            }
-
-            QColor borderColor = trackBorderColor;
-            borderColor.setAlpha(230);
-            QColor shadeColor = borderColor.darker(250);
-            shadeColor.setAlpha(200);
-            QColor fillColor = borderColor;
-            fillColor.setAlpha(36);
-
-            painter.setRenderHint(QPainter::Antialiasing, false);
-            painter.fillRect(borderRect.adjusted(2, 2, -2, -2), fillColor);
-            painter.setPen(QPen(shadeColor, 3));
-            painter.drawRect(borderRect);
-            painter.setPen(QPen(borderColor, 1));
-            painter.drawRect(borderRect.adjusted(1, 1, -1, -1));
-            break;
+        QRect borderRect(1, y + 1, viewport()->width() - 3, h - 3);
+        if (!borderRect.isValid()) {
+            return;
         }
+
+        QColor borderColor = trackBorderColor;
+        borderColor.setAlpha(230);
+        QColor shadeColor = borderColor.darker(250);
+        shadeColor.setAlpha(200);
+        QColor fillColor = borderColor;
+        fillColor.setAlpha(36);
+
+        painter.setRenderHint(QPainter::Antialiasing, false);
+        painter.fillRect(borderRect.adjusted(2, 2, -2, -2), fillColor);
+        painter.setPen(QPen(shadeColor, 3));
+        painter.drawRect(borderRect);
+        painter.setPen(QPen(borderColor, 1));
+        painter.drawRect(borderRect.adjusted(1, 1, -1, -1));
     };
 
     // Draw queued (secondary) first, then playing (primary) so playing takes precedence.
     if (m_secondaryHighlightedTrackId != m_highlightedTrackId) {
-        drawHighlightedTrack(m_secondaryHighlightedTrackId, m_secondaryHighlightedTrackBorderColor);
+        drawHighlightedTrack(m_secondaryHighlightedTrackId,
+                m_secondaryHighlightedTrackBorderColor,
+                m_secondaryHighlightedTrackPreferredMinRow);
     }
-    drawHighlightedTrack(m_highlightedTrackId, m_highlightedTrackBorderColor);
+    drawHighlightedTrack(
+            m_highlightedTrackId,
+            m_highlightedTrackBorderColor,
+            m_highlightedTrackPreferredMinRow);
 
     if (m_dropRow < 0) {
         return;
@@ -1037,25 +1038,74 @@ TrackModel* WTrackTableView::getTrackModel() const {
     return pTrackModel;
 }
 
+int WTrackTableView::resolveHighlightedRow(const TrackId& trackId, int preferredMinRow) const {
+    if (!trackId.isValid()) {
+        return -1;
+    }
+
+    TrackModel* pTrackModel = getTrackModel();
+    if (pTrackModel == nullptr) {
+        return -1;
+    }
+
+    const QVector<int> rows = pTrackModel->getTrackRows(trackId);
+    if (rows.isEmpty()) {
+        return -1;
+    }
+
+    for (int row : rows) {
+        if (preferredMinRow >= 0 && row < preferredMinRow) {
+            continue;
+        }
+        if (row >= 0 && row < model()->rowCount()) {
+            return row;
+        }
+    }
+
+    for (int row : rows) {
+        if (row >= 0 && row < model()->rowCount()) {
+            return row;
+        }
+    }
+
+    return -1;
+}
+
+int WTrackTableView::highlightedTrackRow() const {
+    return resolveHighlightedRow(m_highlightedTrackId, m_highlightedTrackPreferredMinRow);
+}
+
+int WTrackTableView::secondaryHighlightedTrackRow() const {
+    return resolveHighlightedRow(
+            m_secondaryHighlightedTrackId,
+            m_secondaryHighlightedTrackPreferredMinRow);
+}
+
 void WTrackTableView::setHighlightedTrackId(const TrackId& trackId,
-        const QColor& borderColor) {
+        const QColor& borderColor,
+        int preferredMinRow) {
     if (m_highlightedTrackId == trackId &&
-            m_highlightedTrackBorderColor == borderColor) {
+            m_highlightedTrackBorderColor == borderColor &&
+            m_highlightedTrackPreferredMinRow == preferredMinRow) {
         return;
     }
     m_highlightedTrackId = trackId;
     m_highlightedTrackBorderColor = borderColor;
+    m_highlightedTrackPreferredMinRow = preferredMinRow;
     viewport()->update();
 }
 
 void WTrackTableView::setSecondaryHighlightedTrackId(const TrackId& trackId,
-        const QColor& borderColor) {
+        const QColor& borderColor,
+        int preferredMinRow) {
     if (m_secondaryHighlightedTrackId == trackId &&
-            m_secondaryHighlightedTrackBorderColor == borderColor) {
+            m_secondaryHighlightedTrackBorderColor == borderColor &&
+            m_secondaryHighlightedTrackPreferredMinRow == preferredMinRow) {
         return;
     }
     m_secondaryHighlightedTrackId = trackId;
     m_secondaryHighlightedTrackBorderColor = borderColor;
+    m_secondaryHighlightedTrackPreferredMinRow = preferredMinRow;
     viewport()->update();
 }
 

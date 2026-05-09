@@ -470,10 +470,16 @@ AutoDJProcessor::AutoDJError AutoDJProcessor::toggleAutoDJ(bool enable) {
 
             if (pDeck->isPlaying()) {
                 removeLoadedTrackFromTopOfQueue(*pDeck);
+                const TrackPointer pLoadedTrack = pDeck->getLoadedTrack();
+                m_singleDeckStaticQueueLoadedRowHint = pLoadedTrack
+                        ? resolveStaticQueueReferenceRow(pLoadedTrack->getId())
+                        : -1;
                 m_eState = ADJ_IDLE;
             } else {
                 m_eState = ADJ_ENABLE_P1LOADED;
                 if (nextTrack) {
+                    m_singleDeckStaticQueueLoadedRowHint =
+                            resolveStaticQueueReferenceRow(nextTrack->getId());
                     emitLoadTrackToPlayer(nextTrack, pDeck->group, true);
                 }
             }
@@ -1100,9 +1106,6 @@ TrackPointer AutoDJProcessor::getNextTrackFromQueue() {
 }
 
 TrackId AutoDJProcessor::getPlayingOrFinishedTrackIdForStaticQueue() {
-    DeckAttributes* pLeftDeck = getLeftDeck();
-    DeckAttributes* pRightDeck = getRightDeck();
-
     auto deckTrackIdInQueue = [this](DeckAttributes* pDeck) {
         if (!pDeck) {
             return TrackId();
@@ -1120,6 +1123,16 @@ TrackId AutoDJProcessor::getPlayingOrFinishedTrackIdForStaticQueue() {
 
         return trackId;
     };
+
+    if (isSingleDeckAutoDJMode()) {
+        // In SwingSingle there is only one deck. If it has a queue track
+        // loaded, always use it as the StaticQueue reference so both preview
+        // and load selection stay strictly after the current deck track.
+        return deckTrackIdInQueue(getSingleDeck());
+    }
+
+    DeckAttributes* pLeftDeck = getLeftDeck();
+    DeckAttributes* pRightDeck = getRightDeck();
 
     TrackId referenceTrackId;
     if (pLeftDeck && pLeftDeck->isPlaying()) {
@@ -1154,53 +1167,39 @@ TrackId AutoDJProcessor::getPlayingOrFinishedTrackIdForStaticQueue() {
     return referenceTrackId;
 }
 
+int AutoDJProcessor::resolveStaticQueueReferenceRow(TrackId referenceTrackId) {
+    if (!referenceTrackId.isValid()) {
+        return -1;
+    }
+
+    const int rowCount = m_pAutoDJTableModel->rowCount();
+    if (isSingleDeckAutoDJMode() && m_singleDeckStaticQueueLoadedRowHint >= 0) {
+        const int hintRow = m_singleDeckStaticQueueLoadedRowHint;
+        if (hintRow < rowCount &&
+                m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(hintRow, 0)) == referenceTrackId) {
+            return hintRow;
+        }
+
+        for (int row = hintRow; row < rowCount; ++row) {
+            if (m_pAutoDJTableModel->getTrackId(m_pAutoDJTableModel->index(row, 0)) == referenceTrackId) {
+                return row;
+            }
+        }
+    }
+
+    return findQueueRowByTrackId(referenceTrackId);
+}
+
+int AutoDJProcessor::getStaticQueueReferenceRow() {
+    if (m_queueMode != QueueMode::StaticQueue) {
+        return -1;
+    }
+    return resolveStaticQueueReferenceRow(getPlayingOrFinishedTrackIdForStaticQueue());
+}
+
 TrackPointer AutoDJProcessor::getEnablePreviewTrack() {
     if (m_queueMode == QueueMode::StaticQueue) {
-        pruneStaticQueuePlayedTrackIds();
-
-        const int rowCount = m_pAutoDJTableModel->rowCount();
-        if (rowCount <= 0) {
-            return TrackPointer();
-        }
-
-        const TrackId referenceTrackId = getPlayingOrFinishedTrackIdForStaticQueue();
-
-        int startRow = 0;
-        bool referenceTrackFoundInQueue = false;
-        if (referenceTrackId.isValid()) {
-            const int row = findQueueRowByTrackId(referenceTrackId);
-            if (row >= 0) {
-                startRow = row + 1;
-                referenceTrackFoundInQueue = true;
-            }
-        }
-
-        // In StaticQueue mode the immediate next row after the currently
-        // playing track is always the next cued track, even if that track was
-        // played previously and dragged back into this position.
-        if (referenceTrackFoundInQueue && startRow < rowCount) {
-            const QModelIndex nextIndex = m_pAutoDJTableModel->index(startRow, 0);
-            TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(nextIndex);
-            if (pNextTrack && pNextTrack->getFileInfo().checkFileExists()) {
-                return pNextTrack;
-            }
-        }
-
-        const int fallbackStartRow = referenceTrackFoundInQueue ? startRow + 1 : startRow;
-        for (int row = fallbackStartRow; row < rowCount; ++row) {
-            const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
-            const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
-            if (!trackId.isValid() || m_staticQueuePlayedTrackIds.contains(trackId)) {
-                continue;
-            }
-
-            TrackPointer pTrack = m_pAutoDJTableModel->getTrack(index);
-            if (pTrack && pTrack->getFileInfo().checkFileExists()) {
-                return pTrack;
-            }
-        }
-
-        return TrackPointer();
+        return getStaticQueueCandidateTrack(false);
     }
 
     const int rowCount = m_pAutoDJTableModel->rowCount();
@@ -1236,74 +1235,102 @@ TrackPointer AutoDJProcessor::getEnablePreviewTrack() {
     return TrackPointer();
 }
 
-TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
+TrackPointer AutoDJProcessor::getStaticQueueCandidateTrack(bool removeMissingTracks, int* pOutRow) {
+    if (pOutRow) {
+        *pOutRow = -1;
+    }
     pruneStaticQueuePlayedTrackIds();
 
-    const int rowCount = m_pAutoDJTableModel->rowCount();
-    if (rowCount <= 0) {
-        return TrackPointer();
-    }
-
-    const TrackId referenceTrackId = getPlayingOrFinishedTrackIdForStaticQueue();
-
-    int startRow = 0;
-    bool referenceTrackFoundInQueue = false;
-    if (referenceTrackId.isValid()) {
-        const int row = findQueueRowByTrackId(referenceTrackId);
-        if (row >= 0) {
-            startRow = row + 1;
-            referenceTrackFoundInQueue = true;
+    while (true) {
+        const int rowCount = m_pAutoDJTableModel->rowCount();
+        if (rowCount <= 0) {
+            return TrackPointer();
         }
-    }
 
-    // In StaticQueue mode the immediate next row after the currently playing
-    // track is always the next track to load, even if it is in the played set.
-    if (referenceTrackFoundInQueue && startRow < rowCount) {
-        const QModelIndex nextIndex = m_pAutoDJTableModel->index(startRow, 0);
-        TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(nextIndex);
-        if (pNextTrack && pNextTrack->getFileInfo().checkFileExists()) {
-            return pNextTrack;
-        }
-        if (pNextTrack) {
-            qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
-            {
-                ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
-                m_pAutoDJTableModel->removeTrack(nextIndex);
+        const TrackId referenceTrackId = getPlayingOrFinishedTrackIdForStaticQueue();
+
+        int startRow = 0;
+        bool referenceTrackFoundInQueue = false;
+        if (referenceTrackId.isValid()) {
+            const int row = resolveStaticQueueReferenceRow(referenceTrackId);
+            if (row >= 0) {
+                startRow = row + 1;
+                referenceTrackFoundInQueue = true;
             }
-            return getNextTrackFromStaticQueue();
+        }
+
+        // In StaticQueue mode the immediate next row after the currently
+        // playing (reference) track is always the next candidate, even if that
+        // track was played previously and dragged back into this position.
+        if (referenceTrackFoundInQueue && startRow < rowCount) {
+            const QModelIndex nextIndex = m_pAutoDJTableModel->index(startRow, 0);
+            TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(nextIndex);
+            if (pNextTrack && pNextTrack->getFileInfo().checkFileExists()) {
+                if (pOutRow) {
+                    *pOutRow = startRow;
+                }
+                return pNextTrack;
+            }
+            if (pNextTrack && removeMissingTracks) {
+                qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
+                {
+                    ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+                    m_pAutoDJTableModel->removeTrack(nextIndex);
+                }
+                continue;
+            }
+        }
+
+        const int fallbackStartRow = referenceTrackFoundInQueue ? startRow + 1 : startRow;
+        bool removedMissingTrack = false;
+        for (int row = fallbackStartRow; row < m_pAutoDJTableModel->rowCount(); ++row) {
+            const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
+            const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
+            if (!trackId.isValid() || m_staticQueuePlayedTrackIds.contains(trackId)) {
+                continue;
+            }
+
+            TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(index);
+            if (!pNextTrack) {
+                continue;
+            }
+
+            if (pNextTrack->getFileInfo().checkFileExists()) {
+                if (pOutRow) {
+                    *pOutRow = row;
+                }
+                return pNextTrack;
+            }
+
+            if (removeMissingTracks) {
+                qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
+                {
+                    ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
+                    m_pAutoDJTableModel->removeTrack(index);
+                }
+                removedMissingTrack = true;
+                break;
+            }
+        }
+
+        if (!removedMissingTrack) {
+            return TrackPointer();
         }
     }
+}
 
-    const int fallbackStartRow = referenceTrackFoundInQueue ? startRow + 1 : startRow;
-    for (int row = fallbackStartRow; row < m_pAutoDJTableModel->rowCount(); ++row) {
-        const QModelIndex index = m_pAutoDJTableModel->index(row, 0);
-        const TrackId trackId = m_pAutoDJTableModel->getTrackId(index);
-        if (!trackId.isValid() || m_staticQueuePlayedTrackIds.contains(trackId)) {
-            continue;
-        }
-
-        TrackPointer pNextTrack = m_pAutoDJTableModel->getTrack(index);
-        if (!pNextTrack) {
-            continue;
-        }
-
-        if (pNextTrack->getFileInfo().checkFileExists()) {
-            return pNextTrack;
-        }
-
-        qWarning() << "Auto DJ: Skip missing track" << pNextTrack->getLocation();
-        {
-            ScopedPlaylistMutation mutationGuard(&m_playlistMutationDepth);
-            m_pAutoDJTableModel->removeTrack(index);
-        }
-        return getNextTrackFromStaticQueue();
-    }
-
-    return TrackPointer();
+TrackPointer AutoDJProcessor::getNextTrackFromStaticQueue() {
+    return getStaticQueueCandidateTrack(true);
 }
 
 bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool play) {
-    TrackPointer nextTrack = getNextTrackFromQueue();
+    int nextTrackRow = -1;
+    TrackPointer nextTrack;
+    if (m_queueMode == QueueMode::StaticQueue) {
+        nextTrack = getStaticQueueCandidateTrack(true, &nextTrackRow);
+    } else {
+        nextTrack = getNextTrackFromQueue();
+    }
 
     // We ran out of tracks in the queue.
     if (!nextTrack) {
@@ -1313,6 +1340,10 @@ bool AutoDJProcessor::loadNextTrackFromQueue(const DeckAttributes& deck, bool pl
         // And eject track (nextTrack is null) as "End of auto DJ warning"
         emitLoadTrackToPlayer(nextTrack, deck.group, false);
         return false;
+    }
+
+    if (m_queueMode == QueueMode::StaticQueue && isSingleDeckAutoDJMode() && nextTrackRow >= 0) {
+        m_singleDeckStaticQueueLoadedRowHint = nextTrackRow;
     }
 
     emitLoadTrackToPlayer(nextTrack, deck.group, play);
@@ -2260,7 +2291,7 @@ void AutoDJProcessor::playlistTracksChanged() {
         }
     }
     if (playingTrackId.isValid()) {
-        const int playingRow = findQueueRowByTrackId(playingTrackId);
+        const int playingRow = resolveStaticQueueReferenceRow(playingTrackId);
         if (playingRow >= 0) {
             const int nextRow = playingRow + 1;
             if (nextRow < m_pAutoDJTableModel->rowCount()) {
@@ -2379,6 +2410,7 @@ void AutoDJProcessor::setQueueMode(QueueMode newMode) {
 
     if (newMode != QueueMode::StaticQueue) {
         m_staticQueuePlayedTrackIds.clear();
+        m_singleDeckStaticQueueLoadedRowHint = -1;
     }
 }
 

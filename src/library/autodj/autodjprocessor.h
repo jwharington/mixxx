@@ -202,6 +202,7 @@ class AutoDJProcessor : public QObject {
     }
 
     TrackPointer getEnablePreviewTrack();
+    int getStaticQueueReferenceRow();
 
     PlaylistTableModel* getTableModel() const {
         return m_pAutoDJTableModel;
@@ -290,6 +291,8 @@ class AutoDJProcessor : public QObject {
 
     TrackPointer getNextTrackFromQueue();
     TrackPointer getNextTrackFromStaticQueue();
+    TrackPointer getStaticQueueCandidateTrack(bool removeMissingTracks, int* pOutRow = nullptr);
+    int resolveStaticQueueReferenceRow(TrackId referenceTrackId);
     TrackId getPlayingOrFinishedTrackIdForStaticQueue();
     bool loadNextTrackFromQueue(const DeckAttributes& pDeck, bool play = false);
     void advanceSingleDeckQueue(const DeckAttributes& deck);
@@ -337,6 +340,7 @@ class AutoDJProcessor : public QObject {
     QueueMode m_queueMode;
     bool m_crossfaderStartCenter;
     QSet<TrackId> m_staticQueuePlayedTrackIds;
+    int m_singleDeckStaticQueueLoadedRowHint{-1};
     bool m_singleDeckLoadPending{false};
 
     PlayerManagerInterface* m_pPlayerManager;

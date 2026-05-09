@@ -2982,6 +2982,10 @@ if(BUILD_TESTING)
   endif()
 
   add_executable(mixxx-test ${src-mixxx-test})
+  target_include_directories(
+    mixxx-test
+    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mixxx-lib_autogen/include
+  )
   target_compile_definitions(
     mixxx-test
     PUBLIC RESOURCE_FOLDER="${CMAKE_CURRENT_SOURCE_DIR}/res"
