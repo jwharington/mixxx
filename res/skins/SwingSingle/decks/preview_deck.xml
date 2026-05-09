@@ -105,7 +105,7 @@ Variables:
               <Template src="skins:Swing/controls/button_1state.xml">
                 <SetVariable name="TooltipId">eject</SetVariable>
                 <SetVariable name="ObjectName">PreviewEject</SetVariable>
-                <SetVariable name="Size">18f,18f</SetVariable>
+                <SetVariable name="Size">18f,1me</SetVariable>
                 <SetVariable name="state_0_pressed">eject_pressed.svg</SetVariable>
                 <SetVariable name="state_0_unpressed">eject.svg</SetVariable>
                 <SetVariable name="ConfigKey"><Variable name="group"/>,eject</SetVariable>

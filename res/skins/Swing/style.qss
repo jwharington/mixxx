@@ -2278,6 +2278,10 @@ WTrackProperty#SamplerTitle_mini {
   #PreviewOverview {
     margin-right: 1px;
   }
+  #PreviewPlay,
+  #PreviewEject {
+    qproperty-layoutAlignment: 'AlignVCenter';
+  }
   #PreviewGainKnob {
     qproperty-layoutAlignment: 'AlignVCenter | AlignHCenter';
   }
