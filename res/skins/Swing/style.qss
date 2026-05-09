@@ -2286,11 +2286,6 @@ WTrackProperty#SamplerTitle_mini {
     qproperty-layoutAlignment: 'AlignVCenter | AlignHCenter';
   }
 
-#HeadphoneGainKnob {
-  qproperty-layoutAlignment: 'AlignHCenter';
-  margin: 2px 0px;
-}
-
 
 /*################################################################
  ######  Misc  ##################################################
