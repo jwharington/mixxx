@@ -15,6 +15,7 @@
 class LibraryView;
 class QSplitter;
 class QStackedWidget;
+class QVBoxLayout;
 class WTrackTableView;
 class TrackId;
 class QDomNode;
@@ -40,6 +41,7 @@ class WLibrary : public QWidget, public WBaseWidget {
     void setAutoDJViewName(const QString& name);
     void setAutoDJSplitEnabled(bool enabled);
     void setAutoDJSplitLeftRatioPermille(int leftRatioPermille);
+    void setSearchWidget(QWidget* pSearchWidget);
     bool isAutoDJSplitActive() const {
         return m_autoDJSplitActive;
     }
@@ -94,11 +96,15 @@ class WLibrary : public QWidget, public WBaseWidget {
 
   private:
     void updateAutoDJQueueVisibility();
+    void updateSearchWidgetPlacement();
 
     QT_RECURSIVE_MUTEX m_mutex;
     QMap<QString, QWidget*> m_viewMap;
     QStackedWidget* m_pViewStack;
+    QWidget* m_pMainPaneWidget;
+    QVBoxLayout* m_pMainPaneLayout;
     QSplitter* m_pMainSplitter;
+    QWidget* m_pSearchWidget;
     QWidget* m_pAutoDJQueueWidget;
     QString m_currentViewName;
     QString m_autoDJViewName;
@@ -106,6 +112,7 @@ class WLibrary : public QWidget, public WBaseWidget {
     int m_autoDJSplitLeftRatioPermille;
     bool m_showAutoDJSplitEnabled;
     bool m_autoDJSplitActive;
+    bool m_embedSearchWidgetInMainPane;
     double m_trackTableBackgroundColorOpacity;
     bool m_bShowButtonText;
     WaveformSignalColors m_overviewSignalColors;

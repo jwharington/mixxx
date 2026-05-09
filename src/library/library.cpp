@@ -72,6 +72,7 @@ Library::Library(
           m_pSidebarModel(make_parented<SidebarModel>(this)),
           m_pLibraryControl(make_parented<LibraryControl>(this)),
           m_pLibraryWidget(nullptr),
+          m_pSearchboxWidget(nullptr),
           m_autoDJSplitActive(false),
           m_pKeyNotation(std::make_unique<ControlObject>(
                   mixxx::library::prefs::kKeyNotationConfigKey, false)) {
@@ -321,6 +322,11 @@ void Library::stopPendingTasks() {
 }
 
 void Library::bindSearchboxWidget(WSearchLineEdit* pSearchboxWidget) {
+    m_pSearchboxWidget = pSearchboxWidget;
+    if (m_pLibraryWidget) {
+        m_pLibraryWidget->setSearchWidget(pSearchboxWidget);
+    }
+
     connect(pSearchboxWidget,
             &WSearchLineEdit::search,
             this,
@@ -412,6 +418,9 @@ void Library::bindLibraryWidget(
         WLibrary* pLibraryWidget, KeyboardEventFilter* pKeyboard) {
     m_pLibraryWidget = pLibraryWidget;
     m_pLibraryWidget->setAutoDJViewName(kAutoDJViewName);
+    if (m_pSearchboxWidget) {
+        m_pLibraryWidget->setSearchWidget(m_pSearchboxWidget);
+    }
     WTrackTableView* pTrackTableView = new WTrackTableView(m_pLibraryWidget,
             m_pConfig,
             this,

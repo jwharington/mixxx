@@ -113,6 +113,7 @@ Description:
               <Library>
                 <BgColor>#585858</BgColor>
                 <FgColor>#eece33</FgColor>
+                <EmbedSearchBoxInMainPane>true</EmbedSearchBoxInMainPane>
                 <ShowButtonText>false</ShowButtonText>
                 <TrackTableBackgroundColorOpacity>0.2</TrackTableBackgroundColorOpacity>
                 <!-- Colors for the render modes of the Overview column -->
