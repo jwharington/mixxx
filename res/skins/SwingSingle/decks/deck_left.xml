@@ -53,8 +53,6 @@ Variables:
                 </Children>
               </WidgetGroup>
 
-              <Template src="skins:SwingSingle/decks/row_comment_fx_left.xml"/>
-
               <WidgetGroup><!-- Parallel Artist + Time -->
                 <Layout>horizontal</Layout>
                 <SizePolicy>me,min</SizePolicy>
@@ -63,6 +61,8 @@ Variables:
                   <Template src="skins:Swing/decks/loop_indicator.xml"/>
                 </Children>
               </WidgetGroup>
+
+              <Template src="skins:SwingSingle/decks/row_comment_fx_left.xml"/>
 
             </Children>
           </WidgetGroup><!-- /Overview, Comment, ArtistTitle -->

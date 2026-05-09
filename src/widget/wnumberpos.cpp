@@ -1,6 +1,7 @@
 #include "widget/wnumberpos.h"
 
 #include <QMouseEvent>
+#include <QStyle>
 
 #include "control/controlproxy.h"
 #include "moc_wnumberpos.cpp"
@@ -9,7 +10,8 @@
 WNumberPos::WNumberPos(const QString& group, QWidget* parent)
         : WNumber(parent),
           m_displayFormat(TrackTime::DisplayFormat::TRADITIONAL),
-          m_dOldTimeElapsed(0.0) {
+          m_dOldTimeElapsed(0.0),
+          m_bPlaying(false) {
     m_pTimeElapsed = new ControlProxy(group, "time_elapsed", this, ControlFlag::NoAssertIfMissing);
     m_pTimeElapsed->connectValueChanged(this, &WNumberPos::slotSetTimeElapsed);
     m_pTimeRemaining = new ControlProxy(
@@ -28,6 +30,23 @@ WNumberPos::WNumberPos(const QString& group, QWidget* parent)
     m_pTimeFormat->connectValueChanged(
             this, &WNumberPos::slotSetTimeFormat);
     slotSetTimeFormat(m_pTimeFormat->get());
+
+    m_pPlayIndicator = new ControlProxy(group,
+            "play_indicator",
+            this,
+            ControlFlag::NoAssertIfMissing);
+    m_pPlayPosition = new ControlProxy(group,
+            "playposition",
+            this,
+            ControlFlag::NoAssertIfMissing);
+    m_pTrackLoaded = new ControlProxy(group,
+            "track_loaded",
+            this,
+            ControlFlag::NoAssertIfMissing);
+
+    m_pPlayIndicator->connectValueChanged(this, &WNumberPos::slotPlayStateChanged);
+    m_pTrackLoaded->connectValueChanged(this, &WNumberPos::slotTrackLoadedChanged);
+    slotPlayStateChanged(m_pPlayIndicator->get());
 }
 
 void WNumberPos::mousePressEvent(QMouseEvent* pEvent) {
@@ -123,4 +142,47 @@ void WNumberPos::slotSetTimeFormat(double v) {
     m_displayFormat = static_cast<TrackTime::DisplayFormat>(static_cast<int>(v));
 
     slotSetTimeElapsed(m_dOldTimeElapsed);
+}
+
+void WNumberPos::slotPlayStateChanged(double playState) {
+    bool playing = m_bPlaying;
+    if (playState > 0.0) {
+        // Deck went live.
+        playing = true;
+    } else if (m_pTrackLoaded && !m_pTrackLoaded->toBool()) {
+        // Track unloaded.
+        playing = false;
+    } else {
+        // Keep highlight latched while paused, but clear at natural end.
+        const bool reachedTrackEnd = m_pPlayPosition &&
+                m_pPlayPosition->get() >= 0.999;
+        if (reachedTrackEnd) {
+            playing = false;
+        }
+    }
+
+    if (m_bPlaying == playing) {
+        return;
+    }
+    m_bPlaying = playing;
+    emit playingStateChanged(playing);
+
+    style()->unpolish(this);
+    style()->polish(this);
+    repaint();
+}
+
+void WNumberPos::slotTrackLoadedChanged(double loaded) {
+    if (loaded > 0.0) {
+        return;
+    }
+    if (!m_bPlaying) {
+        return;
+    }
+    m_bPlaying = false;
+    emit playingStateChanged(false);
+
+    style()->unpolish(this);
+    style()->polish(this);
+    repaint();
 }
