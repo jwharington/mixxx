@@ -794,10 +794,13 @@ WLabel#TrackComment {
   WTrackProperty#PlayPosition[playing="true"],
   WTrackProperty#PlayPositionMini[playing="true"],
   */
-  WTrackProperty#Duration[playing="true"],
   WTrackProperty#TrackTitle[playing="true"],
   WTrackProperty#TrackTitleMini[playing="true"],
   WTrackProperty#TrackArtist[playing="true"] {
+    color: #53ff53;
+  }
+  WNumberPos#PlayPosition[playing="true"],
+  WNumberPos#PlayPositionMini[playing="true"] {
     color: #53ff53;
   }
   #PlayPosition, #PlayPositionMini {
@@ -2251,10 +2254,17 @@ WTrackProperty#SamplerTitle_mini {
 #PreviewSectionContent {
   background-color: #1a1a1a;
 }
+#HeadphoneVolumeSlider {
+  margin: 2px 6px 2px 6px;
+}
 #PreviewMeta,
 #PreviewPlay,
 #PreviewEject {
   background-color: #333;
+}
+#PreviewMeta {
+  background-color: #252525;
+  padding: 0px 4px 0px 4px;
 }
 #PreviewTitleEject {
   qproperty-layoutAlignment: 'AlignLeft';
@@ -2266,21 +2276,27 @@ WTrackProperty#SamplerTitle_mini {
 #PreviewMeta WTrackProperty#TrackTitle,
 #PreviewMeta WTrackProperty#TrackTitle[playing="true"] {
   color: #b5a458;
-  font-size: 16px/16px;
+  font-size: 15px/15px;
   font-weight: bold;
 }
 #PreviewMeta WTrackProperty#TrackArtist,
 #PreviewMeta WTrackProperty#TrackArtist[playing="true"] {
   color: #b5a458;
-  font-size: 14px/14px;
+  font-size: 13px/13px;
   font-weight: bold;
+}
+#PreviewMeta WTrackProperty#PreviewComment,
+#PreviewMeta WTrackProperty#PreviewComment[playing="true"] {
+  color: #888;
+  font-size: 12px/12px;
+  font-weight: normal;
 }
 #PreviewMeta WLabel#TrackBy,
 #PreviewMeta #PreviewBpmField {
   color: #888;
 }
 #PreviewMeta WLabel#TrackBy {
-  font-size: 14px/14px;
+  font-size: 13px/13px;
   font-weight: bold;
 }
 #PreviewMeta #PreviewBpmField {
@@ -2291,6 +2307,11 @@ WTrackProperty#SamplerTitle_mini {
 #PreviewPlay #PreviewIndicator,
 #PreviewEject {
   qproperty-layoutAlignment: 'AlignVCenter';
+  margin: 0px;
+  padding: 0px;
+  min-width: 24px;
+  max-width: 24px;
+  border-radius: 2px;
 }
 #PreviewEject:hover {
   border: 1px solid #eeeeee;

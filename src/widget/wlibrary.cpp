@@ -296,10 +296,12 @@ void WLibrary::updateAutoDJQueueVisibility() {
     const bool shouldShow = m_showAutoDJSplitEnabled &&
             !m_autoDJViewName.isEmpty() &&
             m_currentViewName != m_autoDJViewName;
+    const bool wasSplitActive = m_autoDJSplitActive;
     if (m_autoDJSplitActive != shouldShow) {
         m_autoDJSplitActive = shouldShow;
         emit autoDJSplitActiveChanged(shouldShow);
     }
+
     if (shouldShow) {
         m_pAutoDJQueueWidget->show();
         if (m_visibleSplitterSizes.size() == 2) {
@@ -311,7 +313,10 @@ void WLibrary::updateAutoDJQueueVisibility() {
             m_pMainSplitter->setSizes({qMax(1, leftSize), rightSize});
         }
     } else {
-        if (m_pAutoDJQueueWidget->isVisible()) {
+        // Only cache sizes when transitioning from visible split -> hidden split.
+        // This avoids recording startup/default sizes before the split has ever
+        // been shown, which would override the persisted ratio on next startup.
+        if (wasSplitActive && m_pAutoDJQueueWidget->isVisible()) {
             m_visibleSplitterSizes = m_pMainSplitter->sizes();
         }
         m_pAutoDJQueueWidget->hide();
