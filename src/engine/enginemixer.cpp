@@ -856,10 +856,13 @@ void EngineMixer::addChannel(std::unique_ptr<EngineChannel> pChannel) {
     // take ownership of the pointer explicitly
     pChannelInfo->m_pChannel = std::move(pChannel);
     pChannelInfo->m_handle = m_pChannelHandleFactory->getOrCreateHandle(group);
+    const bool persistChannelVolume = PlayerManager::isDeckGroup(group);
     pChannelInfo->m_pVolumeControl = std::make_unique<ControlAudioTaperPot>(
-            ConfigKey(group, "volume"), -20, 0, 1);
+            ConfigKey(group, "volume"), -20, 0, 1, persistChannelVolume);
     pChannelInfo->m_pVolumeControl->setDefaultValue(1.0);
-    pChannelInfo->m_pVolumeControl->set(1.0);
+    if (!persistChannelVolume) {
+        pChannelInfo->m_pVolumeControl->set(1.0);
+    }
     pChannelInfo->m_pMuteControl = std::make_unique<ControlPushButton>(
             ConfigKey(group, "mute"));
     pChannelInfo->m_pMuteControl->setButtonMode(mixxx::control::ButtonMode::PowerWindow);
