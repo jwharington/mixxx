@@ -2235,6 +2235,21 @@ WTrackProperty#SamplerTitle_mini {
   qproperty-layoutAlignment: 'AlignLeft | AlignTop';
   background-color: #0f0f0f;
 }
+
+#PreviewSectionFrame {
+  background-color: #1a1a1a;
+  border: 1px solid #eece33;
+  border-radius: 3px;
+  padding: 1px;
+}
+#PreviewSectionHeader {
+  background-color: #252525;
+  color: #eece33;
+  font-weight: bold;
+}
+#PreviewSectionContent {
+  background-color: #1a1a1a;
+}
 #PreviewTitle,
 #PreviewEject,
 #PreviewGainKnob {

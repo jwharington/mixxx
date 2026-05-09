@@ -1,7 +1,7 @@
 <!--
 Description:
   The Library container.
-  Left: Preview deck, CoverArt and Tree view (collapsible)
+  Left: CoverArt and Tree view (collapsible)
   Right: Tracks table.
 -->
 <Template>
@@ -38,21 +38,10 @@ Description:
             <Collapsible>1,0</Collapsible>
             <Children>
 
-              <WidgetGroup><!-- Preview Search Cover Tree -->
+              <WidgetGroup><!-- Search Cover Tree -->
                 <Layout>vertical</Layout>
-                <!-- minSize so that 8 Preview HotCues fit nicely, 23+1px each -->
                 <Size>159min,74me</Size>
                 <Children>
-
-                  <Template src="skins:SwingSingle/decks/preview_deck.xml"/>
-
-                  <WidgetGroup>
-                    <Size>1me,5f</Size>
-                    <Connection>
-                      <ConfigKey persist="true">[Skin],show_preview_decks</ConfigKey>
-                      <BindProperty>visible</BindProperty>
-                    </Connection>
-                  </WidgetGroup>
 
                   <Splitter><!-- Splitter to make CoverArt resizable -->
                     <ObjectName>LibrarySplitter</ObjectName>
@@ -63,9 +52,9 @@ Description:
                     <Collapsible>0,0</Collapsible>
                     <Children>
 
-                      <WidgetGroup><!-- Preview Deck, Search, Tree View -->
+                      <WidgetGroup><!-- Search + Tree View -->
                         <Layout>vertical</Layout>
-                        <SizePolicy>me,min</SizePolicy>
+                        <SizePolicy>me,me</SizePolicy>
                         <Children>
                           <WidgetGroup><!-- Search, Maxi button -->
                             <ObjectName>SearchBoxContainer</ObjectName>
@@ -95,7 +84,7 @@ Description:
                           <!-- Tree View -->
                           <LibrarySidebar></LibrarySidebar>
                         </Children>
-                      </WidgetGroup><!-- /Preview Deck, Search, Tree View -->
+                      </WidgetGroup><!-- /Search + Tree View -->
 
                       <CoverArt>
                         <Size>30min,30min</Size>
@@ -108,7 +97,7 @@ Description:
                     </Children>
                   </Splitter><!-- /Splitter to make CoverArt resizable -->
                 </Children>
-              </WidgetGroup><!-- /Preview Search Cover Tree -->
+              </WidgetGroup><!-- /Search Cover Tree -->
 
               <Library>
                 <BgColor>#585858</BgColor>

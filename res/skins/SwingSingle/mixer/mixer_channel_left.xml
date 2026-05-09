@@ -26,7 +26,63 @@ Variables:
             <SizePolicy>max,me</SizePolicy>
             <Children>
 
-              <WidgetGroup><!-- Main volume + gain + headphone volume -->
+              <WidgetGroup><!-- Preview section -->
+                <ObjectName>PreviewSectionFrame</ObjectName>
+                <Layout>vertical</Layout>
+                <Size>230f,1me</Size>
+                <Children>
+                  <Label>
+                    <ObjectName>PreviewSectionHeader</ObjectName>
+                    <Size>1me,14f</Size>
+                    <Text>preview</Text>
+                    <Alignment>center</Alignment>
+                  </Label>
+
+                  <WidgetGroup>
+                    <ObjectName>PreviewSectionContent</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <SizePolicy>me,me</SizePolicy>
+                    <Children>
+                      <WidgetGroup><!-- Headphone volume slider -->
+                        <Layout>vertical</Layout>
+                        <SizePolicy>f,me</SizePolicy>
+                        <Children>
+                          <SliderComposed>
+                            <Size>34f,1me</Size>
+                            <ObjectName>HeadphoneVolumeSlider</ObjectName>
+                            <TooltipId>headphone_volume</TooltipId>
+                            <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
+                            <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
+                            <Horizontal>false</Horizontal>
+                            <Connection>
+                              <ConfigKey>[Master],headGain</ConfigKey>
+                            </Connection>
+                          </SliderComposed>
+
+                          <WidgetGroup>
+                            <ObjectName>HeadphoneMixerLabel</ObjectName>
+                            <Size>34f,14f</Size>
+                          </WidgetGroup>
+                        </Children>
+                      </WidgetGroup><!-- /Headphone volume slider -->
+
+                      <WidgetGroup><Size>4f,1min</Size></WidgetGroup>
+
+                      <WidgetGroup><!-- Preview deck -->
+                        <Layout>vertical</Layout>
+                        <SizePolicy>me,me</SizePolicy>
+                        <Children>
+                          <Template src="skins:SwingSingle/decks/preview_deck.xml"/>
+                        </Children>
+                      </WidgetGroup><!-- /Preview deck -->
+                    </Children>
+                  </WidgetGroup>
+                </Children>
+              </WidgetGroup><!-- /Preview section -->
+
+              <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
+
+              <WidgetGroup><!-- Main volume + gain + VU -->
                 <ObjectName>VolumeSliderGain</ObjectName>
                 <Layout>horizontal</Layout>
                 <SizePolicy>f,me</SizePolicy>
@@ -74,33 +130,8 @@ Variables:
                       <Template src="skins:Swing/mixer/vumeter_mixer.xml"/>
                     </Children>
                   </WidgetGroup><!-- /VU Meter -->
-
-                  <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
-
-                  <WidgetGroup><!-- Headphone volume slider -->
-                    <Layout>vertical</Layout>
-                    <SizePolicy>f,me</SizePolicy>
-                    <Children>
-                      <SliderComposed>
-                        <Size>34f,1me</Size>
-                        <ObjectName>HeadphoneVolumeSlider</ObjectName>
-                        <TooltipId>headphone_volume</TooltipId>
-                        <Slider scalemode="STRETCH">skins:Swing/knobs_sliders/volume_scale.svg</Slider>
-                        <Handle scalemode="STRETCH_ASPECT">skins:Swing/knobs_sliders/volume_handle.svg</Handle>
-                        <Horizontal>false</Horizontal>
-                        <Connection>
-                          <ConfigKey>[Master],headGain</ConfigKey>
-                        </Connection>
-                      </SliderComposed>
-
-                      <WidgetGroup>
-                        <ObjectName>HeadphoneMixerLabel</ObjectName>
-                        <Size>34f,14f</Size>
-                      </WidgetGroup>
-                    </Children>
-                  </WidgetGroup><!-- /Headphone volume slider -->
                 </Children>
-              </WidgetGroup><!-- /Main volume + gain + headphone volume -->
+              </WidgetGroup><!-- /Main volume + gain + VU -->
 
               <WidgetGroup><Size>8f,1min</Size></WidgetGroup>
 

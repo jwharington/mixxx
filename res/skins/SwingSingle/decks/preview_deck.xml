@@ -14,7 +14,7 @@ Variables:
   <SetVariable name="group">[PreviewDeck1]</SetVariable>
   <WidgetGroup>
     <Layout>stacked</Layout>
-    <SizePolicy>me,max</SizePolicy>
+    <SizePolicy>me,me</SizePolicy>
     <Children>
       <!-- Greyed out if no headphone device is configured -->
       <WidgetGroup>
@@ -45,7 +45,7 @@ Variables:
       <WidgetGroup>
         <ObjectName>PreviewDeck</ObjectName>
         <Layout>vertical</Layout>
-        <SizePolicy>me,min</SizePolicy>
+        <SizePolicy>me,me</SizePolicy>
         <Children>
           <WidgetGroup>
             <ObjectName>PreviewTitleEject</ObjectName>
