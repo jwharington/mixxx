@@ -142,7 +142,7 @@ Variables:
                         <Channel><Variable name="chanNum" /></Channel>
                         <NumberOfDigits>1</NumberOfDigits>
                         <Connection>
-                          <ConfigKey><Variable name="group"/>,visual_bpm</ConfigKey>
+                          <ConfigKey><Variable name="group"/>,file_bpm</ConfigKey>
                         </Connection>
                       </Number>
                     </Children>

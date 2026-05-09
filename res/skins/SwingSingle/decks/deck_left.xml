@@ -132,7 +132,7 @@ Variables:
         <BpmDecimals>1</BpmDecimals>
         <SwingDecimals>0</SwingDecimals>
         <NoTrackText>--.-&#10;--%</NoTrackText>
-        <FontSize>7</FontSize>
+        <FontSize>9</FontSize>
         <Connection>
           <ConfigKey persist="true">[Skin],show_rate_controls</ConfigKey>
           <BindProperty>visible</BindProperty>
