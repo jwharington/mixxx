@@ -2450,6 +2450,80 @@ TEST_F(AutoDJProcessorTest,
 }
 
 TEST_F(AutoDJProcessorTest,
+        StaticQueue_SwingSingle_EndOfQueueThenAppend_ReenableStartsFromAppendedLocation) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer firstLoaded;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&firstLoaded));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+    ASSERT_TRUE(firstLoaded);
+    EXPECT_EQ(firstId, firstLoaded->getId());
+
+    TrackPointer pFirstTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pFirstTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pFirstTrack);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    deck1.playposition.set(0.1);
+
+    TrackPointer secondLoaded;
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&secondLoaded));
+    deck1.playposition.set(1.0);
+    ASSERT_TRUE(secondLoaded);
+    EXPECT_EQ(secondId, secondLoaded->getId());
+
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck1.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pSecondTrack);
+    deck1.playposition.set(0.5);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), false));
+    deck1.playposition.set(1.0);
+
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    TrackPointer previewAfterAppend = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(previewAfterAppend);
+    EXPECT_EQ(thirdId, previewAfterAppend->getId());
+
+    TrackPointer loadedWhenReenabled;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&loadedWhenReenabled));
+    err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    ASSERT_TRUE(loadedWhenReenabled);
+    EXPECT_EQ(thirdId, loadedWhenReenabled->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
         DlgAutoDJ_SwingSingle_StaticQueue_HighlightsCurrentAndNextTracksInOrder) {
     config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
 

@@ -1125,10 +1125,22 @@ TrackId AutoDJProcessor::getPlayingOrFinishedTrackIdForStaticQueue() {
     };
 
     if (isSingleDeckAutoDJMode()) {
-        // In SwingSingle there is only one deck. If it has a queue track
-        // loaded, always use it as the StaticQueue reference so both preview
-        // and load selection stay strictly after the current deck track.
-        return deckTrackIdInQueue(getSingleDeck());
+        // In SwingSingle there is only one deck. Prefer the currently loaded
+        // queue track as the reference. If the deck is empty (e.g. AutoDJ hit
+        // end-of-list and ejected), fall back to the last known loaded row
+        // hint so enabling AutoDJ can continue from that queue location.
+        const TrackId loadedTrackId = deckTrackIdInQueue(getSingleDeck());
+        if (loadedTrackId.isValid()) {
+            return loadedTrackId;
+        }
+
+        if (m_singleDeckStaticQueueLoadedRowHint >= 0 &&
+                m_singleDeckStaticQueueLoadedRowHint < m_pAutoDJTableModel->rowCount()) {
+            return m_pAutoDJTableModel->getTrackId(
+                    m_pAutoDJTableModel->index(m_singleDeckStaticQueueLoadedRowHint, 0));
+        }
+
+        return TrackId();
     }
 
     DeckAttributes* pLeftDeck = getLeftDeck();
