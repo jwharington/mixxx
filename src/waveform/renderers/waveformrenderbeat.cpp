@@ -198,17 +198,10 @@ void WaveformRenderBeat::draw(QPainter* painter, QPaintEvent* /*event*/) {
             continue;
         }
 
-        const double fractions[] = {
-                0.25 * (1.0 + swingFraction),
-                0.5,
-                0.75 + 0.25 * swingFraction,
-        };
-        for (double fraction : fractions) {
-            const double subBeatPosition = beatPosition + beatInterval * fraction;
-            if (subBeatPosition < firstDisplayedPosition * trackSamples ||
-                    subBeatPosition > lastDisplayedPosition * trackSamples) {
-                continue;
-            }
+        const double offBeatFraction = 0.5 * (1.0 + swingFraction);
+        const double subBeatPosition = beatPosition + beatInterval * offBeatFraction;
+        if (subBeatPosition >= firstDisplayedPosition * trackSamples &&
+                subBeatPosition <= lastDisplayedPosition * trackSamples) {
             double xSubBeatPoint = m_waveformRenderer->transformSamplePositionInRendererWorld(
                     subBeatPosition);
             xSubBeatPoint = qRound(xSubBeatPoint * devicePixelRatio) / devicePixelRatio;
