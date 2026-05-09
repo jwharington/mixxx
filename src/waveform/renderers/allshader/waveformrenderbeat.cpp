@@ -2,16 +2,76 @@
 
 #include <QDomNode>
 
+#include <algorithm>
+#include <vector>
+
 #include "moc_waveformrenderbeat.cpp"
 #include "rendergraph/geometry.h"
 #include "rendergraph/material/unicolormaterial.h"
 #include "rendergraph/vertexupdaters/vertexupdater.h"
 #include "skin/legacy/skincontext.h"
+#include "track/beatfactory.h"
 #include "track/track.h"
 #include "waveform/renderers/waveformwidgetrenderer.h"
 #include "widget/wskincolor.h"
 
 using namespace rendergraph;
+
+namespace {
+constexpr double kUnknownSwingPercent = -1.0;
+constexpr double kMaxSwingFraction = 0.95;
+constexpr double kMinPixelsBetweenBeatsForSubdivisions = 12.0;
+
+struct SwingEstimate {
+    double now = kUnknownSwingPercent;
+    double start = kUnknownSwingPercent;
+    double end = kUnknownSwingPercent;
+};
+
+SwingEstimate extractSwingEstimate(const mixxx::BeatsPointer& pBeats) {
+    SwingEstimate estimate;
+    if (!pBeats) {
+        return estimate;
+    }
+
+    const auto info = BeatFactory::parseSubVersion(pBeats->getSubVersion());
+    bool ok = false;
+
+    estimate.now = info.value(QStringLiteral("swing_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.now = kUnknownSwingPercent;
+    }
+
+    estimate.start = info.value(QStringLiteral("swing_start_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.start = kUnknownSwingPercent;
+    }
+
+    estimate.end = info.value(QStringLiteral("swing_end_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.end = kUnknownSwingPercent;
+    }
+
+    return estimate;
+}
+
+double swingFractionAtPosition(const SwingEstimate& estimate,
+        double beatPosition,
+        double trackSamples) {
+    double swingPercent = estimate.now;
+    if (estimate.start >= 0.0 && estimate.end >= 0.0 && trackSamples > 0.0) {
+        const double normalizedPosition = std::clamp(beatPosition / trackSamples, 0.0, 1.0);
+        swingPercent =
+                estimate.start + (estimate.end - estimate.start) * normalizedPosition;
+    }
+
+    if (swingPercent < 0.0) {
+        return kUnknownSwingPercent;
+    }
+
+    return std::clamp(swingPercent / 100.0, 0.0, kMaxSwingFraction);
+}
+} // namespace
 
 namespace allshader {
 
@@ -94,36 +154,81 @@ bool WaveformRenderBeat::preprocessInner() {
 
     const int numVerticesPerLine = 6; // 2 triangles
 
-    // Count the number of beats in the range to reserve space in the m_vertices vector.
-    // Note that we could also use
-    //   int numBearsInRange = trackBeats->numBeatsInRange(startPosition, endPosition);
-    // for this, but there have been reports of that method failing with a DEBUG_ASSERT.
-    int numBeatsInRange = 0;
-    for (auto it = trackBeats->iteratorFrom(startPosition);
-            it != trackBeats->cend() && *it <= endPosition;
-            ++it) {
-        numBeatsInRange++;
+    const auto swing = extractSwingEstimate(trackBeats);
+    const double visibleStartSample = firstDisplayedPosition * trackSamples;
+    const double visibleEndSample = lastDisplayedPosition * trackSamples;
+
+    std::vector<float> beatLinePositions;
+    beatLinePositions.reserve(256);
+
+    auto it = trackBeats->iteratorFrom(startPosition);
+    auto nextIt = it;
+    if (nextIt != trackBeats->cend()) {
+        ++nextIt;
     }
 
-    const int reserved = numBeatsInRange * numVerticesPerLine;
+    for (; it != trackBeats->cend() && *it <= endPosition; ++it) {
+        const double beatPosition = it->toEngineSamplePos();
+        double xBeatPoint = m_waveformRenderer->transformSamplePositionInRendererWorld(
+                beatPosition,
+                positionType);
+        xBeatPoint = qRound(xBeatPoint * devicePixelRatio) / devicePixelRatio;
+        beatLinePositions.push_back(static_cast<float>(xBeatPoint));
+
+        if (nextIt == trackBeats->cend()) {
+            continue;
+        }
+
+        const double nextBeatPosition = nextIt->toEngineSamplePos();
+        const double beatInterval = nextBeatPosition - beatPosition;
+        if (beatInterval <= 0.0) {
+            ++nextIt;
+            continue;
+        }
+
+        const double swingFraction = swingFractionAtPosition(swing, beatPosition, trackSamples);
+        if (swingFraction < 0.0) {
+            ++nextIt;
+            continue;
+        }
+
+        const double xNextBeatPoint =
+                m_waveformRenderer->transformSamplePositionInRendererWorld(
+                        nextBeatPosition,
+                        positionType);
+        if (std::abs(xNextBeatPoint - xBeatPoint) < kMinPixelsBetweenBeatsForSubdivisions) {
+            ++nextIt;
+            continue;
+        }
+
+        const double fractions[] = {
+                0.25 * (1.0 + swingFraction),
+                0.5,
+                0.75 + 0.25 * swingFraction,
+        };
+
+        for (double fraction : fractions) {
+            const double subBeatPosition = beatPosition + beatInterval * fraction;
+            if (subBeatPosition < visibleStartSample || subBeatPosition > visibleEndSample) {
+                continue;
+            }
+            double xSubBeatPoint = m_waveformRenderer->transformSamplePositionInRendererWorld(
+                    subBeatPosition,
+                    positionType);
+            xSubBeatPoint = qRound(xSubBeatPoint * devicePixelRatio) / devicePixelRatio;
+            beatLinePositions.push_back(static_cast<float>(xSubBeatPoint));
+        }
+
+        ++nextIt;
+    }
+
+    const int reserved = static_cast<int>(beatLinePositions.size()) * numVerticesPerLine;
     geometry().allocate(reserved);
 
     VertexUpdater vertexUpdater{geometry().vertexDataAs<Geometry::Point2D>()};
-
-    for (auto it = trackBeats->iteratorFrom(startPosition);
-            it != trackBeats->cend() && *it <= endPosition;
-            ++it) {
-        double beatPosition = it->toEngineSamplePos();
-        double xBeatPoint =
-                m_waveformRenderer->transformSamplePositionInRendererWorld(
-                        beatPosition, positionType);
-
-        xBeatPoint = qRound(xBeatPoint * devicePixelRatio) / devicePixelRatio;
-
-        const float x1 = static_cast<float>(xBeatPoint);
-        const float x2 = x1 + 1.f;
-
-        vertexUpdater.addRectangle({x1, 0.f},
+    for (float x : beatLinePositions) {
+        const float x2 = x + 1.f;
+        vertexUpdater.addRectangle({x, 0.f},
                 {x2, m_isSlipRenderer ? rendererBreadth / 2 : rendererBreadth});
     }
     markDirtyGeometry();
