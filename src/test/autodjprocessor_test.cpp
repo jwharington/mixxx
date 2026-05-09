@@ -7,9 +7,11 @@
 #include <QString>
 
 #include "control/controllinpotmeter.h"
+#include "control/controlobject.h"
 #include "control/controlpotmeter.h"
 #include "control/controlpushbutton.h"
 #include "engine/engine.h"
+#include "library/autodj/dlgautodj.h"
 #include "library/dao/trackschema.h"
 #include "library/playlisttablemodel.h"
 #include "mixer/basetrackplayer.h"
@@ -18,6 +20,8 @@
 #include "sources/soundsourceproxy.h"
 #include "test/librarytest.h"
 #include "track/track.h"
+#include "widget/wlibrary.h"
+#include "widget/wtracktableview.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -52,6 +56,8 @@ class FakeDeck : public BaseTrackPlayer {
               playposition(ConfigKey(group, "playposition"), 0.0, 1.0, 0, 0, true),
               play(ConfigKey(group, "play")),
               repeat(ConfigKey(group, "repeat")),
+              pregain(ConfigKey(group, "pregain")),
+              volume(ConfigKey(group, "volume")),
               introStartPos(ConfigKey(group, "intro_start_position")),
               introEndPos(ConfigKey(group, "intro_end_position")),
               outroStartPos(ConfigKey(group, "outro_start_position")),
@@ -59,6 +65,8 @@ class FakeDeck : public BaseTrackPlayer {
               orientation(ConfigKey(group, "orientation")) {
         play.setButtonMode(mixxx::control::ButtonMode::Toggle);
         repeat.setButtonMode(mixxx::control::ButtonMode::Toggle);
+        pregain.set(1.0);
+        volume.set(1.0);
         outroStartPos.set(Cue::kNoPosition);
         outroEndPos.set(Cue::kNoPosition);
         orientation.set(orient);
@@ -122,6 +130,8 @@ class FakeDeck : public BaseTrackPlayer {
     ControlLinPotmeter playposition;
     ControlPushButton play;
     ControlPushButton repeat;
+    ControlObject pregain;
+    ControlObject volume;
     ControlObject introStartPos;
     ControlObject introEndPos;
     ControlObject outroStartPos;
@@ -2287,4 +2297,384 @@ TEST_F(AutoDJProcessorTest,
 
     ASSERT_TRUE(loadedWhenReenabled);
     EXPECT_EQ(thirdId, loadedWhenReenabled->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
+        StaticQueue_SwingSingle_AutoAdvanceLoadsBlueTrackAfterCurrentTrack) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck1.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pSecondTrack);
+    deck1.playposition.set(0.25);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    TrackPointer pPreviewTrack = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewTrack);
+    EXPECT_EQ(thirdId, pPreviewTrack->getId());
+
+    TrackPointer loadedOnAdvance;
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&loadedOnAdvance));
+    deck1.playposition.set(1.0);
+
+    ASSERT_TRUE(loadedOnAdvance);
+    EXPECT_EQ(pPreviewTrack->getId(), loadedOnAdvance->getId());
+    EXPECT_EQ(thirdId, loadedOnAdvance->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
+        StaticQueue_SwingSingle_SkipLoadsBlueTrackAfterCurrentTrack) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck1.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pSecondTrack);
+    deck1.playposition.set(0.25);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    TrackPointer pPreviewTrack = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewTrack);
+    EXPECT_EQ(thirdId, pPreviewTrack->getId());
+
+    TrackPointer loadedBySkip;
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&loadedBySkip));
+    err = pProcessor->skipNext();
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    ASSERT_TRUE(loadedBySkip);
+    EXPECT_EQ(pPreviewTrack->getId(), loadedBySkip->getId());
+    EXPECT_EQ(thirdId, loadedBySkip->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
+        StaticQueue_SwingSingle_DisabledWhilePaused_ReenableLoadsTrackAfterPausedTrack) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck1.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pSecondTrack);
+    deck1.playposition.set(0.25);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    // Pause while keeping the current deck track loaded.
+    deck1.play.set(0.0);
+    deck1.playposition.set(0.4);
+
+    TrackPointer pPreviewWhilePaused = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewWhilePaused);
+    EXPECT_EQ(thirdId, pPreviewWhilePaused->getId());
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_DISABLED));
+    err = pProcessor->toggleAutoDJ(false);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    TrackPointer pPreviewWhileDisabled = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewWhileDisabled);
+    EXPECT_EQ(thirdId, pPreviewWhileDisabled->getId());
+
+    TrackPointer loadedWhenReenabled;
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_ENABLE_P1LOADED));
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&loadedWhenReenabled));
+    err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    ASSERT_TRUE(loadedWhenReenabled);
+    EXPECT_EQ(pPreviewWhileDisabled->getId(), loadedWhenReenabled->getId());
+    EXPECT_EQ(thirdId, loadedWhenReenabled->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
+        DlgAutoDJ_SwingSingle_StaticQueue_HighlightsCurrentAndNextTracksInOrder) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck1.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pSecondTrack);
+    deck1.playposition.set(0.25);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    // Seed PlayerInfo so DlgAutoDJ paints the green "currently playing" row.
+    PlayerInfo::instance().setTrackInfo(QStringLiteral("[Channel1]"), pSecondTrack);
+
+    ControlObject guiTick(ConfigKey("[App]", "gui_tick_50ms_period_s"));
+    guiTick.set(0.05);
+    ControlPushButton touchShift(ConfigKey("[Controls]", "touch_shift"));
+    touchShift.setButtonMode(mixxx::control::ButtonMode::Toggle);
+    touchShift.set(0.0);
+    ControlObject sortColumn(ConfigKey("[Library]", "sort_column"));
+    sortColumn.set(0.0);
+    ControlObject sortOrder(ConfigKey("[Library]", "sort_order"));
+    sortOrder.set(0.0);
+
+    WLibrary libraryWidget(nullptr);
+    DlgAutoDJ dlg(&libraryWidget,
+            config(),
+            nullptr,
+            pProcessor.data(),
+            nullptr);
+
+    auto* pTrackTableView = dlg.findChild<WTrackTableView*>();
+    ASSERT_TRUE(pTrackTableView);
+
+    const TrackId greenTrackId = pTrackTableView->highlightedTrackId();
+    const TrackId blueTrackId = pTrackTableView->secondaryHighlightedTrackId();
+
+    EXPECT_EQ(secondId, greenTrackId);
+    EXPECT_EQ(thirdId, blueTrackId);
+    EXPECT_GT(pTrackTableView->secondaryHighlightedTrackRow(),
+            pTrackTableView->highlightedTrackRow());
+
+    auto findRowByTrackId = [pAutoDJTableModel](TrackId trackId) {
+        for (int row = 0; row < pAutoDJTableModel->rowCount(); ++row) {
+            if (pAutoDJTableModel->getTrackId(pAutoDJTableModel->index(row, 0)) == trackId) {
+                return row;
+            }
+        }
+        return -1;
+    };
+
+    const int greenRow = findRowByTrackId(greenTrackId);
+    const int blueRow = findRowByTrackId(blueTrackId);
+    EXPECT_GE(greenRow, 0);
+    EXPECT_GE(blueRow, 0);
+    EXPECT_GT(blueRow, greenRow);
+
+    TrackPointer pPreviewTrack = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewTrack);
+    EXPECT_EQ(blueTrackId, pPreviewTrack->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
+        StaticQueue_SwingSingle_DuplicateCurrentTrackNeverCuesEarlierDuplicate) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);  // row 0
+    pAutoDJTableModel->appendTrack(secondId); // row 1
+    pAutoDJTableModel->appendTrack(firstId);  // row 2 (duplicate)
+    pAutoDJTableModel->appendTrack(thirdId);  // row 3
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer pFirstTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pFirstTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pFirstTrack);
+    deck1.playposition.set(0.25);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    // From row 0, next must be row 1, not a later duplicate-driven jump.
+    TrackPointer pPreviewAfterFirst = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewAfterFirst);
+    EXPECT_EQ(secondId, pPreviewAfterFirst->getId());
+
+    TrackPointer loadedSecond;
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&loadedSecond));
+    err = pProcessor->skipNext();
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+    ASSERT_TRUE(loadedSecond);
+    EXPECT_EQ(secondId, loadedSecond->getId());
+
+    // Simulate that row 1 track is now loaded/playing.
+    TrackPointer pSecondTrack(newTestTrack(secondId));
+    deck1.slotLoadTrack(pSecondTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pSecondTrack);
+    deck1.playposition.set(0.30);
+
+    // From row 1, immediate next row is the duplicate at row 2.
+    TrackPointer pPreviewAfterSecond = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewAfterSecond);
+    EXPECT_EQ(firstId, pPreviewAfterSecond->getId());
+
+    TrackPointer loadedDuplicate;
+    EXPECT_CALL(*pProcessor, emitLoadTrackToPlayer(_, QString("[Channel1]"), true))
+            .WillOnce(SaveArg<0>(&loadedDuplicate));
+    err = pProcessor->skipNext();
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+    ASSERT_TRUE(loadedDuplicate);
+    EXPECT_EQ(firstId, loadedDuplicate->getId());
+
+    // Simulate that the duplicate instance (row 2) is now loaded/playing.
+    TrackPointer pDuplicateTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pDuplicateTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pDuplicateTrack);
+    deck1.playposition.set(0.35);
+
+    // Next must now be row 3, not row 1/0.
+    TrackPointer pPreviewAfterDuplicate = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewAfterDuplicate);
+    EXPECT_EQ(thirdId, pPreviewAfterDuplicate->getId());
+}
+
+TEST_F(AutoDJProcessorTest,
+        DlgAutoDJ_SwingSingle_DuplicateCurrentTrack_BlueIsAfterGreenOccurrence) {
+    config()->set(ConfigKey("[Config]", "ResizableSkin"), QString("SwingSingle"));
+
+    TrackId firstId = addTrackToCollection("id3-test-data/cover-test-png.mp3");
+    TrackId secondId = addTrackToCollection("id3-test-data/cover-test-jpg.mp3");
+    TrackId thirdId = addTrackToCollection("id3-test-data/cover-test-vbr.mp3");
+    ASSERT_TRUE(firstId.isValid());
+    ASSERT_TRUE(secondId.isValid());
+    ASSERT_TRUE(thirdId.isValid());
+
+    PlaylistTableModel* pAutoDJTableModel = pProcessor->getTableModel();
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(secondId);
+    pAutoDJTableModel->appendTrack(firstId);
+    pAutoDJTableModel->appendTrack(thirdId);
+
+    pProcessor->setQueueMode(AutoDJProcessor::QueueMode::StaticQueue);
+
+    TrackPointer pFirstTrack(newTestTrack(firstId));
+    deck1.slotLoadTrack(pFirstTrack,
+#ifdef __STEM__
+            mixxx::StemChannelSelection(),
+#endif
+            true);
+    deck1.fakeTrackLoadedEvent(pFirstTrack);
+    deck1.playposition.set(0.25);
+
+    EXPECT_CALL(*pProcessor, emitAutoDJStateChanged(AutoDJProcessor::ADJ_IDLE));
+    AutoDJProcessor::AutoDJError err = pProcessor->toggleAutoDJ(true);
+    EXPECT_EQ(AutoDJProcessor::ADJ_OK, err);
+
+    PlayerInfo::instance().setTrackInfo(QStringLiteral("[Channel1]"), pFirstTrack);
+
+    ControlObject guiTick(ConfigKey("[App]", "gui_tick_50ms_period_s"));
+    guiTick.set(0.05);
+    ControlPushButton touchShift(ConfigKey("[Controls]", "touch_shift"));
+    touchShift.setButtonMode(mixxx::control::ButtonMode::Toggle);
+    touchShift.set(0.0);
+    ControlObject sortColumn(ConfigKey("[Library]", "sort_column"));
+    sortColumn.set(0.0);
+    ControlObject sortOrder(ConfigKey("[Library]", "sort_order"));
+    sortOrder.set(0.0);
+
+    WLibrary libraryWidget(nullptr);
+    DlgAutoDJ dlg(&libraryWidget,
+            config(),
+            nullptr,
+            pProcessor.data(),
+            nullptr);
+
+    auto* pTrackTableView = dlg.findChild<WTrackTableView*>();
+    ASSERT_TRUE(pTrackTableView);
+
+    const TrackId blueTrackId = pTrackTableView->secondaryHighlightedTrackId();
+    EXPECT_EQ(secondId, blueTrackId);
+    EXPECT_GT(pTrackTableView->secondaryHighlightedTrackRow(),
+            pTrackTableView->highlightedTrackRow());
+
+    TrackPointer pPreviewTrack = pProcessor->getEnablePreviewTrack();
+    ASSERT_TRUE(pPreviewTrack);
+    EXPECT_EQ(blueTrackId, pPreviewTrack->getId());
 }

@@ -401,12 +401,23 @@ void DlgAutoDJ::updateHighlightedTrack() {
         queuedTrackId = TrackId();
     }
 
+    int playingPreferredMinRow = -1;
+    int queuedPreferredMinRow = -1;
+    if (m_pAutoDJProcessor->getQueueMode() == AutoDJProcessor::QueueMode::StaticQueue) {
+        playingPreferredMinRow = m_pAutoDJProcessor->getStaticQueueReferenceRow();
+        if (playingPreferredMinRow >= 0) {
+            queuedPreferredMinRow = playingPreferredMinRow + 1;
+        }
+    }
+
     m_pTrackTableView->setHighlightedTrackId(
             playingTrackId,
-            WTrackTableView::kPlayingTrackHighlightColor);
+            WTrackTableView::kPlayingTrackHighlightColor,
+            playingPreferredMinRow);
     m_pTrackTableView->setSecondaryHighlightedTrackId(
             queuedTrackId,
-            WTrackTableView::kQueuedTrackHighlightColor);
+            WTrackTableView::kQueuedTrackHighlightColor,
+            queuedPreferredMinRow);
 }
 
 void DlgAutoDJ::slotTransitionModeChanged(int newIndex) {
