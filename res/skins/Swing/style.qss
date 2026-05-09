@@ -848,7 +848,7 @@ WLabel#TrackComment {
   }
   #DeckControlsLeft {
     qproperty-layoutAlignment: 'Alignleft | AlignVCenter';
-    padding: 1px 0px 1px 1px;
+    padding: 0px 0px 1px 1px;
     background-color: #333;
   }
   #DeckControlsRight {
@@ -939,6 +939,27 @@ WLabel#TrackComment {
 
 /* Actual Play button. Receives click events, turns red
   when playing regularly, not from Cue or HotCue */
+#DeckControlsLeft #PlayCue[displayValue="0"],
+#DeckControlsLeft #PlayIndicator[value="0"],
+#DeckControlsLeft #PreviewIndicator[value="0"] {
+  border-top: 0px;
+  border-bottom: 0px;
+  border-left: 1.5px solid #1e1e1e;
+  border-right: 1.5px solid #1e1e1e;
+  border-radius: 0px;
+  background-color: #333;
+}
+#DeckControlsLeft #PreviewIndicator {
+  background-color: #333;
+}
+#DeckControlsLeft #PlayCue:pressed,
+#DeckControlsLeft #PlayCue[displayValue="1"],
+#DeckControlsLeft #PlayCue[displayValue="1"]:hover,
+#DeckControlsLeft #PlayIndicator[value="1"],
+#DeckControlsLeft #PreviewIndicator[value="1"] {
+  border: 0px;
+}
+
 #PlayCue[displayValue="0"] {
   background-color: transparent;
   }
