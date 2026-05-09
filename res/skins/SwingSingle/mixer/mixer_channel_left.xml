@@ -33,7 +33,7 @@ Variables:
                 <Children>
                   <Label>
                     <ObjectName>PreviewSectionHeader</ObjectName>
-                    <Size>1me,14f</Size>
+                    <Size>1me,22f</Size>
                     <Text>preview</Text>
                     <Alignment>center</Alignment>
                   </Label>
