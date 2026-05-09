@@ -4,6 +4,7 @@
 #include <QKeyEvent>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QVBoxLayout>
 #include <QtDebug>
 
 #include "library/libraryview.h"
@@ -17,19 +18,27 @@ WLibrary::WLibrary(QWidget* parent)
           WBaseWidget(this),
           m_mutex(QT_RECURSIVE_MUTEX_INIT),
           m_pViewStack(new QStackedWidget(this)),
+          m_pMainPaneWidget(new QWidget(this)),
+          m_pMainPaneLayout(new QVBoxLayout(m_pMainPaneWidget)),
           m_pMainSplitter(new QSplitter(Qt::Horizontal, this)),
+          m_pSearchWidget(nullptr),
           m_pAutoDJQueueWidget(nullptr),
           m_autoDJSplitLeftRatioPermille(667),
           m_showAutoDJSplitEnabled(false),
           m_autoDJSplitActive(false),
+          m_embedSearchWidgetInMainPane(false),
           m_trackTableBackgroundColorOpacity(kDefaultTrackTableBackgroundColorOpacity),
           m_bShowButtonText(true) {
     auto* pLayout = new QHBoxLayout(this);
     pLayout->setContentsMargins(0, 0, 0, 0);
     pLayout->addWidget(m_pMainSplitter);
 
+    m_pMainPaneLayout->setContentsMargins(0, 0, 0, 0);
+    m_pMainPaneLayout->setSpacing(0);
+    m_pMainPaneLayout->addWidget(m_pViewStack);
+
     m_pMainSplitter->setChildrenCollapsible(false);
-    m_pMainSplitter->addWidget(m_pViewStack);
+    m_pMainSplitter->addWidget(m_pMainPaneWidget);
     m_pMainSplitter->setStretchFactor(0, 3);
     setFocusProxy(m_pViewStack);
 
@@ -70,6 +79,9 @@ void WLibrary::setup(const QDomNode& node, const SkinContext& context) {
                     kDefaultTrackTableBackgroundColorOpacity),
             kMinTrackTableBackgroundColorOpacity,
             kMaxTrackTableBackgroundColorOpacity);
+    m_embedSearchWidgetInMainPane =
+            context.selectBool(node, "EmbedSearchBoxInMainPane", false);
+    updateSearchWidgetPlacement();
 
     m_overviewSignalColors.setup(node, context);
 }
@@ -131,6 +143,11 @@ void WLibrary::setAutoDJSplitEnabled(bool enabled) {
 void WLibrary::setAutoDJSplitLeftRatioPermille(int leftRatioPermille) {
     m_autoDJSplitLeftRatioPermille = qBound(1, leftRatioPermille, 999);
     updateAutoDJQueueVisibility();
+}
+
+void WLibrary::setSearchWidget(QWidget* pSearchWidget) {
+    m_pSearchWidget = pSearchWidget;
+    updateSearchWidgetPlacement();
 }
 
 void WLibrary::switchToView(const QString& name) {
@@ -254,6 +271,21 @@ void WLibrary::keyPressEvent(QKeyEvent* pEvent) {
         emit setLibraryFocus(FocusWidget::Sidebar);
     }
     QWidget::keyPressEvent(pEvent);
+}
+
+void WLibrary::updateSearchWidgetPlacement() {
+    if (!m_pSearchWidget || !m_embedSearchWidgetInMainPane) {
+        return;
+    }
+
+    if (m_pSearchWidget->parentWidget() != m_pMainPaneWidget) {
+        m_pSearchWidget->setParent(m_pMainPaneWidget);
+    }
+
+    if (m_pMainPaneLayout->indexOf(m_pSearchWidget) != 0) {
+        m_pMainPaneLayout->insertWidget(0, m_pSearchWidget);
+    }
+    m_pSearchWidget->show();
 }
 
 void WLibrary::updateAutoDJQueueVisibility() {
