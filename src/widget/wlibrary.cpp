@@ -26,6 +26,8 @@ WLibrary::WLibrary(QWidget* parent)
           m_autoDJSplitLeftRatioPermille(667),
           m_showAutoDJSplitEnabled(false),
           m_autoDJSplitActive(false),
+          m_ignoreAutoDJSplitterMoved(false),
+          m_autoDJSplitRestoreScheduled(false),
           m_embedSearchWidgetInMainPane(false),
           m_trackTableBackgroundColorOpacity(kDefaultTrackTableBackgroundColorOpacity),
           m_bShowButtonText(true) {
@@ -46,23 +48,10 @@ WLibrary::WLibrary(QWidget* parent)
             &QSplitter::splitterMoved,
             this,
             [this](int /*pos*/, int /*index*/) {
-                if (!m_pAutoDJQueueWidget || !m_pAutoDJQueueWidget->isVisible()) {
+                if (m_ignoreAutoDJSplitterMoved) {
                     return;
                 }
-                const QList<int> sizes = m_pMainSplitter->sizes();
-                if (sizes.size() != 2) {
-                    return;
-                }
-                const int total = sizes[0] + sizes[1];
-                if (total <= 0) {
-                    return;
-                }
-                m_visibleSplitterSizes = sizes;
-                const int ratioPermille = (1000 * sizes[0]) / total;
-                if (ratioPermille != m_autoDJSplitLeftRatioPermille) {
-                    m_autoDJSplitLeftRatioPermille = ratioPermille;
-                    emit autoDJSplitLeftRatioPermilleChanged(ratioPermille);
-                }
+                persistAutoDJSplitRatioFromCurrentSizes(true);
             });
 }
 
@@ -266,6 +255,13 @@ bool WLibrary::event(QEvent* pEvent) {
     return QWidget::event(pEvent);
 }
 
+void WLibrary::hideEvent(QHideEvent* pEvent) {
+    if (!m_ignoreAutoDJSplitterMoved) {
+        persistAutoDJSplitRatioFromCurrentSizes(true);
+    }
+    QWidget::hideEvent(pEvent);
+}
+
 void WLibrary::keyPressEvent(QKeyEvent* pEvent) {
     if (pEvent->key() == Qt::Key_Left && pEvent->modifiers() & Qt::ControlModifier) {
         emit setLibraryFocus(FocusWidget::Sidebar);
@@ -295,8 +291,10 @@ void WLibrary::updateAutoDJQueueVisibility() {
 
     const bool shouldShow = m_showAutoDJSplitEnabled &&
             !m_autoDJViewName.isEmpty() &&
+            !m_currentViewName.isEmpty() &&
             m_currentViewName != m_autoDJViewName;
     const bool wasSplitActive = m_autoDJSplitActive;
+
     if (m_autoDJSplitActive != shouldShow) {
         m_autoDJSplitActive = shouldShow;
         emit autoDJSplitActiveChanged(shouldShow);
@@ -304,21 +302,77 @@ void WLibrary::updateAutoDJQueueVisibility() {
 
     if (shouldShow) {
         m_pAutoDJQueueWidget->show();
-        if (m_visibleSplitterSizes.size() == 2) {
-            m_pMainSplitter->setSizes(m_visibleSplitterSizes);
-        } else {
-            const int totalWidth = qMax(width(), 1);
-            const int leftSize = (totalWidth * m_autoDJSplitLeftRatioPermille) / 1000;
-            const int rightSize = qMax(1, totalWidth - leftSize);
-            m_pMainSplitter->setSizes({qMax(1, leftSize), rightSize});
-        }
+        applyAutoDJSplitSizes();
     } else {
         // Only cache sizes when transitioning from visible split -> hidden split.
         // This avoids recording startup/default sizes before the split has ever
         // been shown, which would override the persisted ratio on next startup.
-        if (wasSplitActive && m_pAutoDJQueueWidget->isVisible()) {
-            m_visibleSplitterSizes = m_pMainSplitter->sizes();
+        if (wasSplitActive) {
+            persistAutoDJSplitRatioFromCurrentSizes(true);
         }
         m_pAutoDJQueueWidget->hide();
+    }
+}
+
+void WLibrary::applyAutoDJSplitSizes() {
+    const QList<int> currentSizes = m_pMainSplitter->sizes();
+    const int currentTotal = currentSizes.size() == 2 ? (currentSizes[0] + currentSizes[1]) : 0;
+
+    if (m_visibleSplitterSizes.size() == 2 && currentTotal > 0) {
+        m_ignoreAutoDJSplitterMoved = true;
+        m_pMainSplitter->setSizes(m_visibleSplitterSizes);
+        m_ignoreAutoDJSplitterMoved = false;
+        return;
+    }
+
+    if (currentTotal <= 1) {
+        scheduleDeferredAutoDJSplitRestore();
+        return;
+    }
+
+    const int leftSize = (currentTotal * m_autoDJSplitLeftRatioPermille) / 1000;
+    const int rightSize = qMax(1, currentTotal - leftSize);
+    m_ignoreAutoDJSplitterMoved = true;
+    m_pMainSplitter->setSizes({qMax(1, leftSize), rightSize});
+    m_ignoreAutoDJSplitterMoved = false;
+}
+
+void WLibrary::scheduleDeferredAutoDJSplitRestore() {
+    if (m_autoDJSplitRestoreScheduled) {
+        return;
+    }
+    m_autoDJSplitRestoreScheduled = true;
+    QMetaObject::invokeMethod(
+            this,
+            [this]() {
+                m_autoDJSplitRestoreScheduled = false;
+                if (!m_autoDJSplitActive || !m_pAutoDJQueueWidget) {
+                    return;
+                }
+                applyAutoDJSplitSizes();
+            },
+            Qt::QueuedConnection);
+}
+
+void WLibrary::persistAutoDJSplitRatioFromCurrentSizes(bool cacheVisibleSizes) {
+    const bool queueVisible = m_pAutoDJQueueWidget && m_pAutoDJQueueWidget->isVisible();
+    if (!queueVisible && !m_autoDJSplitActive) {
+        return;
+    }
+    const QList<int> sizes = m_pMainSplitter->sizes();
+    if (sizes.size() != 2) {
+        return;
+    }
+    const int total = sizes[0] + sizes[1];
+    if (total <= 0) {
+        return;
+    }
+    if (cacheVisibleSizes) {
+        m_visibleSplitterSizes = sizes;
+    }
+    const int ratioPermille = (1000 * sizes[0]) / total;
+    if (ratioPermille != m_autoDJSplitLeftRatioPermille) {
+        m_autoDJSplitLeftRatioPermille = ratioPermille;
+        emit autoDJSplitLeftRatioPermilleChanged(ratioPermille);
     }
 }

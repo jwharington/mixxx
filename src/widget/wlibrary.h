@@ -19,6 +19,7 @@ class QVBoxLayout;
 class WTrackTableView;
 class TrackId;
 class QDomNode;
+class QHideEvent;
 class SkinContext;
 
 class WLibrary : public QWidget, public WBaseWidget {
@@ -92,11 +93,15 @@ class WLibrary : public QWidget, public WBaseWidget {
 
   protected:
     bool event(QEvent* pEvent) override;
+    void hideEvent(QHideEvent* pEvent) override;
     void keyPressEvent(QKeyEvent* event) override;
 
   private:
     void updateAutoDJQueueVisibility();
     void updateSearchWidgetPlacement();
+    void applyAutoDJSplitSizes();
+    void scheduleDeferredAutoDJSplitRestore();
+    void persistAutoDJSplitRatioFromCurrentSizes(bool cacheVisibleSizes);
 
     QT_RECURSIVE_MUTEX m_mutex;
     QMap<QString, QWidget*> m_viewMap;
@@ -112,6 +117,8 @@ class WLibrary : public QWidget, public WBaseWidget {
     int m_autoDJSplitLeftRatioPermille;
     bool m_showAutoDJSplitEnabled;
     bool m_autoDJSplitActive;
+    bool m_ignoreAutoDJSplitterMoved;
+    bool m_autoDJSplitRestoreScheduled;
     bool m_embedSearchWidgetInMainPane;
     double m_trackTableBackgroundColorOpacity;
     bool m_bShowButtonText;
