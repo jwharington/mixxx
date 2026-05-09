@@ -121,7 +121,7 @@ Variables:
                 <NumberOfDigits>1</NumberOfDigits>
                 <Alignment>center</Alignment>
                 <Connection>
-                  <ConfigKey><Variable name="group"/>,visual_bpm</ConfigKey>
+                  <ConfigKey><Variable name="group"/>,file_bpm</ConfigKey>
                 </Connection>
               </Number>
             </Children>
