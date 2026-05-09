@@ -2232,7 +2232,7 @@ WTrackProperty#SamplerTitle_mini {
 ##############################################################*/
 
 #PreviewDeck {
-  qproperty-layoutAlignment: 'AlignLeft | AlignTop';
+  qproperty-layoutAlignment: 'AlignLeft';
   background-color: #0f0f0f;
 }
 
@@ -2256,7 +2256,7 @@ WTrackProperty#SamplerTitle_mini {
   background-color: #333;
 }
 #PreviewTitleEject {
-  qproperty-layoutAlignment: 'AlignLeft | AlignTop';
+  qproperty-layoutAlignment: 'AlignLeft';
   margin-bottom: 1px;
 }
 #PreviewPlayOverview {
@@ -2281,6 +2281,11 @@ WTrackProperty#SamplerTitle_mini {
   #PreviewGainKnob {
     qproperty-layoutAlignment: 'AlignVCenter | AlignHCenter';
   }
+
+#HeadphoneGainKnob {
+  qproperty-layoutAlignment: 'AlignHCenter';
+  margin: 2px 0px;
+}
 
 
 /*################################################################

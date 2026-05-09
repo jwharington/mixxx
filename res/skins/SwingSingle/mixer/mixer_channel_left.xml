@@ -29,7 +29,7 @@ Variables:
               <WidgetGroup><!-- Preview section -->
                 <ObjectName>PreviewSectionFrame</ObjectName>
                 <Layout>vertical</Layout>
-                <Size>230f,1me</Size>
+                <Size>300f,1me</Size>
                 <Children>
                   <Label>
                     <ObjectName>PreviewSectionHeader</ObjectName>
@@ -58,6 +58,15 @@ Variables:
                               <ConfigKey>[Master],headGain</ConfigKey>
                             </Connection>
                           </SliderComposed>
+
+                          <Template src="skins:Swing/controls/knob_textless.xml">
+                            <SetVariable name="ObjectName">HeadphoneGainKnob</SetVariable>
+                            <SetVariable name="TooltipId">headphone_volume</SetVariable>
+                            <SetVariable name="Size">34f,30f</SetVariable>
+                            <SetVariable name="Color">yellow</SetVariable>
+                            <SetVariable name="group">[Master]</SetVariable>
+                            <SetVariable name="ConfigKey">headGain</SetVariable>
+                          </Template>
 
                           <WidgetGroup>
                             <ObjectName>HeadphoneMixerLabel</ObjectName>
