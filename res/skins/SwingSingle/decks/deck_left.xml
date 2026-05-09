@@ -21,10 +21,9 @@ Variables:
 
       <WidgetGroup><!-- Mixer -->
         <Layout>vertical</Layout>
-        <SizePolicy>f,min</SizePolicy>
+        <SizePolicy>f,me</SizePolicy>
         <Children>
           <Template src="skins:SwingSingle/mixer/mixer_channel_left.xml"/>
-          <WidgetGroup><ObjectName>Spacer1e</ObjectName><Size>0min,0me</Size></WidgetGroup>
         </Children>
         <Connection>
           <ConfigKey persist="true">[Skin],show_mixer</ConfigKey>
