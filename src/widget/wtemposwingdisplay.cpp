@@ -9,6 +9,10 @@ constexpr double kMissingValue = -1.0;
 
 WTempoSwingDisplay::WTempoSwingDisplay(const QString& group, QWidget* pParent)
         : WLabel(pParent),
+          m_engineBpm(group,
+                  QStringLiteral("bpm"),
+                  this,
+                  ControlFlag::AllowMissingOrInvalid),
           m_visualBpm(group,
                   QStringLiteral("visual_bpm"),
                   this,
@@ -25,6 +29,7 @@ WTempoSwingDisplay::WTempoSwingDisplay(const QString& group, QWidget* pParent)
           m_swingDecimals(0),
           m_compact(false),
           m_noTrackText(QStringLiteral("--.-\n--%")) {
+    m_engineBpm.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     m_visualBpm.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     m_visualSwing.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     m_trackLoaded.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
@@ -53,7 +58,9 @@ void WTempoSwingDisplay::refreshDisplay() {
         return;
     }
 
-    const double bpm = m_visualBpm.valid() ? m_visualBpm.get() : kMissingValue;
+    const double bpm = m_engineBpm.valid()
+            ? m_engineBpm.get()
+            : (m_visualBpm.valid() ? m_visualBpm.get() : kMissingValue);
     const double swing = m_visualSwing.valid() ? m_visualSwing.get() : kMissingValue;
 
     if (m_compact) {

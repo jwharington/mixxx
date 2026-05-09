@@ -16,6 +16,7 @@ class WTempoSwingDisplay : public WLabel {
   private:
     QString formatValueOrPlaceholder(double value, int decimals, const QString& suffix) const;
 
+    ControlProxy m_engineBpm;
     ControlProxy m_visualBpm;
     ControlProxy m_visualSwing;
     ControlProxy m_trackLoaded;
