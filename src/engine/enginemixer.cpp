@@ -64,7 +64,7 @@ EngineMixer::EngineMixer(UserSettingsPointer pConfig,
           m_pWorkerScheduler(make_parented<EngineWorkerScheduler>(this)),
           m_pEngineSync(std::make_unique<EngineSync>(pConfig)),
           m_pMainGain(std::make_unique<ControlAudioTaperPot>(
-                  ConfigKey(group, "gain"), -14, 14, 0.5)),
+                  ConfigKey(group, "gain"), -14, 14, 0.5, true)),
           m_pBoothGain(std::make_unique<ControlAudioTaperPot>(
                   ConfigKey(group, "booth_gain"), -14, 14, 0.5)),
           m_pHeadGain(std::make_unique<ControlAudioTaperPot>(

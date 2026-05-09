@@ -10,5 +10,10 @@ class ControlAudioTaperPot : public ControlPotmeter {
     // minDB is the Start value of the pure db scale it cranked to -Infinity by the linear part of the AudioTaperPot
     // maxDB is the Upper gain Value
     // neutralParameter is a knob position between 0 and 1 where the gain is 1 (0dB)
-    ControlAudioTaperPot(const ConfigKey& key, double minDB, double maxDB, double neutralParameter);
+    // bPersist stores and restores the control value in mixxx.cfg.
+    ControlAudioTaperPot(const ConfigKey& key,
+            double minDB,
+            double maxDB,
+            double neutralParameter,
+            bool bPersist = false);
 };
