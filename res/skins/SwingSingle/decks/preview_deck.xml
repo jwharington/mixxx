@@ -153,23 +153,6 @@ Variables:
                 <SetVariable name="sourceType">preview</SetVariable>
               </Template>
 
-              <WidgetGroup>
-                <ObjectName>PreviewGainKnob</ObjectName>
-                <Layout>vertical</Layout>
-                <Children>
-                  <KnobComposed>
-                    <TooltipId>pregain</TooltipId>
-                    <Size>24f,20f</Size>
-                    <Knob>skins:Swing/knobs_sliders/knob_tiny_red.svg</Knob>
-                    <BackPath>skins:Swing/knobs_sliders/knob_bg.svg</BackPath>
-                    <MinAngle><Variable name="PotiMinAngle"/></MinAngle>
-                    <MaxAngle><Variable name="PotiMaxAngle"/></MaxAngle>
-                    <Connection>
-                      <ConfigKey><Variable name="group"/>,pregain</ConfigKey>
-                    </Connection>
-                  </KnobComposed>
-                </Children>
-              </WidgetGroup>
 
             </Children>
           </WidgetGroup><!-- /Play-Overview-Gain -->

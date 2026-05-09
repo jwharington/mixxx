@@ -59,15 +59,6 @@ Variables:
                             </Connection>
                           </SliderComposed>
 
-                          <Template src="skins:Swing/controls/knob_textless.xml">
-                            <SetVariable name="ObjectName">HeadphoneGainKnob</SetVariable>
-                            <SetVariable name="TooltipId">headphone_volume</SetVariable>
-                            <SetVariable name="Size">34f,30f</SetVariable>
-                            <SetVariable name="Color">yellow</SetVariable>
-                            <SetVariable name="group">[Master]</SetVariable>
-                            <SetVariable name="ConfigKey">headGain</SetVariable>
-                          </Template>
-
                           <WidgetGroup>
                             <ObjectName>HeadphoneMixerLabel</ObjectName>
                             <Size>34f,14f</Size>
