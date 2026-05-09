@@ -2238,13 +2238,13 @@ WTrackProperty#SamplerTitle_mini {
 
 #PreviewSectionFrame {
   background-color: #1a1a1a;
-  border: 1px solid #eece33;
+  border: 1px solid #b5a458;
   border-radius: 3px;
   padding: 1px;
 }
 #PreviewSectionHeader {
   background-color: #252525;
-  color: #eece33;
+  color: #b5a458;
   font-weight: bold;
 }
 #PreviewSectionContent {
