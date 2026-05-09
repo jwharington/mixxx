@@ -2244,47 +2244,47 @@ WTrackProperty#SamplerTitle_mini {
 }
 #PreviewSectionHeader {
   background-color: #252525;
-  color: #b5a458;
+  color: #ff8f00;
   font-weight: bold;
+  padding: 3px 0px 3px 0px;
 }
 #PreviewSectionContent {
   background-color: #1a1a1a;
 }
-#PreviewTitle,
-#PreviewEject,
-#PreviewGainKnob {
+#PreviewMeta,
+#PreviewPlay,
+#PreviewEject {
   background-color: #333;
 }
 #PreviewTitleEject {
   qproperty-layoutAlignment: 'AlignLeft';
-  margin-bottom: 1px;
+  margin-top: 1px;
 }
 #PreviewPlayOverview {
   qproperty-layoutAlignment: 'AlignLeft | AlignTop';
 }
-  #PreviewTitle {
-    padding-left: 1px;
-  }
-  #PreviewTitle WLabel {
-    font-size: 14px/14px;
-    font-weight: bold;
-    text-align: left;
-    color: #bababa;
-  }
-  #PreviewEject:hover {
-    border: 1px solid #eeeeee;
-  }
-  #PreviewPlay,
-  #PreviewOverview {
-    margin-right: 1px;
-  }
-  #PreviewPlay,
-  #PreviewEject {
-    qproperty-layoutAlignment: 'AlignVCenter';
-  }
-  #PreviewGainKnob {
-    qproperty-layoutAlignment: 'AlignVCenter | AlignHCenter';
-  }
+#PreviewMeta WTrackProperty#TrackTitle,
+#PreviewMeta WTrackProperty#TrackArtist,
+#PreviewMeta WTrackProperty#TrackTitle[playing="true"],
+#PreviewMeta WTrackProperty#TrackArtist[playing="true"] {
+  color: #b5a458;
+}
+#PreviewMeta WLabel#TrackBy,
+#PreviewMeta #PreviewBpmField {
+  color: #888;
+}
+#PreviewMeta #PreviewBpmField {
+  font-size: 14px/14px;
+  font-weight: bold;
+}
+#PreviewPlay #PlayCue,
+#PreviewPlay #PreviewIndicator,
+#PreviewEject {
+  qproperty-layoutAlignment: 'AlignVCenter';
+}
+#PreviewEject:hover {
+  border: 1px solid #eeeeee;
+}
 
 
 /*################################################################
