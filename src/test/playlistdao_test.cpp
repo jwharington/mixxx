@@ -502,3 +502,39 @@ TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshEnabledRefreshesOnTrackMetadataC
     ASSERT_EQ(1, refreshedTrackIds.size());
     EXPECT_EQ(trackId, refreshedTrackIds.first());
 }
+
+TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshDisabledSkipsTrackMetadataChanges) {
+        PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+        ScopedPlaylistTableModelControls scopedControls;
+        ScopedPlayerInfo scopedPlayerInfo;
+
+        const int playlistId = playlistDao.createSmartPlaylist(
+                        "Smart Playlist Metadata Refresh Disabled",
+                        PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+                        false);
+        ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+        PlaylistDAO::SmartPlaylistRule artistRule;
+        artistRule.field = "artist";
+        artistRule.op = "equals";
+        artistRule.value = "Refreshed Artist Disabled";
+        ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {artistRule}));
+
+        PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistMetadataRefreshOff");
+        model.selectPlaylist(playlistId);
+        EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+
+        const auto pTrack = getOrAddTrackByLocation(
+                        getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-png.mp3")));
+        ASSERT_TRUE(pTrack);
+        const TrackId trackId = pTrack->getId();
+        ASSERT_TRUE(trackId.isValid());
+
+        pTrack->setArtist(QStringLiteral("Refreshed Artist Disabled"));
+        internalCollection()->getTrackDAO().slotDatabaseTracksChanged(QSet<TrackId>{trackId});
+
+        QTest::qWait(180);
+
+        EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+}
