@@ -399,7 +399,7 @@ void PlaylistFeature::slotEditSmartPlaylist() {
     }
 
     if (m_pPlaylistTableModel->getPlaylist() == playlistId) {
-        m_pPlaylistTableModel->selectPlaylist(playlistId);
+        m_pPlaylistTableModel->refreshSelectedSmartPlaylist();
     }
 }
 

@@ -5,7 +5,6 @@
 #include "library/dao/playlistdao.h"
 
 class QCheckBox;
-class QComboBox;
 class QDialogButtonBox;
 class QLineEdit;
 class QTableWidget;
@@ -25,12 +24,16 @@ class SmartPlaylistDialog final : public QDialog {
     void accept() override;
 
   private:
-    void addRuleRow();
-    void removeSelectedRuleRows();
     void setupUi();
     void loadPlaylist();
-    void addRuleRow(const PlaylistDAO::SmartPlaylistRule* pRule);
-    QList<PlaylistDAO::SmartPlaylistRule> readRules() const;
+    void addRuleRow(QTableWidget* pRulesTable,
+            PlaylistDAO::SmartPlaylistRuleBlock block,
+            const PlaylistDAO::SmartPlaylistRule* pRule = nullptr);
+    void removeSelectedRuleRows(QTableWidget* pRulesTable);
+    QList<PlaylistDAO::SmartPlaylistRule> readRules(
+            QTableWidget* pRulesTable,
+            PlaylistDAO::SmartPlaylistRuleBlock block,
+            int* pNextPosition) const;
     bool save();
 
     PlaylistDAO& m_playlistDao;
@@ -38,8 +41,8 @@ class SmartPlaylistDialog final : public QDialog {
     int m_createdPlaylistId;
 
     QLineEdit* m_pNameEdit;
-    QComboBox* m_pMatchModeCombo;
     QCheckBox* m_pAutoRefreshCheck;
-    QTableWidget* m_pRulesTable;
+    QTableWidget* m_pMatchAllRulesTable;
+    QTableWidget* m_pMatchAnyRulesTable;
     QDialogButtonBox* m_pButtonBox;
 };

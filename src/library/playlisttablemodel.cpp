@@ -252,6 +252,16 @@ void PlaylistTableModel::selectPlaylist(int playlistId) {
     setSearch(m_searchTexts.value(m_iPlaylistId));
     setDefaultSort(fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION), Qt::AscendingOrder);
     setSort(defaultSortColumn(), defaultSortOrder());
+    select();
+}
+
+void PlaylistTableModel::refreshSelectedSmartPlaylist() {
+    if (!currentPlaylistIsSmart()) {
+        return;
+    }
+
+    refreshSmartPlaylistTracks(m_iPlaylistId);
+    select();
 }
 
 int PlaylistTableModel::addTracksWithTrackIds(const QModelIndex& insertionIndex,
