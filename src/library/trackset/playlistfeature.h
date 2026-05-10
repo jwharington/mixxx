@@ -31,6 +31,7 @@ class PlaylistFeature : public BasePlaylistFeature {
   public slots:
     void onRightClick(const QPoint& globalPos) override;
     void onRightClickChild(const QPoint& globalPos, const QModelIndex& index) override;
+    void htmlLinkClicked(const QUrl& link) override;
 
   private slots:
     void slotPlaylistTableChanged(int playlistId) override;
@@ -40,6 +41,8 @@ class PlaylistFeature : public BasePlaylistFeature {
     void slotOrderTracksByCurrentPosition();
     void slotUnlockAllPlaylists();
     void slotDeleteAllUnlockedPlaylists();
+    void slotCreateSmartPlaylist();
+    void slotEditSmartPlaylist();
 
   protected:
     void decorateChild(TreeItem* pChild, int playlistId) override;
@@ -53,4 +56,6 @@ class PlaylistFeature : public BasePlaylistFeature {
     parented_ptr<QAction> m_pOrderByCurrentPosAction;
     parented_ptr<QAction> m_pUnlockPlaylistsAction;
     parented_ptr<QAction> m_pDeleteAllUnlockedPlaylistsAction;
+    parented_ptr<QAction> m_pCreateSmartPlaylistAction;
+    parented_ptr<QAction> m_pEditSmartPlaylistAction;
 };
