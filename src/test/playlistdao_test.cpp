@@ -674,12 +674,12 @@ TEST_F(PlaylistDaoTest, SmartPlaylistMatchModeUpdateAffectsNextEventRefresh) {
     artistRule.op = "equals";
     artistRule.value = "ModeTestArtist";
 
-        PlaylistDAO::SmartPlaylistRule titleRule;
-        titleRule.field = "title";
-        titleRule.op = "equals";
-        titleRule.value = "ModeTestTitle";
+    PlaylistDAO::SmartPlaylistRule titleRule;
+    titleRule.field = "title";
+    titleRule.op = "equals";
+    titleRule.value = "ModeTestTitle";
 
-        ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {artistRule, titleRule}));
+    ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {artistRule, titleRule}));
 
     PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistMatchModeToggle");
     model.selectPlaylist(playlistId);
@@ -697,9 +697,9 @@ TEST_F(PlaylistDaoTest, SmartPlaylistMatchModeUpdateAffectsNextEventRefresh) {
     ASSERT_TRUE(trackIdB.isValid());
 
     pTrackA->setArtist(QStringLiteral("ModeTestArtist"));
-        pTrackA->setTitle(QStringLiteral("NotModeTestTitle"));
+    pTrackA->setTitle(QStringLiteral("NotModeTestTitle"));
     pTrackB->setArtist(QStringLiteral("NotModeTestArtist"));
-        pTrackB->setTitle(QStringLiteral("ModeTestTitle"));
+    pTrackB->setTitle(QStringLiteral("ModeTestTitle"));
 
     internalCollection()->getTrackDAO().slotDatabaseTracksChanged(QSet<TrackId>{trackIdA, trackIdB});
     QTest::qWait(180);
