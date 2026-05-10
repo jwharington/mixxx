@@ -3,6 +3,7 @@
 #include "library/dao/playlistdao.h"
 #include "library/dao/trackschema.h"
 #include "library/queryutil.h"
+#include "library/searchqueryparser.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "moc_playlisttablemodel.cpp"
@@ -10,6 +11,19 @@
 namespace {
 
 const QString kModelName = "playlist:";
+
+QStringList smartPlaylistSearchColumns() {
+    return {
+            LIBRARYTABLE_ARTIST,
+            LIBRARYTABLE_ALBUM,
+            LIBRARYTABLE_ALBUMARTIST,
+            TRACKLOCATIONSTABLE_LOCATION,
+            LIBRARYTABLE_GROUPING,
+            LIBRARYTABLE_COMMENT,
+            LIBRARYTABLE_TITLE,
+            LIBRARYTABLE_GENRE,
+            LIBRARYTABLE_CRATE};
+}
 
 } // anonymous namespace
 
@@ -19,7 +33,15 @@ PlaylistTableModel::PlaylistTableModel(QObject* parent,
         bool keepHiddenTracks)
         : TrackSetTableModel(parent, pTrackCollectionManager, settingsNamespace),
           m_iPlaylistId(kInvalidPlaylistId),
-          m_keepHiddenTracks(keepHiddenTracks) {
+          m_keepHiddenTracks(keepHiddenTracks),
+          m_smartPlaylistRefreshDebounceTimer(this) {
+    m_smartPlaylistRefreshDebounceTimer.setSingleShot(true);
+    m_smartPlaylistRefreshDebounceTimer.setInterval(100);
+    connect(&m_smartPlaylistRefreshDebounceTimer,
+            &QTimer::timeout,
+            this,
+            &PlaylistTableModel::refreshCurrentSmartPlaylistNowIfNeeded);
+
     connect(&m_pTrackCollectionManager->internalCollection()->getPlaylistDAO(),
             &PlaylistDAO::tracksAdded,
             this,
@@ -32,6 +54,32 @@ PlaylistTableModel::PlaylistTableModel(QObject* parent,
             &PlaylistDAO::tracksRemoved,
             this,
             &PlaylistTableModel::playlistsChanged);
+
+    auto* pCollection = m_pTrackCollectionManager->internalCollection();
+    connect(pCollection,
+            &TrackCollection::tracksAdded,
+            this,
+            [this](const QSet<TrackId>&) {
+                refreshCurrentSmartPlaylistIfNeeded();
+            });
+    connect(pCollection,
+            &TrackCollection::tracksChanged,
+            this,
+            [this](const QSet<TrackId>&) {
+                refreshCurrentSmartPlaylistIfNeeded();
+            });
+    connect(pCollection,
+            &TrackCollection::tracksRemoved,
+            this,
+            [this](const QSet<TrackId>&) {
+                refreshCurrentSmartPlaylistIfNeeded();
+            });
+    connect(pCollection,
+            &TrackCollection::crateTracksChanged,
+            this,
+            [this](auto, auto, auto) {
+                refreshCurrentSmartPlaylistIfNeeded();
+            });
 }
 
 void PlaylistTableModel::initSortColumnMapping() {
@@ -153,6 +201,11 @@ void PlaylistTableModel::selectPlaylist(int playlistId) {
         m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().removeHiddenTracks(m_iPlaylistId);
     }
 
+    auto& playlistDao = m_pTrackCollectionManager->internalCollection()->getPlaylistDAO();
+    if (playlistId != kInvalidPlaylistId && playlistDao.isSmartPlaylist(playlistId)) {
+        refreshSmartPlaylistTracks(playlistId);
+    }
+
     // Note: don't set m_iPlaylistId = playlistId before removing hidden tracks,
     // else (if tracks are removed) PlaylistDAO::tracksRemoved would trigger
     // playlistsChanged() which would call select() -- which is simply not required
@@ -204,6 +257,9 @@ void PlaylistTableModel::selectPlaylist(int playlistId) {
 int PlaylistTableModel::addTracksWithTrackIds(const QModelIndex& insertionIndex,
         const QList<TrackId>& trackIds,
         int* pOutInsertionPos) {
+    if (currentPlaylistIsSmart()) {
+        return 0;
+    }
     if (trackIds.isEmpty()) {
         return 0;
     }
@@ -238,6 +294,9 @@ int PlaylistTableModel::addTracksWithTrackIds(const QModelIndex& insertionIndex,
 }
 
 bool PlaylistTableModel::appendTrack(TrackId trackId) {
+    if (currentPlaylistIsSmart()) {
+        return false;
+    }
     if (!trackId.isValid()) {
         return false;
     }
@@ -251,6 +310,9 @@ bool PlaylistTableModel::appendTrack(TrackId trackId) {
 }
 
 void PlaylistTableModel::removeTrack(const QModelIndex& index) {
+    if (currentPlaylistIsSmart()) {
+        return;
+    }
     if (m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().isPlaylistLocked(m_iPlaylistId)) {
         return;
     }
@@ -266,6 +328,9 @@ void PlaylistTableModel::removeTrack(const QModelIndex& index) {
 }
 
 void PlaylistTableModel::removeTracks(const QModelIndexList& indices) {
+    if (currentPlaylistIsSmart()) {
+        return;
+    }
     if (m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().isPlaylistLocked(m_iPlaylistId)) {
         return;
     }
@@ -290,6 +355,9 @@ void PlaylistTableModel::removeTracks(const QModelIndexList& indices) {
 
 void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
         const QModelIndex& destIndex) {
+    if (currentPlaylistIsSmart()) {
+        return;
+    }
     int playlistPositionColumn = fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION);
 
     int newPosition = destIndex.sibling(destIndex.row(), playlistPositionColumn).data().toInt();
@@ -319,10 +387,14 @@ void PlaylistTableModel::moveTrack(const QModelIndex& sourceIndex,
 }
 
 bool PlaylistTableModel::isLocked() {
-    return m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().isPlaylistLocked(m_iPlaylistId);
+    return currentPlaylistIsSmart() ||
+            m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().isPlaylistLocked(m_iPlaylistId);
 }
 
 void PlaylistTableModel::shuffleTracks(const QModelIndexList& shuffle, const QModelIndex& exclude) {
+    if (currentPlaylistIsSmart()) {
+        return;
+    }
     QList<int> positions;
     QHash<int, TrackId> allIds;
     const int positionColumn = fieldIndex(ColumnCache::COLUMN_PLAYLISTTRACKSTABLE_POSITION);
@@ -360,6 +432,9 @@ void PlaylistTableModel::shuffleTracks(const QModelIndexList& shuffle, const QMo
 }
 
 void PlaylistTableModel::orderTracksByCurrPos() {
+    if (currentPlaylistIsSmart()) {
+        return;
+    }
     QList<std::pair<TrackId, int>> idPosList;
     int numOfTracks = rowCount();
     idPosList.reserve(numOfTracks);
@@ -451,6 +526,14 @@ TrackModel::Capabilities PlaylistTableModel::getCapabilities() const {
         // drag'n'drop for history playlists
         caps &= ~(Capability::ReceiveDrops | Capability::Reorder | Capability::Hide);
     }
+    if (currentPlaylistIsSmart()) {
+        caps &= ~(Capability::ReceiveDrops |
+                Capability::Reorder |
+                Capability::AddToTrackSet |
+                Capability::Sorting |
+                Capability::RemovePlaylist);
+        caps |= Capability::Locked;
+    }
     bool locked = m_pTrackCollectionManager->internalCollection()->getPlaylistDAO().isPlaylistLocked(m_iPlaylistId);
     if (locked) {
         caps |= Capability::Locked;
@@ -471,5 +554,88 @@ QString PlaylistTableModel::modelKey(bool noSearch) const {
 void PlaylistTableModel::playlistsChanged(const QSet<int>& playlistIds) {
     if (playlistIds.contains(m_iPlaylistId)) {
         select(); // Repopulate the data model.
+    }
+}
+
+bool PlaylistTableModel::currentPlaylistIsSmart() const {
+    return m_iPlaylistId != kInvalidPlaylistId &&
+            m_pTrackCollectionManager->internalCollection()
+                    ->getPlaylistDAO()
+                    .isSmartPlaylist(m_iPlaylistId);
+}
+
+bool PlaylistTableModel::currentSmartPlaylistAutoRefreshEnabled() const {
+    if (!currentPlaylistIsSmart()) {
+        return false;
+    }
+
+    auto& playlistDao = m_pTrackCollectionManager->internalCollection()->getPlaylistDAO();
+    PlaylistDAO::SmartPlaylistMatchMode matchMode = PlaylistDAO::SmartPlaylistMatchMode::MatchAll;
+    bool autoRefresh = false;
+    if (!playlistDao.readSmartPlaylistProperties(m_iPlaylistId, &matchMode, &autoRefresh)) {
+        return false;
+    }
+    return autoRefresh;
+}
+
+void PlaylistTableModel::refreshCurrentSmartPlaylistIfNeeded() {
+    if (!currentSmartPlaylistAutoRefreshEnabled()) {
+        return;
+    }
+    m_smartPlaylistRefreshDebounceTimer.start();
+}
+
+void PlaylistTableModel::refreshCurrentSmartPlaylistNowIfNeeded() {
+    if (!currentSmartPlaylistAutoRefreshEnabled()) {
+        return;
+    }
+    refreshSmartPlaylistTracks(m_iPlaylistId);
+}
+
+QList<TrackId> PlaylistTableModel::evaluateSmartPlaylistTrackIds(const QString& searchQuery) const {
+    QList<TrackId> matchedTrackIds;
+    if (searchQuery.trimmed().isEmpty()) {
+        return matchedTrackIds;
+    }
+
+    SearchQueryParser parser(
+            m_pTrackCollectionManager->internalCollection(),
+            smartPlaylistSearchColumns());
+    const auto pQuery = parser.parseQuery(searchQuery, QString());
+    if (!pQuery) {
+        return matchedTrackIds;
+    }
+
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT id FROM library WHERE mixxx_deleted = 0"));
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return matchedTrackIds;
+    }
+
+    while (query.next()) {
+        TrackId trackId(query.value(0));
+        if (!trackId.isValid()) {
+            continue;
+        }
+        const auto pTrack = m_pTrackCollectionManager->getTrackById(trackId);
+        if (!pTrack) {
+            continue;
+        }
+        if (pQuery->match(pTrack)) {
+            matchedTrackIds.append(trackId);
+        }
+    }
+
+    return matchedTrackIds;
+}
+
+void PlaylistTableModel::refreshSmartPlaylistTracks(int playlistId) {
+    auto& playlistDao = m_pTrackCollectionManager->internalCollection()->getPlaylistDAO();
+    const QString searchQuery = playlistDao.getSmartPlaylistSearchQuery(playlistId);
+    const QList<TrackId> matchedTrackIds = evaluateSmartPlaylistTrackIds(searchQuery);
+    VERIFY_OR_DEBUG_ASSERT(playlistDao.replaceTracksInPlaylist(playlistId, matchedTrackIds)) {
+        qWarning() << "Failed to refresh smart playlist" << playlistId;
     }
 }

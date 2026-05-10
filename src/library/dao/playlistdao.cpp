@@ -1,6 +1,7 @@
 #include "library/dao/playlistdao.h"
 
 #include <QRandomGenerator>
+#include <QSqlRecord>
 #include <QtDebug>
 
 #include "library/autodj/autodjprocessor.h"
@@ -11,6 +12,155 @@
 #include "util/db/fwdsqlquery.h"
 #include "util/make_const_iterator.h"
 #include "util/math.h"
+
+namespace {
+
+const QSet<QString> kSmartPlaylistTextFields = {
+        QStringLiteral("artist"),
+        QStringLiteral("title"),
+        QStringLiteral("album"),
+        QStringLiteral("album_artist"),
+        QStringLiteral("genre"),
+        QStringLiteral("composer"),
+        QStringLiteral("grouping"),
+        QStringLiteral("comment"),
+        QStringLiteral("location"),
+        QStringLiteral("directory"),
+        QStringLiteral("filetype"),
+        QStringLiteral("key"),
+        QStringLiteral("crate")};
+
+const QSet<QString> kSmartPlaylistNumericFields = {
+        QStringLiteral("bpm"),
+        QStringLiteral("rating"),
+        QStringLiteral("timesplayed"),
+        QStringLiteral("duration"),
+        QStringLiteral("year")};
+
+const QSet<QString> kSmartPlaylistDateFields = {
+        QStringLiteral("datetime_added")};
+
+const QSet<QString> kTextOps = {
+        QStringLiteral("contains"),
+        QStringLiteral("equals"),
+        QStringLiteral("is_empty"),
+        QStringLiteral("is_not_empty")};
+
+const QSet<QString> kNumericAndDateOps = {
+        QStringLiteral("equals"),
+        QStringLiteral("lt"),
+        QStringLiteral("lte"),
+        QStringLiteral("gt"),
+        QStringLiteral("gte"),
+        QStringLiteral("between"),
+        QStringLiteral("is_empty"),
+        QStringLiteral("is_not_empty")};
+
+bool isEmptyOperator(const QString& op) {
+    return op == QStringLiteral("is_empty") ||
+            op == QStringLiteral("is_not_empty");
+}
+
+bool validateAndNormalizeSmartRule(PlaylistDAO::SmartPlaylistRule* pRule) {
+    DEBUG_ASSERT(pRule);
+
+    pRule->field = pRule->field.trimmed().toLower();
+    pRule->op = pRule->op.trimmed().toLower();
+    pRule->value = pRule->value.trimmed();
+    pRule->secondValue = pRule->secondValue.trimmed();
+
+    if (pRule->field.isEmpty() || pRule->op.isEmpty()) {
+        return false;
+    }
+
+    bool isTextField = kSmartPlaylistTextFields.contains(pRule->field);
+    bool isNumericField = kSmartPlaylistNumericFields.contains(pRule->field);
+    bool isDateField = kSmartPlaylistDateFields.contains(pRule->field);
+    if (!isTextField && !isNumericField && !isDateField) {
+        return false;
+    }
+
+    if (isTextField) {
+        if (!kTextOps.contains(pRule->op)) {
+            return false;
+        }
+    } else if (!kNumericAndDateOps.contains(pRule->op)) {
+        return false;
+    }
+
+    if (pRule->op == QStringLiteral("between")) {
+        return !pRule->value.isEmpty() && !pRule->secondValue.isEmpty();
+    }
+
+    if (isEmptyOperator(pRule->op)) {
+        pRule->value.clear();
+        pRule->secondValue.clear();
+        return true;
+    }
+
+    if (pRule->value.isEmpty()) {
+        return false;
+    }
+    pRule->secondValue.clear();
+    return true;
+}
+
+QString quoteSmartSearchValueIfNeeded(QString value) {
+    value = value.trimmed();
+    if (value.isEmpty()) {
+        return value;
+    }
+    if (value.contains(QChar(' ')) || value.contains(QChar('"'))) {
+        value.replace(QStringLiteral("\""), QStringLiteral("\\\""));
+        return QStringLiteral("\"") + value + QStringLiteral("\"");
+    }
+    return value;
+}
+
+QString renderSmartRuleToSearchTerm(const PlaylistDAO::SmartPlaylistRule& rule) {
+    const QString field = rule.field;
+    const QString op = rule.op;
+
+    if (op == QStringLiteral("is_empty")) {
+        return field + QStringLiteral(":\"\"");
+    }
+    if (op == QStringLiteral("is_not_empty")) {
+        return QStringLiteral("-") + field + QStringLiteral(":\"\"");
+    }
+    if (op == QStringLiteral("contains")) {
+        return field + QStringLiteral(":") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    if (op == QStringLiteral("equals")) {
+        return field + QStringLiteral(":=") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    if (op == QStringLiteral("between")) {
+        return field + QStringLiteral(":") +
+                quoteSmartSearchValueIfNeeded(rule.value) +
+                QStringLiteral("-") +
+                quoteSmartSearchValueIfNeeded(rule.secondValue);
+    }
+    if (op == QStringLiteral("lt")) {
+        return field + QStringLiteral(":<") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    if (op == QStringLiteral("lte")) {
+        return field + QStringLiteral(":<=") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    if (op == QStringLiteral("gt")) {
+        return field + QStringLiteral(":>") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    if (op == QStringLiteral("gte")) {
+        return field + QStringLiteral(":>=") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    return QString();
+}
+
+} // namespace
 
 PlaylistDAO::PlaylistDAO()
         : m_currentHistoryPlaylist(kInvalidPlaylistId),
@@ -48,10 +198,10 @@ void PlaylistDAO::populatePlaylistMembershipCache() {
 }
 
 int PlaylistDAO::createPlaylist(const QString& name, const HiddenType hidden) {
-    //qDebug() << "PlaylistDAO::createPlaylist"
-    //         << QThread::currentThread()
-    //         << m_database.connectionName();
-    // Start the transaction
+    // qDebug() << "PlaylistDAO::createPlaylist"
+    //          << QThread::currentThread()
+    //          << m_database.connectionName();
+    //  Start the transaction
     ScopedTransaction transaction(m_database);
 
     // Find out the highest position for the existing playlists so we know what
@@ -65,14 +215,14 @@ int PlaylistDAO::createPlaylist(const QString& name, const HiddenType hidden) {
         return kInvalidPlaylistId;
     }
 
-    //Get the id of the last playlist.
+    // Get the id of the last playlist.
     int position = 0;
     if (query.next()) {
         position = query.value(query.record().indexOf("posmax")).toInt();
         position++; // Append after the last playlist.
     }
 
-    //qDebug() << "Inserting playlist" << name << "at position" << position;
+    // qDebug() << "Inserting playlist" << name << "at position" << position;
 
     query.prepare(QStringLiteral(
             "INSERT INTO Playlists (name, position, hidden, date_created, date_modified) "
@@ -109,8 +259,34 @@ int PlaylistDAO::createUniquePlaylist(QString* pName, const HiddenType hidden) {
     return createPlaylist(*pName, hidden);
 }
 
+int PlaylistDAO::createSmartPlaylist(const QString& name,
+        SmartPlaylistMatchMode matchMode,
+        bool autoRefresh,
+        const HiddenType hidden) {
+    const int playlistId = createPlaylist(name, hidden);
+    if (playlistId == kInvalidPlaylistId) {
+        return kInvalidPlaylistId;
+    }
+
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "INSERT INTO " SMART_PLAYLIST_TABLE
+            " (playlist_id, match_mode, auto_refresh, date_created, date_modified) "
+            "VALUES (:playlist_id, :match_mode, :auto_refresh, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    query.bindValue(QStringLiteral(":match_mode"), static_cast<int>(matchMode));
+    query.bindValue(QStringLiteral(":auto_refresh"), autoRefresh ? 1 : 0);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        deletePlaylist(playlistId);
+        return kInvalidPlaylistId;
+    }
+
+    return playlistId;
+}
+
 QString PlaylistDAO::getPlaylistName(const int playlistId) const {
-    //qDebug() << "PlaylistDAO::getPlaylistName" << QThread::currentThread() << m_database.connectionName();
+    // qDebug() << "PlaylistDAO::getPlaylistName" << QThread::currentThread() << m_database.connectionName();
 
     QSqlQuery query(m_database);
     query.prepare(QStringLiteral(
@@ -177,7 +353,7 @@ QList<TrackId> PlaylistDAO::getAutoDJTrackIds() const {
 }
 
 int PlaylistDAO::getPlaylistIdFromName(const QString& name) const {
-    //qDebug() << "PlaylistDAO::getPlaylistIdFromName" << QThread::currentThread() << m_database.connectionName();
+    // qDebug() << "PlaylistDAO::getPlaylistIdFromName" << QThread::currentThread() << m_database.connectionName();
 
     QSqlQuery query(m_database);
     query.prepare(QStringLiteral(
@@ -194,7 +370,7 @@ int PlaylistDAO::getPlaylistIdFromName(const QString& name) const {
 }
 
 void PlaylistDAO::deletePlaylist(const int playlistId) {
-    //qDebug() << "PlaylistDAO::deletePlaylist" << QThread::currentThread() << m_database.connectionName();
+    // qDebug() << "PlaylistDAO::deletePlaylist" << QThread::currentThread() << m_database.connectionName();
     ScopedTransaction transaction(m_database);
 
     QSet<TrackId> playedTrackIds;
@@ -218,6 +394,23 @@ void PlaylistDAO::deletePlaylist(const int playlistId) {
 
     // Delete the row in the Playlists table.
     query.prepare(QStringLiteral(
+            "DELETE FROM " SMART_PLAYLIST_RULE_TABLE " WHERE playlist_id= :id"));
+    query.bindValue(":id", playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return;
+    }
+
+    query.prepare(QStringLiteral(
+            "DELETE FROM " SMART_PLAYLIST_TABLE " WHERE playlist_id= :id"));
+    query.bindValue(":id", playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return;
+    }
+
+    // Delete the row in the Playlists table.
+    query.prepare(QStringLiteral(
             "DELETE FROM Playlists WHERE id= :id"));
     query.bindValue(":id", playlistId);
     if (!query.exec()) {
@@ -235,7 +428,7 @@ void PlaylistDAO::deletePlaylist(const int playlistId) {
     }
 
     transaction.commit();
-    //TODO: Crap, we need to shuffle the positions of all the playlists?
+    // TODO: Crap, we need to shuffle the positions of all the playlists?
 
     for (auto it = m_playlistsTrackIsIn.constBegin();
             it != m_playlistsTrackIsIn.constEnd();) {
@@ -453,7 +646,7 @@ int PlaylistDAO::setPlaylistsLocked(const QSet<int>& playlistIds, const bool loc
     QSqlQuery query(m_database);
     query.prepare(QStringLiteral(
             "UPDATE Playlists SET locked = :lock WHERE id IN (%1)")
-                          .arg(idsString));
+                    .arg(idsString));
     // SQLite3 doesn't support boolean value. Using integer instead.
     int iLock = lock ? 1 : 0;
     query.bindValue(":lock", iLock);
@@ -522,6 +715,199 @@ bool PlaylistDAO::playlistExists(const int playlistId) const {
     return false;
 }
 
+bool PlaylistDAO::isSmartPlaylist(const int playlistId) const {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT playlist_id FROM " SMART_PLAYLIST_TABLE " WHERE playlist_id = :playlist_id"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    return query.next();
+}
+
+bool PlaylistDAO::updateSmartPlaylistProperties(const int playlistId,
+        SmartPlaylistMatchMode matchMode,
+        bool autoRefresh) {
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "UPDATE " SMART_PLAYLIST_TABLE
+            " SET match_mode = :match_mode, "
+            "auto_refresh = :auto_refresh, "
+            "date_modified = CURRENT_TIMESTAMP "
+            "WHERE playlist_id = :playlist_id"));
+    query.bindValue(QStringLiteral(":match_mode"), static_cast<int>(matchMode));
+    query.bindValue(QStringLiteral(":auto_refresh"), autoRefresh ? 1 : 0);
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+    return query.numRowsAffected() == 1;
+}
+
+bool PlaylistDAO::readSmartPlaylistProperties(const int playlistId,
+        SmartPlaylistMatchMode* pMatchMode,
+        bool* pAutoRefresh) const {
+    DEBUG_ASSERT(pMatchMode);
+    DEBUG_ASSERT(pAutoRefresh);
+
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT match_mode, auto_refresh "
+            "FROM " SMART_PLAYLIST_TABLE " WHERE playlist_id = :playlist_id"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+    if (!query.next()) {
+        return false;
+    }
+
+    *pMatchMode = static_cast<SmartPlaylistMatchMode>(query.value(0).toInt());
+    *pAutoRefresh = query.value(1).toInt() != 0;
+    return true;
+}
+
+bool PlaylistDAO::replaceSmartPlaylistRules(const int playlistId,
+        const QList<SmartPlaylistRule>& rules) {
+    if (!isSmartPlaylist(playlistId)) {
+        return false;
+    }
+
+    QList<SmartPlaylistRule> normalizedRules;
+    normalizedRules.reserve(rules.size());
+    for (const auto& rawRule : rules) {
+        auto normalizedRule = rawRule;
+        if (!validateAndNormalizeSmartRule(&normalizedRule)) {
+            return false;
+        }
+        normalizedRules.append(normalizedRule);
+    }
+
+    ScopedTransaction transaction(m_database);
+
+    QSqlQuery deleteQuery(m_database);
+    deleteQuery.prepare(QStringLiteral(
+            "DELETE FROM " SMART_PLAYLIST_RULE_TABLE " WHERE playlist_id = :playlist_id"));
+    deleteQuery.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!deleteQuery.exec()) {
+        LOG_FAILED_QUERY(deleteQuery);
+        return false;
+    }
+
+    QSqlQuery insertQuery(m_database);
+    insertQuery.prepare(QStringLiteral(
+            "INSERT INTO " SMART_PLAYLIST_RULE_TABLE
+            " (playlist_id, position, field, operator, value, second_value, negate) "
+            "VALUES (:playlist_id, :position, :field, :operator, :value, :second_value, :negate)"));
+
+    for (int i = 0; i < normalizedRules.size(); ++i) {
+        const auto& rule = normalizedRules[i];
+        const int position = i + 1;
+        insertQuery.bindValue(QStringLiteral(":playlist_id"), playlistId);
+        insertQuery.bindValue(QStringLiteral(":position"), position);
+        insertQuery.bindValue(QStringLiteral(":field"), rule.field);
+        insertQuery.bindValue(QStringLiteral(":operator"), rule.op);
+        insertQuery.bindValue(QStringLiteral(":value"), rule.value);
+        insertQuery.bindValue(QStringLiteral(":second_value"), rule.secondValue);
+        insertQuery.bindValue(QStringLiteral(":negate"), rule.negate ? 1 : 0);
+        if (!insertQuery.exec()) {
+            LOG_FAILED_QUERY(insertQuery);
+            return false;
+        }
+    }
+
+    QSqlQuery updateQuery(m_database);
+    updateQuery.prepare(QStringLiteral(
+            "UPDATE " SMART_PLAYLIST_TABLE
+            " SET date_modified = CURRENT_TIMESTAMP "
+            "WHERE playlist_id = :playlist_id"));
+    updateQuery.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!updateQuery.exec()) {
+        LOG_FAILED_QUERY(updateQuery);
+        return false;
+    }
+
+    transaction.commit();
+    return true;
+}
+
+QList<PlaylistDAO::SmartPlaylistRule> PlaylistDAO::readSmartPlaylistRules(const int playlistId) const {
+    QList<SmartPlaylistRule> rules;
+
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT id, position, field, operator, value, second_value, negate "
+            "FROM " SMART_PLAYLIST_RULE_TABLE
+            " WHERE playlist_id = :playlist_id "
+            "ORDER BY position ASC, id ASC"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return rules;
+    }
+
+    while (query.next()) {
+        SmartPlaylistRule rule;
+        rule.id = query.value(0).toInt();
+        rule.position = query.value(1).toInt();
+        rule.field = query.value(2).toString();
+        rule.op = query.value(3).toString();
+        rule.value = query.value(4).toString();
+        rule.secondValue = query.value(5).toString();
+        rule.negate = query.value(6).toInt() != 0;
+        rules.append(rule);
+    }
+
+    return rules;
+}
+
+QString PlaylistDAO::buildSmartPlaylistSearchQuery(
+        const QList<SmartPlaylistRule>& rules,
+        SmartPlaylistMatchMode matchMode) const {
+    QStringList terms;
+    terms.reserve(rules.size());
+    for (const auto& rawRule : rules) {
+        auto rule = rawRule;
+        if (!validateAndNormalizeSmartRule(&rule)) {
+            return QString();
+        }
+
+        QString term = renderSmartRuleToSearchTerm(rule);
+        if (term.isEmpty()) {
+            return QString();
+        }
+        if (rule.negate && rule.op != QStringLiteral("is_not_empty")) {
+            term.prepend(QChar('-'));
+        }
+        terms.append(term);
+    }
+
+    if (terms.isEmpty()) {
+        return QString();
+    }
+
+    if (matchMode == SmartPlaylistMatchMode::MatchAny) {
+        return terms.join(QStringLiteral(" OR "));
+    }
+    return terms.join(QStringLiteral(" "));
+}
+
+QString PlaylistDAO::getSmartPlaylistSearchQuery(const int playlistId) const {
+    SmartPlaylistMatchMode matchMode = SmartPlaylistMatchMode::MatchAll;
+    bool autoRefresh = true;
+    Q_UNUSED(autoRefresh);
+    if (!readSmartPlaylistProperties(playlistId, &matchMode, &autoRefresh)) {
+        return QString();
+    }
+    return buildSmartPlaylistSearchQuery(readSmartPlaylistRules(playlistId), matchMode);
+}
+
 bool PlaylistDAO::appendTracksToPlaylist(const QList<TrackId>& trackIds, const int playlistId) {
     // qDebug() << "PlaylistDAO::appendTracksToPlaylist"
     //          << QThread::currentThread() << m_database.connectionName();
@@ -535,7 +921,7 @@ bool PlaylistDAO::appendTracksToPlaylist(const QList<TrackId>& trackIds, const i
     // Append after the last song. If no songs or a failed query then 0 becomes 1.
     ++position;
 
-    //Insert the song into the PlaylistTracks table
+    // Insert the song into the PlaylistTracks table
     QSqlQuery query(m_database);
     query.prepare(QStringLiteral(
             "INSERT INTO PlaylistTracks (playlist_id, track_id, position, pl_datetime_added)"
@@ -566,6 +952,72 @@ bool PlaylistDAO::appendTracksToPlaylist(const QList<TrackId>& trackIds, const i
     return true;
 }
 
+bool PlaylistDAO::replaceTracksInPlaylist(const int playlistId, const QList<TrackId>& trackIds) {
+    DEBUG_ASSERT(playlistExists(playlistId));
+
+    ScopedTransaction transaction(m_database);
+
+    QList<TrackId> existingTrackIds;
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+            "SELECT track_id FROM PlaylistTracks WHERE playlist_id = :playlist_id"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+    while (query.next()) {
+        existingTrackIds.append(TrackId(query.value(0)));
+    }
+
+    query.prepare(QStringLiteral(
+            "DELETE FROM PlaylistTracks WHERE playlist_id = :playlist_id"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    query.prepare(QStringLiteral(
+            "INSERT INTO PlaylistTracks (playlist_id, track_id, position, pl_datetime_added) "
+            "VALUES (:playlist_id, :track_id, :position, CURRENT_TIMESTAMP)"));
+    query.bindValue(QStringLiteral(":playlist_id"), playlistId);
+    int position = 1;
+    for (const auto& trackId : trackIds) {
+        query.bindValue(QStringLiteral(":track_id"), trackId.toVariant());
+        query.bindValue(QStringLiteral(":position"), position++);
+        if (!query.exec()) {
+            LOG_FAILED_QUERY(query);
+            return false;
+        }
+    }
+
+    transaction.commit();
+
+    for (auto it = m_playlistsTrackIsIn.constBegin();
+            it != m_playlistsTrackIsIn.constEnd();) {
+        if (it.value() == playlistId) {
+            it = constErase(&m_playlistsTrackIsIn, it);
+        } else {
+            ++it;
+        }
+    }
+    for (const auto& trackId : trackIds) {
+        m_playlistsTrackIsIn.insert(trackId, playlistId);
+    }
+
+    const QSet<int> changedPlaylistIds{playlistId};
+    if (!existingTrackIds.isEmpty()) {
+        emit tracksRemoved(changedPlaylistIds);
+    }
+    if (!trackIds.isEmpty()) {
+        emit tracksAdded(changedPlaylistIds);
+    }
+    emit playlistContentChanged(changedPlaylistIds);
+
+    return true;
+}
+
 bool PlaylistDAO::appendTrackToPlaylist(TrackId trackId, const int playlistId) {
     QList<TrackId> trackIds;
     trackIds.append(trackId);
@@ -590,8 +1042,8 @@ unsigned int PlaylistDAO::playlistCount() const {
 }
 
 QList<QPair<int, QString>> PlaylistDAO::getPlaylists(const HiddenType hidden) const {
-    //qDebug() << "PlaylistDAO::getPlaylists(hidden =" << hidden
-    //         << QThread::currentThread() << m_database.connectionName();
+    // qDebug() << "PlaylistDAO::getPlaylists(hidden =" << hidden
+    //          << QThread::currentThread() << m_database.connectionName();
 
     QSqlQuery query(m_database);
     query.prepare(
@@ -643,8 +1095,8 @@ QList<QPair<int, QString>> PlaylistDAO::getUnlockedPlaylists(const HiddenType hi
 }
 
 int PlaylistDAO::getPlaylistId(const int index) const {
-    //qDebug() << "PlaylistDAO::getPlaylistId"
-    //         << QThread::currentThread() << m_database.connectionName();
+    // qDebug() << "PlaylistDAO::getPlaylistId"
+    //          << QThread::currentThread() << m_database.connectionName();
 
     QSqlQuery query(m_database);
     query.prepare(QStringLiteral(
@@ -781,8 +1233,8 @@ void PlaylistDAO::removeTracksFromPlaylist(int playlistId, const QList<int>& pos
     auto sortedPositons = positions;
     std::sort(sortedPositons.begin(), sortedPositons.end(), std::greater<int>());
 
-    //qDebug() << "PlaylistDAO::removeTrackFromPlaylist"
-    //         << QThread::currentThread() << m_database.connectionName();
+    // qDebug() << "PlaylistDAO::removeTrackFromPlaylist"
+    //          << QThread::currentThread() << m_database.connectionName();
     ScopedTransaction transaction(m_database);
     for (const auto position : std::as_const(sortedPositons)) {
         removeTracksFromPlaylistInner(playlistId, position);
@@ -869,7 +1321,7 @@ bool PlaylistDAO::insertTrackIntoPlaylist(TrackId trackId, const int playlistId,
         return false;
     }
 
-    //Insert the song into the PlaylistTracks table
+    // Insert the song into the PlaylistTracks table
     query.prepare(QStringLiteral(
             "INSERT INTO PlaylistTracks (playlist_id, track_id, position, pl_datetime_added)"
             "VALUES (:playlist_id, :track_id, :position, CURRENT_TIMESTAMP)"));
@@ -968,7 +1420,7 @@ void PlaylistDAO::clearAutoDJQueue() {
 }
 
 void PlaylistDAO::addPlaylistToAutoDJQueue(const int playlistId, AutoDJSendLoc loc) {
-    //qDebug() << "Adding tracks from playlist " << playlistId << " to the Auto-DJ Queue";
+    // qDebug() << "Adding tracks from playlist " << playlistId << " to the Auto-DJ Queue";
 
     // Query the PlaylistTracks database to locate tracks in the selected
     // playlist. Tracks are automatically sorted by position.
@@ -1284,7 +1736,7 @@ void PlaylistDAO::searchForDuplicateTrack(const int fromPosition,
         const int otherTrackPosition,
         const QHash<int, TrackId>* pTrackPositionIds,
         int* pTrackDistance) {
-    //qDebug() << "        Searching from " << fromPosition << " to " << toPosition;
+    // qDebug() << "        Searching from " << fromPosition << " to " << toPosition;
     for (int pos = fromPosition; pos <= toPosition; pos++) {
         if (pTrackPositionIds->value(pos) == trackID &&
                 pos != excludePosition) {
@@ -1308,9 +1760,9 @@ void PlaylistDAO::shuffleTracks(const int playlistId,
 
     qDebug() << "Shuffling tracks of playlist" << playlistId << getPlaylistName(playlistId);
     qDebug() << "*** Search Distance: " << searchDistance;
-    //for (int z = 0; z < positions.count(); z++) {
-    //qDebug() << "*** Position: " << positions[z] << " | ID: " << allIds.value(positions[z]);
-    //}
+    // for (int z = 0; z < positions.count(); z++) {
+    // qDebug() << "*** Position: " << positions[z] << " | ID: " << allIds.value(positions[z]);
+    // }
 
     // This is a modified Fisher-Yates shuffling algorithm.
     //
@@ -1342,8 +1794,8 @@ void PlaylistDAO::shuffleTracks(const int playlistId,
         int bestTrackDistance = -1;
         int bestTrackBPosition = -1;
 
-        //qDebug() << "Track A:";
-        //qDebug() << "Position: " << trackAPosition << " | Id: " << trackAId;
+        // qDebug() << "Track A:";
+        // qDebug() << "Position: " << trackAPosition << " | Id: " << trackAId;
 
         for (int limit = 10; limit > 0 && conflictFound; limit--) {
             int randomShuffleSetIndex = static_cast<int>(
@@ -1355,8 +1807,8 @@ void PlaylistDAO::shuffleTracks(const int playlistId,
             int trackDistance = -1;
             int playlistEnd = trackPositionIds.count();
 
-            //qDebug() << "    Trying new Track B:";
-            //qDebug() << "        Position: " << trackBPosition << " | Id: " <<trackBId;
+            // qDebug() << "    Trying new Track B:";
+            // qDebug() << "        Position: " << trackBPosition << " | Id: " <<trackBId;
 
             // Search around Track B for Track A
             searchForDuplicateTrack(
@@ -1420,12 +1872,12 @@ void PlaylistDAO::shuffleTracks(const int playlistId,
             }
 
             conflictFound = trackDistance != -1;
-            //qDebug() << "            Conflict found? " << conflictFound;
+            // qDebug() << "            Conflict found? " << conflictFound;
             if (bestTrackDistance < trackDistance) {
                 bestTrackDistance = trackDistance;
                 bestTrackBPosition = trackBPosition;
             }
-            //qDebug() << "        Current Best Position: " << bestTrackBPosition << " | Distance: " << bestTrackDistance;
+            // qDebug() << "        Current Best Position: " << bestTrackBPosition << " | Distance: " << bestTrackDistance;
         }
 
         if (conflictFound) {
@@ -1435,7 +1887,7 @@ void PlaylistDAO::shuffleTracks(const int playlistId,
             }
         }
 
-        //qDebug() << "Swapping tracks " << trackAPosition << " and " << trackBPosition;
+        // qDebug() << "Swapping tracks " << trackAPosition << " and " << trackBPosition;
         trackPositionIds.insert(trackAPosition, trackBId);
         trackPositionIds.insert(trackBPosition, trackAId);
 
