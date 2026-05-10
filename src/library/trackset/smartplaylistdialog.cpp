@@ -59,12 +59,10 @@ void SmartPlaylistDialog::setupUi() {
 
     auto* pLayout = new QVBoxLayout(this);
 
-    if (m_playlistId == kInvalidPlaylistId) {
-        auto* pFormLayout = new QFormLayout;
-        m_pNameEdit = new QLineEdit(this);
-        pFormLayout->addRow(tr("Name"), m_pNameEdit);
-        pLayout->addLayout(pFormLayout);
-    }
+    auto* pNameFormLayout = new QFormLayout;
+    m_pNameEdit = new QLineEdit(this);
+    pNameFormLayout->addRow(tr("Name"), m_pNameEdit);
+    pLayout->addLayout(pNameFormLayout);
 
     auto* pOptionsLayout = new QFormLayout;
     m_pMatchModeCombo = new QComboBox(this);
@@ -126,11 +124,14 @@ void SmartPlaylistDialog::setupUi() {
 
 void SmartPlaylistDialog::loadPlaylist() {
     if (m_playlistId == kInvalidPlaylistId) {
+        m_pNameEdit->setText(tr("New Smart Playlist"));
         m_pMatchModeCombo->setCurrentIndex(0);
         m_pAutoRefreshCheck->setChecked(true);
         addRuleRow(nullptr);
         return;
     }
+
+    m_pNameEdit->setText(m_playlistDao.getPlaylistName(m_playlistId));
 
     PlaylistDAO::SmartPlaylistMatchMode matchMode = PlaylistDAO::SmartPlaylistMatchMode::MatchAll;
     bool autoRefresh = true;
@@ -235,20 +236,22 @@ QList<PlaylistDAO::SmartPlaylistRule> SmartPlaylistDialog::readRules() const {
 }
 
 bool SmartPlaylistDialog::save() {
+    const QString name = m_pNameEdit->text().trimmed();
     const PlaylistDAO::SmartPlaylistMatchMode matchMode =
             static_cast<PlaylistDAO::SmartPlaylistMatchMode>(
                     m_pMatchModeCombo->currentData().toInt());
     const bool autoRefresh = m_pAutoRefreshCheck->isChecked();
     const QList<PlaylistDAO::SmartPlaylistRule> rules = readRules();
 
+    if (name.isEmpty()) {
+        QMessageBox::warning(this,
+                m_playlistId == kInvalidPlaylistId ? tr("Create Smart Playlist")
+                                                   : tr("Edit Smart Playlist"),
+                tr("A smart playlist cannot have a blank name."));
+        return false;
+    }
+
     if (m_playlistId == kInvalidPlaylistId) {
-        const QString name = m_pNameEdit->text().trimmed();
-        if (name.isEmpty()) {
-            QMessageBox::warning(this,
-                    tr("Create Smart Playlist"),
-                    tr("A smart playlist cannot have a blank name."));
-            return false;
-        }
         if (m_playlistDao.getPlaylistIdFromName(name) != kInvalidPlaylistId) {
             QMessageBox::warning(this,
                     tr("Create Smart Playlist"),
@@ -273,6 +276,17 @@ bool SmartPlaylistDialog::save() {
         }
         m_createdPlaylistId = createdPlaylistId;
         return true;
+    }
+
+    const QString oldName = m_playlistDao.getPlaylistName(m_playlistId);
+    if (name != oldName) {
+        if (m_playlistDao.getPlaylistIdFromName(name) != kInvalidPlaylistId) {
+            QMessageBox::warning(this,
+                    tr("Edit Smart Playlist"),
+                    tr("A playlist by that name already exists."));
+            return false;
+        }
+        m_playlistDao.renamePlaylist(m_playlistId, name);
     }
 
     if (!m_playlistDao.replaceSmartPlaylistRules(m_playlistId, rules)) {
