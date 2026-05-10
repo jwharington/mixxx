@@ -7,6 +7,8 @@
 
 #define PLAYLIST_TABLE "Playlists"
 #define PLAYLIST_TRACKS_TABLE "PlaylistTracks"
+#define SMART_PLAYLIST_TABLE "SmartPlaylists"
+#define SMART_PLAYLIST_RULE_TABLE "SmartPlaylistRules"
 
 #define AUTODJ_TABLE "Auto DJ"
 
@@ -77,6 +79,21 @@ const QString PLAYLISTTRACKSTABLE_TRACKID = QStringLiteral("track_id");
 const QString PLAYLISTTRACKSTABLE_POSITION = QStringLiteral("position");
 const QString PLAYLISTTRACKSTABLE_PLAYLISTID = QStringLiteral("playlist_id");
 const QString PLAYLISTTRACKSTABLE_DATETIMEADDED = QStringLiteral("pl_datetime_added");
+
+const QString SMARTPLAYLISTTABLE_PLAYLISTID = QStringLiteral("playlist_id");
+const QString SMARTPLAYLISTTABLE_MATCHMODE = QStringLiteral("match_mode");
+const QString SMARTPLAYLISTTABLE_AUTOREFRESH = QStringLiteral("auto_refresh");
+const QString SMARTPLAYLISTTABLE_DATECREATED = QStringLiteral("date_created");
+const QString SMARTPLAYLISTTABLE_DATEMODIFIED = QStringLiteral("date_modified");
+
+const QString SMARTPLAYLISTRULETABLE_ID = QStringLiteral("id");
+const QString SMARTPLAYLISTRULETABLE_PLAYLISTID = QStringLiteral("playlist_id");
+const QString SMARTPLAYLISTRULETABLE_POSITION = QStringLiteral("position");
+const QString SMARTPLAYLISTRULETABLE_FIELD = QStringLiteral("field");
+const QString SMARTPLAYLISTRULETABLE_OPERATOR = QStringLiteral("operator");
+const QString SMARTPLAYLISTRULETABLE_VALUE = QStringLiteral("value");
+const QString SMARTPLAYLISTRULETABLE_SECONDVALUE = QStringLiteral("second_value");
+const QString SMARTPLAYLISTRULETABLE_NEGATE = QStringLiteral("negate");
 
 const QString REKORDBOX_ANALYZE_PATH = "analyze_path";
 

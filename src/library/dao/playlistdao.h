@@ -29,6 +29,21 @@ class PlaylistDAO : public QObject, public virtual DAO {
         REPLACE,
     };
 
+    enum class SmartPlaylistMatchMode {
+        MatchAll = 0,
+        MatchAny = 1,
+    };
+
+    struct SmartPlaylistRule {
+        int id = -1;
+        int position = 0;
+        QString field;
+        QString op;
+        QString value;
+        QString secondValue;
+        bool negate = false;
+    };
+
     PlaylistDAO();
     ~PlaylistDAO() override = default;
 
@@ -38,6 +53,11 @@ class PlaylistDAO : public QObject, public virtual DAO {
     int createPlaylist(const QString& name, const HiddenType type = PLHT_NOT_HIDDEN);
     // Create a playlist, appends "(n)" if already exists, name becomes the new name
     int createUniquePlaylist(QString* pName, const HiddenType type = PLHT_NOT_HIDDEN);
+    // Create a smart playlist.
+    int createSmartPlaylist(const QString& name,
+            SmartPlaylistMatchMode matchMode = SmartPlaylistMatchMode::MatchAll,
+            bool autoRefresh = true,
+            const HiddenType type = PLHT_NOT_HIDDEN);
     // Delete a playlist
     void deletePlaylist(const int playlistId);
     // Delete a set of playlists.
@@ -60,8 +80,31 @@ class PlaylistDAO : public QObject, public virtual DAO {
     bool isPlaylistLocked(const int playlistId) const;
     // Check if a playlist exists
     bool playlistExists(const int playlistId) const;
+    // Check if a playlist has smart playlist metadata.
+    bool isSmartPlaylist(const int playlistId) const;
+    // Update persisted smart playlist settings.
+    bool updateSmartPlaylistProperties(const int playlistId,
+            SmartPlaylistMatchMode matchMode,
+            bool autoRefresh);
+    // Read persisted smart playlist settings.
+    bool readSmartPlaylistProperties(const int playlistId,
+            SmartPlaylistMatchMode* pMatchMode,
+            bool* pAutoRefresh) const;
+    // Replace all persisted rules for a smart playlist.
+    bool replaceSmartPlaylistRules(const int playlistId,
+            const QList<SmartPlaylistRule>& rules);
+    // Read persisted rules for a smart playlist.
+    QList<SmartPlaylistRule> readSmartPlaylistRules(const int playlistId) const;
+    // Build advanced-search query text from a list of normalized rules.
+    QString buildSmartPlaylistSearchQuery(
+            const QList<SmartPlaylistRule>& rules,
+            SmartPlaylistMatchMode matchMode) const;
+    // Build advanced-search query text from persisted smart playlist settings and rules.
+    QString getSmartPlaylistSearchQuery(const int playlistId) const;
     // Append a list of tracks to a playlist
     bool appendTracksToPlaylist(const QList<TrackId>& trackIds, const int playlistId);
+    // Replace all tracks in a playlist in a single transaction.
+    bool replaceTracksInPlaylist(const int playlistId, const QList<TrackId>& trackIds);
     // Append a track to a playlist
     bool appendTrackToPlaylist(TrackId trackId, const int playlistId);
     // Find out how many playlists exist.
@@ -120,9 +163,10 @@ class PlaylistDAO : public QObject, public virtual DAO {
     void orderTracksByCurrPos(const int playlistId, QList<std::pair<TrackId, int>>& newOrder);
     // moved Track to a new position
     void moveTrack(const int playlistId,
-            const int oldPosition, const int newPosition);
+            const int oldPosition,
+            const int newPosition);
     // shuffles all tracks in the position List
-    void shuffleTracks(const int playlistId, const QList<int>& positions, const QHash<int,TrackId>& allIds);
+    void shuffleTracks(const int playlistId, const QList<int>& positions, const QHash<int, TrackId>& allIds);
     bool isTrackInPlaylist(TrackId trackId, const int playlistId) const;
 
     void getPlaylistsTrackIsIn(TrackId trackId, QSet<int>* playlistSet) const;
@@ -153,12 +197,12 @@ class PlaylistDAO : public QObject, public virtual DAO {
     void removeTracksFromPlaylistInner(int playlistId, int position);
     void removeTracksFromPlaylistByIdInner(int playlistId, TrackId trackId);
     void searchForDuplicateTrack(const int fromPosition,
-                                 const int toPosition,
-                                 TrackId trackID,
-                                 const int excludePosition,
-                                 const int otherTrackPosition,
-                                 const QHash<int,TrackId>* pTrackPositionIds,
-                                 int* pTrackDistance);
+            const int toPosition,
+            TrackId trackID,
+            const int excludePosition,
+            const int otherTrackPosition,
+            const QHash<int, TrackId>* pTrackPositionIds,
+            int* pTrackDistance);
     void populatePlaylistMembershipCache();
 
     QMultiHash<TrackId, int> m_playlistsTrackIsIn;

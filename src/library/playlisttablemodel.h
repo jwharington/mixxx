@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QTimer>
+
 #include "library/trackset/tracksettablemodel.h"
 #include "util/duration.h"
 
@@ -55,8 +57,15 @@ class PlaylistTableModel final : public TrackSetTableModel {
 
   private:
     void initSortColumnMapping() override;
+    bool currentPlaylistIsSmart() const;
+    bool currentSmartPlaylistAutoRefreshEnabled() const;
+    void refreshCurrentSmartPlaylistIfNeeded();
+    void refreshCurrentSmartPlaylistNowIfNeeded();
+    QList<TrackId> evaluateSmartPlaylistTrackIds(const QString& searchQuery) const;
+    void refreshSmartPlaylistTracks(int playlistId);
 
     int m_iPlaylistId;
     bool m_keepHiddenTracks;
     QHash<int, QString> m_searchTexts;
+    QTimer m_smartPlaylistRefreshDebounceTimer;
 };
