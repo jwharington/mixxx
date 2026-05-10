@@ -1491,6 +1491,7 @@ add_library(
   src/library/trackmodeliterator.cpp
   src/library/trackprocessing.cpp
   src/library/trackset/baseplaylistfeature.cpp
+  src/library/trackset/smartplaylistdialog.cpp
   src/library/trackset/basetracksetfeature.cpp
   src/library/trackset/crate/cratefeature.cpp
   src/library/trackset/crate/cratefeaturehelper.cpp

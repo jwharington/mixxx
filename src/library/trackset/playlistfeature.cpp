@@ -11,6 +11,7 @@
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/treeitem.h"
+#include "library/trackset/smartplaylistdialog.h"
 #include "moc_playlistfeature.cpp"
 #include "sources/soundsourceproxy.h"
 #include "util/db/dbconnection.h"
@@ -59,6 +60,19 @@ PlaylistFeature::PlaylistFeature(Library* pLibrary, UserSettingsPointer pConfig)
             &QAction::triggered,
             this,
             &PlaylistFeature::slotDeleteAllUnlockedPlaylists);
+
+        m_pCreateSmartPlaylistAction =
+            make_parented<QAction>(tr("Create Smart Playlist"), this);
+        connect(m_pCreateSmartPlaylistAction,
+            &QAction::triggered,
+            this,
+            &PlaylistFeature::slotCreateSmartPlaylist);
+
+        m_pEditSmartPlaylistAction = make_parented<QAction>(tr("Edit Smart Playlist"), this);
+        connect(m_pEditSmartPlaylistAction,
+            &QAction::triggered,
+            this,
+            &PlaylistFeature::slotEditSmartPlaylist);
 }
 
 QVariant PlaylistFeature::title() {
@@ -68,6 +82,7 @@ QVariant PlaylistFeature::title() {
 void PlaylistFeature::onRightClick(const QPoint& globalPos) {
     m_lastRightClickedIndex = QModelIndex();
     QMenu menu(m_pSidebarWidget);
+    menu.addAction(m_pCreateSmartPlaylistAction);
     menu.addAction(m_pCreatePlaylistAction);
     menu.addSeparator();
     menu.addAction(m_pUnlockPlaylistsAction);
@@ -88,16 +103,19 @@ void PlaylistFeature::onRightClickChild(
     int playlistId = playlistIdFromIndex(index);
 
     bool locked = m_playlistDao.isPlaylistLocked(playlistId);
+    bool smartPlaylist = m_playlistDao.isSmartPlaylist(playlistId);
     m_pShufflePlaylistAction->setEnabled(!locked);
     m_pOrderByCurrentPosAction->setEnabled(!locked && isChildIndexSelectedInSidebar(index));
     m_pDeletePlaylistAction->setEnabled(!locked);
     m_pRenamePlaylistAction->setEnabled(!locked);
     m_pShufflePlaylistAction->setEnabled(!locked);
     m_pImportPlaylistAction->setEnabled(!locked);
+    m_pEditSmartPlaylistAction->setEnabled(smartPlaylist && !locked);
 
     m_pLockPlaylistAction->setText(locked ? tr("Unlock") : tr("Lock"));
 
     QMenu menu(m_pSidebarWidget);
+    menu.addAction(m_pCreateSmartPlaylistAction);
     menu.addAction(m_pCreatePlaylistAction);
     menu.addSeparator();
     // TODO If playlist is selected and has more than one track selected
@@ -105,6 +123,10 @@ void PlaylistFeature::onRightClickChild(
     menu.addAction(m_pShufflePlaylistAction);
     menu.addAction(m_pOrderByCurrentPosAction);
     menu.addSeparator();
+    if (smartPlaylist) {
+        menu.addAction(m_pEditSmartPlaylistAction);
+        menu.addSeparator();
+    }
     menu.addAction(m_pRenamePlaylistAction);
     menu.addAction(m_pDuplicatePlaylistAction);
     menu.addAction(m_pDeletePlaylistAction);
@@ -123,6 +145,14 @@ void PlaylistFeature::onRightClickChild(
     menu.addAction(m_pExportPlaylistToEngineAction);
 #endif
     menu.exec(globalPos);
+}
+
+void PlaylistFeature::htmlLinkClicked(const QUrl& link) {
+    if (QString(link.path()) == "create-smart") {
+        slotCreateSmartPlaylist();
+        return;
+    }
+    BasePlaylistFeature::htmlLinkClicked(link);
 }
 
 bool PlaylistFeature::dropAcceptChild(
@@ -337,6 +367,44 @@ void PlaylistFeature::slotDeleteAllUnlockedPlaylists() {
     m_playlistDao.deleteUnlockedPlaylists(std::move(ids));
 }
 
+void PlaylistFeature::slotCreateSmartPlaylist() {
+    SmartPlaylistDialog dialog(m_playlistDao, kInvalidPlaylistId, m_pSidebarWidget);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    const int createdPlaylistId = dialog.createdPlaylistId();
+    if (createdPlaylistId == kInvalidPlaylistId) {
+        return;
+    }
+    if (m_pPlaylistTableModel->getPlaylist() == createdPlaylistId) {
+        m_pPlaylistTableModel->selectPlaylist(createdPlaylistId);
+    }
+}
+
+void PlaylistFeature::slotEditSmartPlaylist() {
+    const int playlistId = playlistIdFromIndex(m_lastRightClickedIndex);
+    if (playlistId == kInvalidPlaylistId) {
+        return;
+    }
+    if (!m_playlistDao.isSmartPlaylist(playlistId)) {
+        return;
+    }
+    if (m_playlistDao.isPlaylistLocked(playlistId)) {
+        qDebug() << "Skipping smart playlist edit because playlist" << playlistId
+                 << m_playlistDao.getPlaylistName(playlistId) << "is locked.";
+        return;
+    }
+
+    SmartPlaylistDialog dialog(m_playlistDao, playlistId, m_pSidebarWidget);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    if (m_pPlaylistTableModel->getPlaylist() == playlistId) {
+        m_pPlaylistTableModel->selectPlaylist(playlistId);
+    }
+}
+
 /// Purpose: When inserting or removing playlists,
 /// we require the sidebar model not to reset.
 /// This method queries the database and does dynamic insertion
@@ -457,6 +525,7 @@ QString PlaylistFeature::getRootViewHtml() const {
                "playlist or add some different tracks in order to maintain the "
                "energy of your audience.");
     QString createPlaylistLink = tr("Create New Playlist");
+    QString createSmartPlaylistLink = tr("Create Smart Playlist");
 
     QString html;
     html.append(QStringLiteral("<h2>%1</h2>").arg(playlistsTitle));
@@ -465,5 +534,7 @@ QString PlaylistFeature::getRootViewHtml() const {
     html.append(QStringLiteral("<p>%1<br>%2</p>").arg(playlistsSummary3, playlistsSummary4));
     html.append(QStringLiteral("<a style=\"color:#0496FF;\" href=\"create\">%1</a>")
                         .arg(createPlaylistLink));
+    html.append(QStringLiteral("<br><a style=\"color:#0496FF;\" href=\"create-smart\">%1</a>")
+                        .arg(createSmartPlaylistLink));
     return html;
 }
