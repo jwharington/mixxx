@@ -24,6 +24,46 @@ constexpr int kRuleColumnSecondValue = 3;
 constexpr int kRuleColumnNegate = 4;
 constexpr int kRuleColumnCount = 5;
 
+struct SmartPlaylistFieldOption {
+    const char* field;
+    const char* label;
+};
+
+const QList<SmartPlaylistFieldOption> kSmartPlaylistFieldOptions = {
+        {"artist", QT_TR_NOOP("Artist")},
+        {"title", QT_TR_NOOP("Title")},
+        {"album", QT_TR_NOOP("Album")},
+        {"album_artist", QT_TR_NOOP("Album Artist")},
+        {"year", QT_TR_NOOP("Year")},
+        {"genre", QT_TR_NOOP("Genre")},
+        {"composer", QT_TR_NOOP("Composer")},
+        {"grouping", QT_TR_NOOP("Grouping")},
+        {"tracknumber", QT_TR_NOOP("Track Number")},
+        {"filetype", QT_TR_NOOP("File Type")},
+        {"location", QT_TR_NOOP("Track Location")},
+        {"directory", QT_TR_NOOP("Directory")},
+        {"comment", QT_TR_NOOP("Comment")},
+        {"duration", QT_TR_NOOP("Duration")},
+        {"bitrate", QT_TR_NOOP("Bit Rate")},
+        {"bpm", QT_TR_NOOP("BPM")},
+        {"replaygain", QT_TR_NOOP("ReplayGain")},
+        {"datetime_added", QT_TR_NOOP("Date Added")},
+        {"timesplayed", QT_TR_NOOP("Times Played")},
+        {"last_played_at", QT_TR_NOOP("Last Played At")},
+        {"rating", QT_TR_NOOP("Rating")},
+        {"key", QT_TR_NOOP("Key")},
+        {"crate", QT_TR_NOOP("Crate")},
+};
+
+QString smartPlaylistFieldLabel(const QString& field) {
+    for (const auto& option : kSmartPlaylistFieldOptions) {
+        if (field == QLatin1StringView(option.field)) {
+            return QObject::tr(option.label);
+        }
+    }
+    return field;
+}
+
 QString matchModeToLabel(PlaylistDAO::SmartPlaylistMatchMode matchMode) {
     switch (matchMode) {
     case PlaylistDAO::SmartPlaylistMatchMode::MatchAll:
@@ -162,26 +202,36 @@ void SmartPlaylistDialog::addRuleRow(const PlaylistDAO::SmartPlaylistRule* pRule
     const int row = m_pRulesTable->rowCount();
     m_pRulesTable->insertRow(row);
 
-    auto* pFieldEdit = new QLineEdit(this);
+    auto* pFieldCombo = new QComboBox(this);
     auto* pOperatorEdit = new QLineEdit(this);
     auto* pValueEdit = new QLineEdit(this);
     auto* pSecondValueEdit = new QLineEdit(this);
     auto* pNegateCheck = new QCheckBox(this);
 
-    pFieldEdit->setPlaceholderText(tr("genre"));
+    pFieldCombo->setEditable(false);
+    for (const auto& option : kSmartPlaylistFieldOptions) {
+        pFieldCombo->addItem(QObject::tr(option.label), QString::fromLatin1(option.field));
+    }
+
     pOperatorEdit->setPlaceholderText(tr("contains"));
     pValueEdit->setPlaceholderText(tr("house"));
     pSecondValueEdit->setPlaceholderText(tr("128"));
 
     if (pRule != nullptr) {
-        pFieldEdit->setText(pRule->field);
+        const int fieldIndex = pFieldCombo->findData(pRule->field);
+        if (fieldIndex >= 0) {
+            pFieldCombo->setCurrentIndex(fieldIndex);
+        } else if (!pRule->field.trimmed().isEmpty()) {
+            pFieldCombo->addItem(smartPlaylistFieldLabel(pRule->field), pRule->field);
+            pFieldCombo->setCurrentIndex(pFieldCombo->count() - 1);
+        }
         pOperatorEdit->setText(pRule->op);
         pValueEdit->setText(pRule->value);
         pSecondValueEdit->setText(pRule->secondValue);
         pNegateCheck->setChecked(pRule->negate);
     }
 
-    m_pRulesTable->setCellWidget(row, kRuleColumnField, pFieldEdit);
+    m_pRulesTable->setCellWidget(row, kRuleColumnField, pFieldCombo);
     m_pRulesTable->setCellWidget(row, kRuleColumnOperator, pOperatorEdit);
     m_pRulesTable->setCellWidget(row, kRuleColumnValue, pValueEdit);
     m_pRulesTable->setCellWidget(row, kRuleColumnSecondValue, pSecondValueEdit);
@@ -207,19 +257,19 @@ void SmartPlaylistDialog::removeSelectedRuleRows() {
 QList<PlaylistDAO::SmartPlaylistRule> SmartPlaylistDialog::readRules() const {
     QList<PlaylistDAO::SmartPlaylistRule> rules;
     for (int row = 0; row < m_pRulesTable->rowCount(); ++row) {
-        auto* pFieldEdit = qobject_cast<QLineEdit*>(m_pRulesTable->cellWidget(row, kRuleColumnField));
+        auto* pFieldCombo = qobject_cast<QComboBox*>(m_pRulesTable->cellWidget(row, kRuleColumnField));
         auto* pOperatorEdit = qobject_cast<QLineEdit*>(m_pRulesTable->cellWidget(row, kRuleColumnOperator));
         auto* pValueEdit = qobject_cast<QLineEdit*>(m_pRulesTable->cellWidget(row, kRuleColumnValue));
         auto* pSecondValueEdit = qobject_cast<QLineEdit*>(m_pRulesTable->cellWidget(row, kRuleColumnSecondValue));
         auto* pNegateCheck = qobject_cast<QCheckBox*>(m_pRulesTable->cellWidget(row, kRuleColumnNegate));
-        if (pFieldEdit == nullptr || pOperatorEdit == nullptr || pValueEdit == nullptr ||
+        if (pFieldCombo == nullptr || pOperatorEdit == nullptr || pValueEdit == nullptr ||
                 pSecondValueEdit == nullptr || pNegateCheck == nullptr) {
             continue;
         }
 
         PlaylistDAO::SmartPlaylistRule rule;
         rule.position = row + 1;
-        rule.field = pFieldEdit->text();
+        rule.field = pFieldCombo->currentData().toString();
         rule.op = pOperatorEdit->text();
         rule.value = pValueEdit->text();
         rule.secondValue = pSecondValueEdit->text();
