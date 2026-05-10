@@ -1,19 +1,18 @@
 #include "library/trackset/smartplaylistdialog.h"
 
-#include <algorithm>
-
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
-#include <QHeaderView>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <algorithm>
 
 #include "util/assert.h"
 
@@ -87,8 +86,7 @@ void SmartPlaylistDialog::setupUi() {
 
     m_pRulesTable = new QTableWidget(this);
     m_pRulesTable->setColumnCount(kRuleColumnCount);
-    m_pRulesTable->setHorizontalHeaderLabels({
-            tr("Field"),
+    m_pRulesTable->setHorizontalHeaderLabels({tr("Field"),
             tr("Operator"),
             tr("Value"),
             tr("Second value"),

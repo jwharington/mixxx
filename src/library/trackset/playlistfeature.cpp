@@ -10,8 +10,8 @@
 #include "library/queryutil.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
-#include "library/treeitem.h"
 #include "library/trackset/smartplaylistdialog.h"
+#include "library/treeitem.h"
 #include "moc_playlistfeature.cpp"
 #include "sources/soundsourceproxy.h"
 #include "util/db/dbconnection.h"
@@ -61,15 +61,15 @@ PlaylistFeature::PlaylistFeature(Library* pLibrary, UserSettingsPointer pConfig)
             this,
             &PlaylistFeature::slotDeleteAllUnlockedPlaylists);
 
-        m_pCreateSmartPlaylistAction =
+    m_pCreateSmartPlaylistAction =
             make_parented<QAction>(tr("Create Smart Playlist"), this);
-        connect(m_pCreateSmartPlaylistAction,
+    connect(m_pCreateSmartPlaylistAction,
             &QAction::triggered,
             this,
             &PlaylistFeature::slotCreateSmartPlaylist);
 
-        m_pEditSmartPlaylistAction = make_parented<QAction>(tr("Edit Smart Playlist"), this);
-        connect(m_pEditSmartPlaylistAction,
+    m_pEditSmartPlaylistAction = make_parented<QAction>(tr("Edit Smart Playlist"), this);
+    connect(m_pEditSmartPlaylistAction,
             &QAction::triggered,
             this,
             &PlaylistFeature::slotEditSmartPlaylist);
@@ -98,7 +98,7 @@ void PlaylistFeature::onRightClick(const QPoint& globalPos) {
 
 void PlaylistFeature::onRightClickChild(
         const QPoint& globalPos, const QModelIndex& index) {
-    //Save the model index so we can get it in the action slots...
+    // Save the model index so we can get it in the action slots...
     m_lastRightClickedIndex = index;
     int playlistId = playlistIdFromIndex(index);
 
@@ -376,9 +376,7 @@ void PlaylistFeature::slotCreateSmartPlaylist() {
     if (createdPlaylistId == kInvalidPlaylistId) {
         return;
     }
-    if (m_pPlaylistTableModel->getPlaylist() == createdPlaylistId) {
-        m_pPlaylistTableModel->selectPlaylist(createdPlaylistId);
-    }
+    activatePlaylist(createdPlaylistId);
 }
 
 void PlaylistFeature::slotEditSmartPlaylist() {
@@ -533,8 +531,8 @@ QString PlaylistFeature::getRootViewHtml() const {
     html.append(QStringLiteral("<p>%1</p>").arg(playlistsSummary2));
     html.append(QStringLiteral("<p>%1<br>%2</p>").arg(playlistsSummary3, playlistsSummary4));
     html.append(QStringLiteral("<a style=\"color:#0496FF;\" href=\"create\">%1</a>")
-                        .arg(createPlaylistLink));
+                    .arg(createPlaylistLink));
     html.append(QStringLiteral("<br><a style=\"color:#0496FF;\" href=\"create-smart\">%1</a>")
-                        .arg(createSmartPlaylistLink));
+                    .arg(createSmartPlaylistLink));
     return html;
 }
