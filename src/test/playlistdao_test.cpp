@@ -596,3 +596,125 @@ TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshToggleEnablesEventDrivenRefresh)
     EXPECT_TRUE(refreshedTrackIds.contains(trackIdA));
     EXPECT_TRUE(refreshedTrackIds.contains(trackIdB));
 }
+
+TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshToggleDisablesEventDrivenRefresh) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    ScopedPlaylistTableModelControls scopedControls;
+    ScopedPlayerInfo scopedPlayerInfo;
+
+    const int playlistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Toggle Auto Refresh Off",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            true);
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+    PlaylistDAO::SmartPlaylistRule crateRule;
+    crateRule.field = "crate";
+    crateRule.op = "equals";
+    crateRule.value = "ToggleRefreshOffCrate";
+    ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {crateRule}));
+
+    PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistToggleAutoRefreshOff");
+    model.selectPlaylist(playlistId);
+    EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+
+    Crate crate;
+    crate.setName("ToggleRefreshOffCrate");
+    CrateId crateId;
+    ASSERT_TRUE(internalCollection()->insertCrate(crate, &crateId));
+    ASSERT_TRUE(crateId.isValid());
+
+    const auto pTrackA = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-png.mp3")));
+    ASSERT_TRUE(pTrackA);
+    const TrackId trackIdA = pTrackA->getId();
+    ASSERT_TRUE(trackIdA.isValid());
+
+    ASSERT_TRUE(internalCollection()->addCrateTracks(crateId, {trackIdA}));
+    QTest::qWait(180);
+
+    const QList<TrackId> initialRefreshedTrackIds = playlistDao.getTrackIdsInPlaylistOrder(playlistId);
+    ASSERT_EQ(1, initialRefreshedTrackIds.size());
+    EXPECT_EQ(trackIdA, initialRefreshedTrackIds.first());
+
+    ASSERT_TRUE(playlistDao.updateSmartPlaylistProperties(
+            playlistId,
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            false));
+
+    const auto pTrackB = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-jpg.mp3")));
+    ASSERT_TRUE(pTrackB);
+    const TrackId trackIdB = pTrackB->getId();
+    ASSERT_TRUE(trackIdB.isValid());
+
+    ASSERT_TRUE(internalCollection()->addCrateTracks(crateId, {trackIdB}));
+    QTest::qWait(180);
+
+    const QList<TrackId> refreshedTrackIds = playlistDao.getTrackIdsInPlaylistOrder(playlistId);
+    ASSERT_EQ(1, refreshedTrackIds.size());
+    EXPECT_EQ(trackIdA, refreshedTrackIds.first());
+}
+
+TEST_F(PlaylistDaoTest, SmartPlaylistMatchModeUpdateAffectsNextEventRefresh) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    ScopedPlaylistTableModelControls scopedControls;
+    ScopedPlayerInfo scopedPlayerInfo;
+
+    const int playlistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Match Mode Toggle",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            true);
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+    PlaylistDAO::SmartPlaylistRule artistRule;
+    artistRule.field = "artist";
+    artistRule.op = "equals";
+    artistRule.value = "ModeTestArtist";
+
+        PlaylistDAO::SmartPlaylistRule titleRule;
+        titleRule.field = "title";
+        titleRule.op = "equals";
+        titleRule.value = "ModeTestTitle";
+
+        ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {artistRule, titleRule}));
+
+    PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistMatchModeToggle");
+    model.selectPlaylist(playlistId);
+    EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+
+    const auto pTrackA = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-png.mp3")));
+    const auto pTrackB = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-jpg.mp3")));
+    ASSERT_TRUE(pTrackA);
+    ASSERT_TRUE(pTrackB);
+    const TrackId trackIdA = pTrackA->getId();
+    const TrackId trackIdB = pTrackB->getId();
+    ASSERT_TRUE(trackIdA.isValid());
+    ASSERT_TRUE(trackIdB.isValid());
+
+    pTrackA->setArtist(QStringLiteral("ModeTestArtist"));
+        pTrackA->setTitle(QStringLiteral("NotModeTestTitle"));
+    pTrackB->setArtist(QStringLiteral("NotModeTestArtist"));
+        pTrackB->setTitle(QStringLiteral("ModeTestTitle"));
+
+    internalCollection()->getTrackDAO().slotDatabaseTracksChanged(QSet<TrackId>{trackIdA, trackIdB});
+    QTest::qWait(180);
+    EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+
+    ASSERT_TRUE(playlistDao.updateSmartPlaylistProperties(
+            playlistId,
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAny,
+            true));
+
+    internalCollection()->getTrackDAO().slotDatabaseTracksChanged(QSet<TrackId>{trackIdA, trackIdB});
+    QTest::qWait(180);
+
+    const QList<TrackId> refreshedTrackIds = playlistDao.getTrackIdsInPlaylistOrder(playlistId);
+    EXPECT_EQ(2, refreshedTrackIds.size());
+    EXPECT_TRUE(refreshedTrackIds.contains(trackIdA));
+    EXPECT_TRUE(refreshedTrackIds.contains(trackIdB));
+}
