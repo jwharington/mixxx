@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QHash>
+#include <QSet>
 #include <QTimer>
 
 #include "library/trackset/tracksettablemodel.h"
@@ -17,6 +19,7 @@ class PlaylistTableModel final : public TrackSetTableModel {
 
     void selectPlaylist(int playlistId = -1 /* kInvalidPlaylistId */);
     void refreshSelectedSmartPlaylist();
+    void markSmartPlaylistDirty(int playlistId);
     int getPlaylist() const {
         return m_iPlaylistId;
     }
@@ -61,7 +64,12 @@ class PlaylistTableModel final : public TrackSetTableModel {
     bool currentPlaylistIsSmart() const;
     bool currentSmartPlaylistAutoRefreshEnabled() const;
     void refreshCurrentSmartPlaylistIfNeeded();
+    void refreshCurrentSmartPlaylistIfNeeded(
+            const QSet<TrackId>& changedTrackIds,
+            bool requiresFullRefresh = false);
     void refreshCurrentSmartPlaylistNowIfNeeded();
+    void refreshCurrentSmartPlaylistIncremental(
+            const QSet<TrackId>& changedTrackIds);
     QList<TrackId> evaluateSmartPlaylistTrackIds(const QString& searchQuery) const;
     void refreshSmartPlaylistTracks(int playlistId);
 
@@ -69,4 +77,9 @@ class PlaylistTableModel final : public TrackSetTableModel {
     bool m_keepHiddenTracks;
     QHash<int, QString> m_searchTexts;
     QTimer m_smartPlaylistRefreshDebounceTimer;
+    quint64 m_libraryChangeRevision = 0;
+    QHash<int, quint64> m_smartPlaylistLastRefreshRevision;
+    QSet<int> m_smartPlaylistDirty;
+    QSet<TrackId> m_pendingSmartPlaylistChangedTrackIds;
+    bool m_pendingSmartPlaylistFullRefresh = false;
 };

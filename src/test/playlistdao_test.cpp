@@ -490,7 +490,7 @@ TEST_F(PlaylistDaoTest, SmartPlaylistTableModelIsReadOnlyAndLocked) {
     EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::AddToTrackSet));
     EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::ReceiveDrops));
     EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::Reorder));
-    EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::Sorting));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::Sorting));
     EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::RemovePlaylist));
 }
 
