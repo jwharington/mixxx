@@ -398,6 +398,8 @@ void PlaylistFeature::slotEditSmartPlaylist() {
         return;
     }
 
+    m_pPlaylistTableModel->markSmartPlaylistDirty(playlistId);
+
     if (m_pPlaylistTableModel->getPlaylist() == playlistId) {
         m_pPlaylistTableModel->refreshSelectedSmartPlaylist();
     }
