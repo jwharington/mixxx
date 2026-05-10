@@ -141,7 +141,7 @@ bool ITunesDAO::importPlaylistTrack(int playlistId, int trackId, int position) {
 
 bool ITunesDAO::applyPathMapping(const ITunesPathMapping& pathMapping) {
     if (m_isDatabaseInitialized) {
-        QSqlQuery& query = m_insertPlaylistTrackQuery;
+        QSqlQuery& query = m_applyPathMappingQuery;
 
         query.bindValue(":itunes_path",
                 QString(pathMapping.dbITunesRoot).replace(kiTunesLocalhostToken, ""));
