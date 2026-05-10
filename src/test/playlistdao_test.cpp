@@ -313,6 +313,67 @@ TEST_F(PlaylistDaoTest, GetSmartPlaylistSearchQueryFromPersistedRules) {
             playlistDao.getSmartPlaylistSearchQuery(playlistId));
 }
 
+TEST_F(PlaylistDaoTest, DeleteSmartPlaylistRemovesMetadataAndRules) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    const int playlistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Delete Cleanup",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAny,
+            true);
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+    PlaylistDAO::SmartPlaylistRule firstRule;
+    firstRule.field = "artist";
+    firstRule.op = "contains";
+    firstRule.value = "cleanup";
+
+    PlaylistDAO::SmartPlaylistRule secondRule;
+    secondRule.field = "rating";
+    secondRule.op = "gte";
+    secondRule.value = "3";
+
+    ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {firstRule, secondRule}));
+    ASSERT_EQ(2, playlistDao.readSmartPlaylistRules(playlistId).size());
+    EXPECT_TRUE(playlistDao.isSmartPlaylist(playlistId));
+
+    playlistDao.deletePlaylist(playlistId);
+
+    EXPECT_FALSE(playlistDao.playlistExists(playlistId));
+    EXPECT_FALSE(playlistDao.isSmartPlaylist(playlistId));
+    EXPECT_TRUE(playlistDao.readSmartPlaylistRules(playlistId).isEmpty());
+
+    PlaylistDAO::SmartPlaylistMatchMode matchMode = PlaylistDAO::SmartPlaylistMatchMode::MatchAll;
+    bool autoRefresh = true;
+    EXPECT_FALSE(playlistDao.readSmartPlaylistProperties(playlistId, &matchMode, &autoRefresh));
+}
+
+TEST_F(PlaylistDaoTest, DeleteStaticPlaylistDoesNotAffectSmartPlaylistMetadata) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    const int smartPlaylistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Survives Static Delete",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAny,
+            false);
+    ASSERT_NE(kInvalidPlaylistId, smartPlaylistId);
+
+    PlaylistDAO::SmartPlaylistRule rule;
+    rule.field = "title";
+    rule.op = "contains";
+    rule.value = "survive";
+    ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(smartPlaylistId, {rule}));
+
+    const int staticPlaylistId = playlistDao.createPlaylist("Plain Playlist To Delete");
+    ASSERT_NE(kInvalidPlaylistId, staticPlaylistId);
+    ASSERT_FALSE(playlistDao.isSmartPlaylist(staticPlaylistId));
+
+    playlistDao.deletePlaylist(staticPlaylistId);
+
+    EXPECT_FALSE(playlistDao.playlistExists(staticPlaylistId));
+    EXPECT_TRUE(playlistDao.playlistExists(smartPlaylistId));
+    EXPECT_TRUE(playlistDao.isSmartPlaylist(smartPlaylistId));
+    EXPECT_EQ(1, playlistDao.readSmartPlaylistRules(smartPlaylistId).size());
+}
+
 TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshEnabledRefreshesOnCrateChanges) {
     PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
 
