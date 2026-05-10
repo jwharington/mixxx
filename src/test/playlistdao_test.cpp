@@ -538,3 +538,61 @@ TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshDisabledSkipsTrackMetadataChange
 
         EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
 }
+
+TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshToggleEnablesEventDrivenRefresh) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    ScopedPlaylistTableModelControls scopedControls;
+    ScopedPlayerInfo scopedPlayerInfo;
+
+    const int playlistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Toggle Auto Refresh",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            false);
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+    PlaylistDAO::SmartPlaylistRule crateRule;
+    crateRule.field = "crate";
+    crateRule.op = "equals";
+    crateRule.value = "ToggleRefreshCrate";
+    ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {crateRule}));
+
+    PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistToggleAutoRefresh");
+    model.selectPlaylist(playlistId);
+    EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+
+    Crate crate;
+    crate.setName("ToggleRefreshCrate");
+    CrateId crateId;
+    ASSERT_TRUE(internalCollection()->insertCrate(crate, &crateId));
+    ASSERT_TRUE(crateId.isValid());
+
+    const auto pTrackA = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-png.mp3")));
+    ASSERT_TRUE(pTrackA);
+    const TrackId trackIdA = pTrackA->getId();
+    ASSERT_TRUE(trackIdA.isValid());
+
+    ASSERT_TRUE(internalCollection()->addCrateTracks(crateId, {trackIdA}));
+    QTest::qWait(180);
+    EXPECT_TRUE(playlistDao.getTrackIdsInPlaylistOrder(playlistId).isEmpty());
+
+    ASSERT_TRUE(playlistDao.updateSmartPlaylistProperties(
+            playlistId,
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            true));
+
+    const auto pTrackB = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-jpg.mp3")));
+    ASSERT_TRUE(pTrackB);
+    const TrackId trackIdB = pTrackB->getId();
+    ASSERT_TRUE(trackIdB.isValid());
+
+    ASSERT_TRUE(internalCollection()->addCrateTracks(crateId, {trackIdB}));
+    QTest::qWait(180);
+
+    const QList<TrackId> refreshedTrackIds = playlistDao.getTrackIdsInPlaylistOrder(playlistId);
+    EXPECT_EQ(2, refreshedTrackIds.size());
+    EXPECT_TRUE(refreshedTrackIds.contains(trackIdA));
+    EXPECT_TRUE(refreshedTrackIds.contains(trackIdB));
+}
