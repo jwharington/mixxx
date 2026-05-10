@@ -34,6 +34,11 @@ class PlaylistDAO : public QObject, public virtual DAO {
         MatchAny = 1,
     };
 
+    enum class SmartPlaylistRuleBlock {
+        MatchAll = 0,
+        MatchAny = 1,
+    };
+
     struct SmartPlaylistRule {
         int id = -1;
         int position = 0;
@@ -42,6 +47,7 @@ class PlaylistDAO : public QObject, public virtual DAO {
         QString value;
         QString secondValue;
         bool negate = false;
+        SmartPlaylistRuleBlock block = SmartPlaylistRuleBlock::MatchAll;
     };
 
     PlaylistDAO();

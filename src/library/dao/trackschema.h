@@ -94,6 +94,7 @@ const QString SMARTPLAYLISTRULETABLE_OPERATOR = QStringLiteral("operator");
 const QString SMARTPLAYLISTRULETABLE_VALUE = QStringLiteral("value");
 const QString SMARTPLAYLISTRULETABLE_SECONDVALUE = QStringLiteral("second_value");
 const QString SMARTPLAYLISTRULETABLE_NEGATE = QStringLiteral("negate");
+const QString SMARTPLAYLISTRULETABLE_RULEBLOCK = QStringLiteral("rule_block");
 
 const QString REKORDBOX_ANALYZE_PATH = "analyze_path";
 

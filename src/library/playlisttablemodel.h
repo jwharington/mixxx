@@ -16,6 +16,7 @@ class PlaylistTableModel final : public TrackSetTableModel {
     ~PlaylistTableModel() final = default;
 
     void selectPlaylist(int playlistId = -1 /* kInvalidPlaylistId */);
+    void refreshSelectedSmartPlaylist();
     int getPlaylist() const {
         return m_iPlaylistId;
     }

@@ -42,7 +42,9 @@ const QSet<QString> kSmartPlaylistDateFields = {
 
 const QSet<QString> kTextOps = {
         QStringLiteral("contains"),
+        QStringLiteral("not_contains"),
         QStringLiteral("equals"),
+        QStringLiteral("not_equals"),
         QStringLiteral("is_empty"),
         QStringLiteral("is_not_empty")};
 
@@ -59,6 +61,14 @@ const QSet<QString> kNumericAndDateOps = {
 bool isEmptyOperator(const QString& op) {
     return op == QStringLiteral("is_empty") ||
             op == QStringLiteral("is_not_empty");
+}
+
+QString joinSmartPlaylistTermsWithAnd(const QStringList& terms) {
+    return terms.join(QStringLiteral(" "));
+}
+
+QString joinSmartPlaylistTermsWithOr(const QStringList& terms) {
+    return terms.join(QStringLiteral(" OR "));
 }
 
 bool validateAndNormalizeSmartRule(PlaylistDAO::SmartPlaylistRule* pRule) {
@@ -131,8 +141,16 @@ QString renderSmartRuleToSearchTerm(const PlaylistDAO::SmartPlaylistRule& rule) 
         return field + QStringLiteral(":") +
                 quoteSmartSearchValueIfNeeded(rule.value);
     }
+    if (op == QStringLiteral("not_contains")) {
+        return QStringLiteral("-") + field + QStringLiteral(":") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
     if (op == QStringLiteral("equals")) {
         return field + QStringLiteral(":=") +
+                quoteSmartSearchValueIfNeeded(rule.value);
+    }
+    if (op == QStringLiteral("not_equals")) {
+        return QStringLiteral("-") + field + QStringLiteral(":=") +
                 quoteSmartSearchValueIfNeeded(rule.value);
     }
     if (op == QStringLiteral("between")) {
@@ -803,19 +821,20 @@ bool PlaylistDAO::replaceSmartPlaylistRules(const int playlistId,
     QSqlQuery insertQuery(m_database);
     insertQuery.prepare(QStringLiteral(
             "INSERT INTO " SMART_PLAYLIST_RULE_TABLE
-            " (playlist_id, position, field, operator, value, second_value, negate) "
-            "VALUES (:playlist_id, :position, :field, :operator, :value, :second_value, :negate)"));
+            " (playlist_id, position, field, operator, value, second_value, negate, rule_block) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"));
 
     for (int i = 0; i < normalizedRules.size(); ++i) {
         const auto& rule = normalizedRules[i];
         const int position = i + 1;
-        insertQuery.bindValue(QStringLiteral(":playlist_id"), playlistId);
-        insertQuery.bindValue(QStringLiteral(":position"), position);
-        insertQuery.bindValue(QStringLiteral(":field"), rule.field);
-        insertQuery.bindValue(QStringLiteral(":operator"), rule.op);
-        insertQuery.bindValue(QStringLiteral(":value"), rule.value);
-        insertQuery.bindValue(QStringLiteral(":second_value"), rule.secondValue);
-        insertQuery.bindValue(QStringLiteral(":negate"), rule.negate ? 1 : 0);
+        insertQuery.addBindValue(playlistId);
+        insertQuery.addBindValue(position);
+        insertQuery.addBindValue(rule.field);
+        insertQuery.addBindValue(rule.op);
+        insertQuery.addBindValue(rule.value);
+        insertQuery.addBindValue(rule.secondValue);
+        insertQuery.addBindValue(rule.negate ? 1 : 0);
+        insertQuery.addBindValue(static_cast<int>(rule.block));
         if (!insertQuery.exec()) {
             LOG_FAILED_QUERY(insertQuery);
             return false;
@@ -842,7 +861,7 @@ QList<PlaylistDAO::SmartPlaylistRule> PlaylistDAO::readSmartPlaylistRules(const 
 
     QSqlQuery query(m_database);
     query.prepare(QStringLiteral(
-            "SELECT id, position, field, operator, value, second_value, negate "
+            "SELECT id, position, field, operator, value, second_value, negate, rule_block "
             "FROM " SMART_PLAYLIST_RULE_TABLE
             " WHERE playlist_id = :playlist_id "
             "ORDER BY position ASC, id ASC"));
@@ -861,6 +880,7 @@ QList<PlaylistDAO::SmartPlaylistRule> PlaylistDAO::readSmartPlaylistRules(const 
         rule.value = query.value(4).toString();
         rule.secondValue = query.value(5).toString();
         rule.negate = query.value(6).toInt() != 0;
+        rule.block = static_cast<SmartPlaylistRuleBlock>(query.value(7).toInt());
         rules.append(rule);
     }
 
@@ -870,8 +890,10 @@ QList<PlaylistDAO::SmartPlaylistRule> PlaylistDAO::readSmartPlaylistRules(const 
 QString PlaylistDAO::buildSmartPlaylistSearchQuery(
         const QList<SmartPlaylistRule>& rules,
         SmartPlaylistMatchMode matchMode) const {
-    QStringList terms;
-    terms.reserve(rules.size());
+    QStringList matchAllTerms;
+    QStringList matchAnyTerms;
+    matchAllTerms.reserve(rules.size());
+    matchAnyTerms.reserve(rules.size());
     for (const auto& rawRule : rules) {
         auto rule = rawRule;
         if (!validateAndNormalizeSmartRule(&rule)) {
@@ -885,17 +907,34 @@ QString PlaylistDAO::buildSmartPlaylistSearchQuery(
         if (rule.negate && rule.op != QStringLiteral("is_not_empty")) {
             term.prepend(QChar('-'));
         }
-        terms.append(term);
+        if (rule.block == SmartPlaylistRuleBlock::MatchAny) {
+            matchAnyTerms.append(term);
+        } else {
+            matchAllTerms.append(term);
+        }
     }
 
-    if (terms.isEmpty()) {
+    if (matchAnyTerms.isEmpty() && !matchAllTerms.isEmpty() &&
+            matchMode == SmartPlaylistMatchMode::MatchAny) {
+        // Legacy fallback for playlists saved before rule blocks existed.
+        return joinSmartPlaylistTermsWithOr(matchAllTerms);
+    }
+
+    if (matchAllTerms.isEmpty()) {
         return QString();
     }
 
-    if (matchMode == SmartPlaylistMatchMode::MatchAny) {
-        return terms.join(QStringLiteral(" OR "));
+    if (matchAnyTerms.isEmpty()) {
+        return joinSmartPlaylistTermsWithAnd(matchAllTerms);
     }
-    return terms.join(QStringLiteral(" "));
+
+    QStringList disjunctiveTerms;
+    disjunctiveTerms.reserve(matchAnyTerms.size());
+    const QString matchAllClause = joinSmartPlaylistTermsWithAnd(matchAllTerms);
+    for (const auto& matchAnyTerm : matchAnyTerms) {
+        disjunctiveTerms.append(matchAllClause + QStringLiteral(" ") + matchAnyTerm);
+    }
+    return joinSmartPlaylistTermsWithOr(disjunctiveTerms);
 }
 
 QString PlaylistDAO::getSmartPlaylistSearchQuery(const int playlistId) const {

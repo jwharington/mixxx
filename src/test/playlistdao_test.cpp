@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <QComboBox>
+#include <QDialog>
+#include <QLineEdit>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -10,6 +13,7 @@
 #include "control/controlpushbutton.h"
 #include "library/playlisttablemodel.h"
 #include "library/trackset/crate/crate.h"
+#include "library/trackset/smartplaylistdialog.h"
 #include "mixer/playerinfo.h"
 #include "test/librarytest.h"
 #include "track/track.h"
@@ -101,6 +105,7 @@ TEST_F(PlaylistDaoTest, ReplaceAndReadSmartPlaylistRules) {
     secondRule.op = "between";
     secondRule.value = "120";
     secondRule.secondValue = "128";
+    secondRule.block = PlaylistDAO::SmartPlaylistRuleBlock::MatchAny;
     rules.append(secondRule);
 
     ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, rules));
@@ -120,6 +125,7 @@ TEST_F(PlaylistDaoTest, ReplaceAndReadSmartPlaylistRules) {
     EXPECT_EQ(QString("between"), persistedRules[1].op);
     EXPECT_EQ(QString("120"), persistedRules[1].value);
     EXPECT_EQ(QString("128"), persistedRules[1].secondValue);
+    EXPECT_EQ(PlaylistDAO::SmartPlaylistRuleBlock::MatchAny, persistedRules[1].block);
 }
 
 TEST_F(PlaylistDaoTest, UpdateSmartPlaylistProperties) {
@@ -262,6 +268,7 @@ TEST_F(PlaylistDaoTest, BuildSmartPlaylistSearchQueryMatchAllAndAny) {
     bpmRule.op = "between";
     bpmRule.value = "120";
     bpmRule.secondValue = "128";
+    bpmRule.block = PlaylistDAO::SmartPlaylistRuleBlock::MatchAny;
     rules.append(bpmRule);
 
     PlaylistDAO::SmartPlaylistRule ratingRule;
@@ -269,19 +276,35 @@ TEST_F(PlaylistDaoTest, BuildSmartPlaylistSearchQueryMatchAllAndAny) {
     ratingRule.op = "gte";
     ratingRule.value = "4";
     ratingRule.negate = true;
+    ratingRule.block = PlaylistDAO::SmartPlaylistRuleBlock::MatchAny;
     rules.append(ratingRule);
 
     const QString matchAllQuery = playlistDao.buildSmartPlaylistSearchQuery(
             rules,
             PlaylistDAO::SmartPlaylistMatchMode::MatchAll);
-    EXPECT_EQ(QString("genre:\"deep house\" bpm:120-128 -rating:>=4"),
+    EXPECT_EQ(QString("genre:\"deep house\" bpm:120-128 OR genre:\"deep house\" -rating:>=4"),
             matchAllQuery);
 
     const QString matchAnyQuery = playlistDao.buildSmartPlaylistSearchQuery(
             rules,
             PlaylistDAO::SmartPlaylistMatchMode::MatchAny);
-    EXPECT_EQ(QString("genre:\"deep house\" OR bpm:120-128 OR -rating:>=4"),
+    EXPECT_EQ(QString("genre:\"deep house\" bpm:120-128 OR genre:\"deep house\" -rating:>=4"),
             matchAnyQuery);
+}
+
+TEST_F(PlaylistDaoTest, BuildSmartPlaylistSearchQueryWithoutMatchAllRulesMatchesNothing) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    PlaylistDAO::SmartPlaylistRule anyRule;
+    anyRule.field = "artist";
+    anyRule.op = "contains";
+    anyRule.value = "Duke";
+    anyRule.block = PlaylistDAO::SmartPlaylistRuleBlock::MatchAny;
+
+    EXPECT_TRUE(playlistDao.buildSmartPlaylistSearchQuery(
+                                   {anyRule},
+                                   PlaylistDAO::SmartPlaylistMatchMode::MatchAll)
+                    .isEmpty());
 }
 
 TEST_F(PlaylistDaoTest, GetSmartPlaylistSearchQueryFromPersistedRules) {
@@ -305,11 +328,12 @@ TEST_F(PlaylistDaoTest, GetSmartPlaylistSearchQueryFromPersistedRules) {
     crateRule.field = "crate";
     crateRule.op = "equals";
     crateRule.value = "Warmup";
+    crateRule.block = PlaylistDAO::SmartPlaylistRuleBlock::MatchAny;
     rules.append(crateRule);
 
     ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, rules));
 
-    EXPECT_EQ(QString("datetime_added:>=2025-01-01 OR crate:=Warmup"),
+    EXPECT_EQ(QString("datetime_added:>=2025-01-01 crate:=Warmup"),
             playlistDao.getSmartPlaylistSearchQuery(playlistId));
 }
 
@@ -372,6 +396,71 @@ TEST_F(PlaylistDaoTest, DeleteStaticPlaylistDoesNotAffectSmartPlaylistMetadata) 
     EXPECT_TRUE(playlistDao.playlistExists(smartPlaylistId));
     EXPECT_TRUE(playlistDao.isSmartPlaylist(smartPlaylistId));
     EXPECT_EQ(1, playlistDao.readSmartPlaylistRules(smartPlaylistId).size());
+}
+
+TEST_F(PlaylistDaoTest, SmartPlaylistDialogSavesTextRuleWithDefaultOperator) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    SmartPlaylistDialog dialog(playlistDao, kInvalidPlaylistId);
+
+    auto* pNameEdit = dialog.findChild<QLineEdit*>(QStringLiteral("smartPlaylistName"));
+    auto* pFieldCombo = dialog.findChild<QComboBox*>(QStringLiteral("smartPlaylistField"));
+    auto* pOperatorCombo = dialog.findChild<QComboBox*>(QStringLiteral("smartPlaylistOperator"));
+    auto* pValueEdit = dialog.findChild<QLineEdit*>(QStringLiteral("smartPlaylistValue"));
+
+    ASSERT_NE(nullptr, pNameEdit);
+    ASSERT_NE(nullptr, pFieldCombo);
+    ASSERT_NE(nullptr, pOperatorCombo);
+    ASSERT_NE(nullptr, pValueEdit);
+
+    pNameEdit->setText(QStringLiteral("Artist Duke Smart Playlist"));
+    const int artistIndex = pFieldCombo->findData(QStringLiteral("artist"));
+    ASSERT_GE(artistIndex, 0);
+    pFieldCombo->setCurrentIndex(artistIndex);
+    pValueEdit->setText(QStringLiteral("Duke"));
+
+    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "accept"));
+
+    EXPECT_EQ(QDialog::Accepted, dialog.result());
+    const int playlistId = dialog.createdPlaylistId();
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+    EXPECT_EQ(QStringLiteral("artist:Duke"), playlistDao.getSmartPlaylistSearchQuery(playlistId));
+}
+
+TEST_F(PlaylistDaoTest, SmartPlaylistArtistContainsFindsMatchingTrackOnSelect) {
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+
+    ScopedPlaylistTableModelControls scopedControls;
+    ScopedPlayerInfo scopedPlayerInfo;
+
+    const auto pTrack = getOrAddTrackByLocation(
+            getTestDir().filePath(QStringLiteral("id3-test-data/cover-test-png.mp3")));
+    ASSERT_TRUE(pTrack);
+    const TrackId trackId = pTrack->getId();
+    ASSERT_TRUE(trackId.isValid());
+
+    pTrack->setArtist(QStringLiteral("Duke Ellington"));
+    internalCollection()->getTrackDAO().slotDatabaseTracksChanged(QSet<TrackId>{trackId});
+
+    const int playlistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Artist Contains",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            false);
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+    PlaylistDAO::SmartPlaylistRule artistRule;
+    artistRule.field = "artist";
+    artistRule.op = "contains";
+    artistRule.value = "Duke";
+    ASSERT_TRUE(playlistDao.replaceSmartPlaylistRules(playlistId, {artistRule}));
+
+    PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistArtistContains");
+    model.selectPlaylist(playlistId);
+
+    const QList<TrackId> refreshedTrackIds = playlistDao.getTrackIdsInPlaylistOrder(playlistId);
+    ASSERT_EQ(1, refreshedTrackIds.size());
+    EXPECT_EQ(trackId, refreshedTrackIds.first());
+    EXPECT_EQ(1, model.rowCount());
 }
 
 TEST_F(PlaylistDaoTest, SmartPlaylistTableModelIsReadOnlyAndLocked) {

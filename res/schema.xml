@@ -622,4 +622,13 @@ reapplying those migrations.
         ON SmartPlaylistRules (playlist_id);
     </sql>
   </revision>
+  <revision version="42" min_compatible="3">
+    <description>
+      Add rule block assignment for smart playlist AND/OR sections.
+    </description>
+    <sql>
+      ALTER TABLE SmartPlaylistRules
+        ADD COLUMN rule_block INTEGER DEFAULT 0 NOT NULL;
+    </sql>
+  </revision>
 </schema>
