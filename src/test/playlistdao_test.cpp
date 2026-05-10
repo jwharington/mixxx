@@ -374,6 +374,37 @@ TEST_F(PlaylistDaoTest, DeleteStaticPlaylistDoesNotAffectSmartPlaylistMetadata) 
     EXPECT_EQ(1, playlistDao.readSmartPlaylistRules(smartPlaylistId).size());
 }
 
+TEST_F(PlaylistDaoTest, SmartPlaylistTableModelIsReadOnlyAndLocked) {
+    ScopedPlaylistTableModelControls scopedControls;
+    ScopedPlayerInfo scopedPlayerInfo;
+
+    PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
+    const int playlistId = playlistDao.createSmartPlaylist(
+            "Smart Playlist Capabilities",
+            PlaylistDAO::SmartPlaylistMatchMode::MatchAll,
+            true);
+    ASSERT_NE(kInvalidPlaylistId, playlistId);
+
+    PlaylistTableModel model(nullptr, trackCollectionManager(), "testSmartPlaylistCapabilities");
+    model.selectPlaylist(playlistId);
+
+    EXPECT_TRUE(model.isLocked());
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::Locked));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::EditMetadata));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::LoadToDeck));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::LoadToSampler));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::LoadToPreviewDeck));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::RemoveFromDisk));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::Analyze));
+    EXPECT_TRUE(model.hasCapabilities(TrackModel::Capability::Properties));
+
+    EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::AddToTrackSet));
+    EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::ReceiveDrops));
+    EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::Reorder));
+    EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::Sorting));
+    EXPECT_FALSE(model.hasCapabilities(TrackModel::Capability::RemovePlaylist));
+}
+
 TEST_F(PlaylistDaoTest, SmartPlaylistAutoRefreshEnabledRefreshesOnCrateChanges) {
     PlaylistDAO& playlistDao = internalCollection()->getPlaylistDAO();
 
