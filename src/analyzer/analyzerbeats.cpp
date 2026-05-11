@@ -30,8 +30,9 @@ bool subVersionContainsExpectedFields(
     return true;
 }
 
-std::optional<double> nearHalfDoubleHintedBpm(double selectedBpm, double fileBpm) {
+std::optional<double> nearTempoLevelHintedBpm(double selectedBpm, double fileBpm) {
     constexpr double kHalfDoubleRatioTolerance = 0.15;
+    constexpr double kQuarterQuadrupleRatioTolerance = 0.30;
     if (!(selectedBpm > 0.0) || !(fileBpm > 0.0)) {
         return std::nullopt;
     }
@@ -42,6 +43,10 @@ std::optional<double> nearHalfDoubleHintedBpm(double selectedBpm, double fileBpm
         hintFactor = 2.0;
     } else if (std::abs(ratio - 0.5) <= (kHalfDoubleRatioTolerance * 0.5)) {
         hintFactor = 0.5;
+    } else if (std::abs(ratio - 4.0) <= kQuarterQuadrupleRatioTolerance) {
+        hintFactor = 4.0;
+    } else if (std::abs(ratio - 0.25) <= (kQuarterQuadrupleRatioTolerance * 0.25)) {
+        hintFactor = 0.25;
     }
     if (hintFactor <= 0.0) {
         return std::nullopt;
@@ -323,7 +328,7 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
             const double selectedBpm =
                     extraVersionInfo.value(QStringLiteral("bpm_selected")).toDouble(&okSelected);
             if (okSelected && fileBpm.isValid()) {
-                hintedSelectedBpm = nearHalfDoubleHintedBpm(selectedBpm, fileBpm.value());
+                hintedSelectedBpm = nearTempoLevelHintedBpm(selectedBpm, fileBpm.value());
                 if (hintedSelectedBpm.has_value()) {
                     const double hintFactor = *hintedSelectedBpm / selectedBpm;
                     extraVersionInfo.insert(
@@ -340,7 +345,7 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
                             QStringLiteral("tempo_level_multiplier"),
                             QString::number(newMultiplier, 'f', 2));
 
-                    qDebug() << "AnalyzerBeats applying half/double hint from file BPM:"
+                    qDebug() << "AnalyzerBeats applying tempo-level hint from file BPM:"
                              << "selected" << selectedBpm
                              << "file" << fileBpm
                              << "hinted" << *hintedSelectedBpm;
