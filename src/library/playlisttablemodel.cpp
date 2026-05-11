@@ -11,6 +11,7 @@
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "moc_playlisttablemodel.cpp"
+#include "track/globaltrackcache.h"
 
 namespace {
 
@@ -760,6 +761,29 @@ QList<TrackId> PlaylistTableModel::evaluateSmartPlaylistTrackIds(const QString& 
                 matchedTrackIds.append(trackId);
             }
         }
+
+        // Correct the SQL result set for tracks currently cached in memory.
+        // Cached tracks may contain unsaved edits (e.g. artist changes) that are
+        // not reflected in the database yet.
+        QSet<TrackId> matchedTrackIdSet(matchedTrackIds.cbegin(), matchedTrackIds.cend());
+        const auto cachedTrackIds = GlobalTrackCacheLocker().getCachedTrackIds();
+        for (const auto& cachedTrackId : cachedTrackIds) {
+            const auto pCachedTrack = GlobalTrackCacheLocker().lookupTrackById(cachedTrackId);
+            if (!pCachedTrack) {
+                continue;
+            }
+
+            const bool matches = pQuery->match(pCachedTrack);
+            const bool contains = matchedTrackIdSet.contains(cachedTrackId);
+            if (matches && !contains) {
+                matchedTrackIdSet.insert(cachedTrackId);
+            } else if (!matches && contains) {
+                matchedTrackIdSet.remove(cachedTrackId);
+            }
+        }
+
+        matchedTrackIds = matchedTrackIdSet.values();
+        std::sort(matchedTrackIds.begin(), matchedTrackIds.end());
         return matchedTrackIds;
     }
 

@@ -169,17 +169,18 @@ const TempoLevelModel& getTempoLevelModel() {
 
         const QString envPath = qEnvironmentVariable("MIXXX_LAROCHE_TEMPO_MODEL_JSON").trimmed();
         if (!envPath.isEmpty()) {
+            // Explicit environment override: only try this exact path.
             candidatePaths.append(envPath);
-        }
+        } else {
+            // Default project/runtime locations when env var is not set.
+            candidatePaths.append(
+                    QDir::cleanPath(QDir::currentPath() + "/res/models/tempo_level_model.json"));
 
-        // Default project/runtime locations when env var is not set.
-        candidatePaths.append(
-                QDir::cleanPath(QDir::currentPath() + "/res/models/tempo_level_model.json"));
-
-        const QString appDir = QCoreApplication::applicationDirPath();
-        if (!appDir.isEmpty()) {
-            candidatePaths.append(QDir::cleanPath(appDir + "/../res/models/tempo_level_model.json"));
-            candidatePaths.append(QDir::cleanPath(appDir + "/res/models/tempo_level_model.json"));
+            const QString appDir = QCoreApplication::applicationDirPath();
+            if (!appDir.isEmpty()) {
+                candidatePaths.append(QDir::cleanPath(appDir + "/../res/models/tempo_level_model.json"));
+                candidatePaths.append(QDir::cleanPath(appDir + "/res/models/tempo_level_model.json"));
+            }
         }
 
         for (const QString& path : candidatePaths) {
