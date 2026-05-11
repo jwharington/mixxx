@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include <QRegularExpression>
+
 #include "library/dao/playlistdao.h"
 #include "library/dao/trackschema.h"
 #include "library/queryutil.h"
@@ -13,6 +15,16 @@
 namespace {
 
 const QString kModelName = "playlist:";
+
+bool requiresInMemorySmartPlaylistEvaluation(const QString& sqlFilter) {
+    // `location` and `directory` refer to track path values in memory.
+    // In the library table, `location` stores a foreign key to track_locations,
+    // so SQL evaluation without joins would be incorrect for these rules.
+    static const QRegularExpression kPathColumnsRegex(
+            QStringLiteral("\\b(location|directory)\\b"),
+            QRegularExpression::CaseInsensitiveOption);
+    return kPathColumnsRegex.match(sqlFilter).hasMatch();
+}
 
 QStringList smartPlaylistSearchColumns() {
     return {
@@ -730,7 +742,29 @@ QList<TrackId> PlaylistTableModel::evaluateSmartPlaylistTrackIds(const QString& 
         return matchedTrackIds;
     }
 
+    const QString sqlFilter = pQuery->toSql().trimmed();
+    if (!sqlFilter.isEmpty() && !requiresInMemorySmartPlaylistEvaluation(sqlFilter)) {
+        QSqlQuery query(m_database);
+        query.setForwardOnly(true);
+        query.prepare(QStringLiteral(
+                "SELECT id FROM library WHERE mixxx_deleted = 0 AND (%1)")
+                              .arg(sqlFilter));
+        if (!query.exec()) {
+            LOG_FAILED_QUERY(query);
+            return matchedTrackIds;
+        }
+
+        while (query.next()) {
+            TrackId trackId(query.value(0));
+            if (trackId.isValid()) {
+                matchedTrackIds.append(trackId);
+            }
+        }
+        return matchedTrackIds;
+    }
+
     QSqlQuery query(m_database);
+    query.setForwardOnly(true);
     query.prepare(QStringLiteral(
             "SELECT id FROM library WHERE mixxx_deleted = 0"));
     if (!query.exec()) {
