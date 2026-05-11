@@ -3,8 +3,10 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileInfo>
 #include <QSet>
+#include <QTextStream>
 
 #include <algorithm>
 #include <cmath>
@@ -81,6 +83,8 @@ TEST_F(AnalyzerLarocheBalboaSmokeTest, AnalyzeBalboaMp3Collection) {
     const QString balboaPath = QStringLiteral("/home/jmw/Movies/m/Music/Balboa");
     const QString musicPath = QStringLiteral("/home/jmw/Movies/m/Music");
 
+    const QString exactFileOverride =
+            QString::fromLocal8Bit(qgetenv("MIXXX_LAROCHE_EXACT_FILE")).trimmed();
     const QString rootOverride = QString::fromLocal8Bit(qgetenv("MIXXX_LAROCHE_ROOT")).trimmed();
     const QStringList roots = !rootOverride.isEmpty()
             ? QStringList{rootOverride}
@@ -103,27 +107,58 @@ TEST_F(AnalyzerLarocheBalboaSmokeTest, AnalyzeBalboaMp3Collection) {
             ? maxFilesToAnalyze
             : kMaxFilesToAnalyzeDefault;
 
-    QStringList candidatePaths;
-    QSet<QString> seenPaths;
-    for (const auto& root : roots) {
-        if (!QFileInfo::exists(root)) {
-            continue;
-        }
-        QDirIterator it(
-                root,
-                QStringList() << QStringLiteral("*.mp3") << QStringLiteral("*.MP3"),
-                QDir::Files,
-                QDirIterator::Subdirectories);
-        while (it.hasNext()) {
-            const QString filePath = it.next();
-            if (seenPaths.contains(filePath)) {
-                continue;
+    QSet<QString> alreadyProcessedPaths;
+    const QString processedListPath =
+            QString::fromLocal8Bit(qgetenv("MIXXX_LAROCHE_PROCESSED_PATHS_FILE")).trimmed();
+    if (!processedListPath.isEmpty()) {
+        QFile f(processedListPath);
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&f);
+            while (!in.atEnd()) {
+                const QString line = in.readLine().trimmed();
+                if (!line.isEmpty()) {
+                    alreadyProcessedPaths.insert(QDir::cleanPath(line));
+                }
             }
-            seenPaths.insert(filePath);
-            candidatePaths.push_back(filePath);
         }
     }
-    std::sort(candidatePaths.begin(), candidatePaths.end());
+
+    QStringList candidatePaths;
+    if (!exactFileOverride.isEmpty()) {
+        if (QFileInfo::exists(exactFileOverride)) {
+            const QString clean = QDir::cleanPath(exactFileOverride);
+            if (!alreadyProcessedPaths.contains(clean)) {
+                candidatePaths.push_back(clean);
+            }
+        }
+    } else {
+        QSet<QString> seenPaths;
+        for (const auto& root : roots) {
+            if (!QFileInfo::exists(root)) {
+                continue;
+            }
+            QDirIterator it(
+                    root,
+                    QStringList() << QStringLiteral("*.mp3") << QStringLiteral("*.MP3"),
+                    QDir::Files,
+                    QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                const QString filePath = QDir::cleanPath(it.next());
+                if (seenPaths.contains(filePath) || alreadyProcessedPaths.contains(filePath)) {
+                    continue;
+                }
+                seenPaths.insert(filePath);
+                candidatePaths.push_back(filePath);
+            }
+        }
+        std::sort(candidatePaths.begin(), candidatePaths.end());
+    }
+
+    const bool emitCsv = qEnvironmentVariableIntValue("MIXXX_LAROCHE_EMIT_CSV") != 0;
+    if (emitCsv) {
+        std::cout << "CSV|path\tartist\ttitle\tbpm\tbpm_raw\tbpm_selected\tlevel_multiplier\tlevel_confidence\tswing_pct\tconfidence\tambiguous\ttime_ms\n"
+                  << std::flush;
+    }
 
     int filesSeen = 0;
     int analyzed = 0;
@@ -242,7 +277,7 @@ TEST_F(AnalyzerLarocheBalboaSmokeTest, AnalyzeBalboaMp3Collection) {
             title = fileName.mid(sepIndex + separator.size()).trimmed();
         }
 
-        rows.push_back(ResultRow{
+        const ResultRow row{
                 filePath,
                 artist,
                 title,
@@ -254,24 +289,10 @@ TEST_F(AnalyzerLarocheBalboaSmokeTest, AnalyzeBalboaMp3Collection) {
                 swingValue,
                 confidence,
                 ambiguityText,
-                timer.elapsed()});
-    }
+                timer.elapsed()};
+        rows.push_back(row);
 
-    ASSERT_GT(filesSeen, 0) << "No MP3 files found in selected roots.";
-    ASSERT_GT(analyzed, 0) << "No tracks analyzed successfully.";
-
-    std::sort(rows.begin(), rows.end(), [](const ResultRow& a, const ResultRow& b) {
-        const int artistCmp = QString::compare(a.artist, b.artist, Qt::CaseInsensitive);
-        if (artistCmp != 0) {
-            return artistCmp < 0;
-        }
-        return QString::compare(a.title, b.title, Qt::CaseInsensitive) < 0;
-    });
-
-    const bool emitCsv = qEnvironmentVariableIntValue("MIXXX_LAROCHE_EMIT_CSV") != 0;
-    if (emitCsv) {
-        std::cout << "CSV|path\tartist\ttitle\tbpm\tbpm_raw\tbpm_selected\tlevel_multiplier\tlevel_confidence\tswing_pct\tconfidence\tambiguous\ttime_ms\n";
-        for (const auto& row : rows) {
+        if (emitCsv) {
             std::cout << "CSV|"
                       << row.path.toStdString() << "\t"
                       << row.artist.toStdString() << "\t"
@@ -285,9 +306,21 @@ TEST_F(AnalyzerLarocheBalboaSmokeTest, AnalyzeBalboaMp3Collection) {
                       << row.confidence.toStdString() << "\t"
                       << row.ambiguity.toStdString() << "\t"
                       << row.elapsedMs
-                      << "\n";
+                      << "\n"
+                      << std::flush;
         }
     }
+
+    ASSERT_GT(filesSeen, 0) << "No MP3 files found in selected roots.";
+    ASSERT_GT(analyzed, 0) << "No tracks analyzed successfully.";
+
+    std::sort(rows.begin(), rows.end(), [](const ResultRow& a, const ResultRow& b) {
+        const int artistCmp = QString::compare(a.artist, b.artist, Qt::CaseInsensitive);
+        if (artistCmp != 0) {
+            return artistCmp < 0;
+        }
+        return QString::compare(a.title, b.title, Qt::CaseInsensitive) < 0;
+    });
 
     std::cout << "\nMusic Analyzer Results\n";
     std::cout << "| Artist | Title | BPM | BPM Raw | BPM Selected | Level x | Level Conf | Swing % | Confidence | Half/Double Ambiguous | Time (ms) |\n";

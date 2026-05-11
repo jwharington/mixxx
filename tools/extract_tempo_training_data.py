@@ -14,9 +14,10 @@ import os
 import sqlite3
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 from urllib.parse import unquote, urlparse
-
 
 def normalize_track_location(value: str) -> str:
     if not value:
@@ -59,35 +60,123 @@ def load_gold_bpm(db_path: Path, require_locked: bool) -> dict[str, dict[str, fl
     return gold
 
 
-def run_analysis(mixxx_test: Path, root: Path, max_files: int) -> list[dict[str, str]]:
+def load_processed_paths(output: Path) -> set[str]:
+    if not output.exists() or output.stat().st_size == 0:
+        return set()
+
+    processed: set[str] = set()
+    with output.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            path = normalize_track_location(row.get("path", ""))
+            if path:
+                processed.add(path)
+    return processed
+
+
+def run_analysis(
+    mixxx_test: Path,
+    root: Path,
+    max_files: int,
+    verbose: bool,
+    gold_paths: set[str] | None = None,
+    skip_paths: set[str] | None = None,
+) -> list[dict[str, str]]:
     env = os.environ.copy()
     env["MIXXX_LAROCHE_ROOT"] = str(root)
     env["MIXXX_LAROCHE_MAX_FILES"] = str(max_files)
     env["MIXXX_LAROCHE_EMIT_CSV"] = "1"
 
+    skip_paths = skip_paths or set()
+
+    processed_file_list: Path | None = None
+    if skip_paths:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as tmp:
+            processed_file_list = Path(tmp.name)
+            for p in sorted(skip_paths):
+                tmp.write(f"{p}\n")
+        env["MIXXX_LAROCHE_PROCESSED_PATHS_FILE"] = str(processed_file_list)
+
     cmd = [
         str(mixxx_test),
         "--gtest_filter=AnalyzerLarocheBalboaSmokeTest.AnalyzeBalboaMp3Collection",
+        "--gtest_brief=1",
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, env=env, check=True)
 
-    header: list[str] | None = None
+    start = time.monotonic()
+    interactive = sys.stdout.isatty() and not verbose
+    print(
+        f"Running analyzer on {root} (max_files={max_files}, "
+        f"already_processed={len(skip_paths)})..."
+    )
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        bufsize=1,
+    )
+
     rows: list[dict[str, str]] = []
-    for line in proc.stdout.splitlines():
-        if not line.startswith("CSV|"):
+    header: list[str] | None = None
+    matched_seen = 0
+    unmatched_seen = 0
+
+    assert proc.stdout is not None
+    for raw_line in proc.stdout:
+        line = raw_line.rstrip("\n")
+        if line.startswith("CSV|"):
+            values = line[4:].split("\t")
+            if header is None:
+                header = values
+                continue
+            if len(values) != len(header):
+                continue
+            row = dict(zip(header, values))
+            rows.append(row)
+
+            path = normalize_track_location(row.get("path", ""))
+            if gold_paths is None or path in gold_paths:
+                matched_seen += 1
+            else:
+                unmatched_seen += 1
+
+            elapsed = max(1, int(time.monotonic() - start))
+            analyzed = len(rows)
+            eta = ""
+            if analyzed < max_files:
+                rate = analyzed / elapsed
+                if rate > 0:
+                    eta = f", eta~{int((max_files - analyzed) / rate)}s"
+            progress_line = (
+                f"  progress: {elapsed}s elapsed, analyzed={analyzed}/{max_files}, "
+                f"matched={matched_seen}, unmatched={unmatched_seen}{eta}"
+            )
+            if not verbose and interactive:
+                print(progress_line, end="\r", flush=True)
+            else:
+                print(progress_line, flush=True)
             continue
-        payload = line[4:]
-        values = payload.split("\t")
-        if header is None:
-            header = values
-            continue
-        if len(values) != len(header):
-            continue
-        rows.append(dict(zip(header, values)))
+
+        if verbose:
+            print(line)
+
+    return_code = proc.wait()
+    if processed_file_list and processed_file_list.exists():
+        processed_file_list.unlink()
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, cmd)
+
+    if not verbose and interactive:
+        print(" " * 120, end="\r")
+    print(
+        f"Analyzer finished in {int(time.monotonic() - start)}s "
+        f"(rows_emitted={len(rows)}, matched={matched_seen}, unmatched={unmatched_seen})"
+    )
 
     if not rows:
-        sys.stderr.write(proc.stdout)
-        sys.stderr.write(proc.stderr)
         raise RuntimeError("No CSV rows were emitted by analyzer test")
 
     return rows
@@ -98,9 +187,10 @@ def main() -> int:
     parser.add_argument("--mixxx-test", default="./build/mixxx-test")
     parser.add_argument("--root", required=True)
     parser.add_argument("--db", default=str(Path.home() / ".mixxx" / "mixxxdb.sqlite"))
-    parser.add_argument("--max-files", type=int, default=500)
+    parser.add_argument("--max-files", type=int, default=2000)
     parser.add_argument("--require-bpm-lock", action="store_true")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--verbose", action="store_true", help="Stream analyzer output while running")
     args = parser.parse_args()
 
     mixxx_test = Path(args.mixxx_test)
@@ -109,9 +199,19 @@ def main() -> int:
     output = Path(args.output)
 
     gold = load_gold_bpm(db, require_locked=args.require_bpm_lock)
-    analysis_rows = run_analysis(mixxx_test, root, args.max_files)
 
     output.parent.mkdir(parents=True, exist_ok=True)
+    processed_paths = load_processed_paths(output)
+
+    analysis_rows = run_analysis(
+        mixxx_test,
+        root,
+        args.max_files,
+        args.verbose,
+        gold_paths=set(gold.keys()),
+        skip_paths=processed_paths,
+    )
+
     fields = [
         "path",
         "artist",
@@ -126,37 +226,64 @@ def main() -> int:
         "bpm_gold",
         "bpm_lock",
         "track_id",
+        "has_gold",
     ]
 
+    file_exists = output.exists() and output.stat().st_size > 0
+    mode = "a" if file_exists else "w"
+
+    written = 0
     matched = 0
-    with output.open("w", newline="", encoding="utf-8") as f:
+    unmatched = 0
+    skipped_existing = 0
+    with output.open(mode, newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
-        writer.writeheader()
+        if not file_exists:
+            writer.writeheader()
+            f.flush()
+
         for row in analysis_rows:
             path = normalize_track_location(row.get("path", ""))
-            meta = gold.get(path)
-            if not meta:
+            if path in processed_paths:
+                skipped_existing += 1
                 continue
-            matched += 1
-            writer.writerow(
-                {
-                    "path": path,
-                    "artist": row.get("artist", ""),
-                    "title": row.get("title", ""),
-                    "bpm_raw": row.get("bpm_raw", ""),
-                    "bpm_selected": row.get("bpm_selected", ""),
-                    "level_multiplier": row.get("level_multiplier", ""),
-                    "level_confidence": row.get("level_confidence", ""),
-                    "swing_pct": row.get("swing_pct", ""),
-                    "ambiguous": 1.0 if row.get("ambiguous", "no") == "yes" else 0.0,
-                    "time_ms": row.get("time_ms", ""),
-                    "bpm_gold": meta["bpm_gold"],
-                    "bpm_lock": meta["bpm_lock"],
-                    "track_id": meta["track_id"],
-                }
-            )
 
-    print(f"Wrote {matched} matched rows to {output}")
+            meta = gold.get(path)
+            out_row = {
+                "path": path,
+                "artist": row.get("artist", ""),
+                "title": row.get("title", ""),
+                "bpm_raw": row.get("bpm_raw", ""),
+                "bpm_selected": row.get("bpm_selected", ""),
+                "level_multiplier": row.get("level_multiplier", ""),
+                "level_confidence": row.get("level_confidence", ""),
+                "swing_pct": row.get("swing_pct", ""),
+                "ambiguous": 1.0 if row.get("ambiguous", "no") == "yes" else 0.0,
+                "time_ms": row.get("time_ms", ""),
+                "bpm_gold": "",
+                "bpm_lock": "",
+                "track_id": "",
+                "has_gold": 0,
+            }
+
+            if meta:
+                out_row["bpm_gold"] = meta["bpm_gold"]
+                out_row["bpm_lock"] = meta["bpm_lock"]
+                out_row["track_id"] = meta["track_id"]
+                out_row["has_gold"] = 1
+                matched += 1
+            else:
+                unmatched += 1
+
+            writer.writerow(out_row)
+            f.flush()
+            processed_paths.add(path)
+            written += 1
+
+    print(
+        f"Incremental write complete: wrote={written}, matched={matched}, "
+        f"unmatched={unmatched}, skipped_existing={skipped_existing}, output={output}"
+    )
     return 0
 
 
