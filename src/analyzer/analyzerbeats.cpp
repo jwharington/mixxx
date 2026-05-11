@@ -1,5 +1,7 @@
 #include "analyzer/analyzerbeats.h"
 
+#include <cmath>
+
 #include <QHash>
 #include <QString>
 #include <QVector>
@@ -26,6 +28,33 @@ bool subVersionContainsExpectedFields(
         }
     }
     return true;
+}
+
+std::optional<double> nearHalfDoubleHintedBpm(double selectedBpm, double fileBpm) {
+    constexpr double kHalfDoubleRatioTolerance = 0.15;
+    if (!(selectedBpm > 0.0) || !(fileBpm > 0.0)) {
+        return std::nullopt;
+    }
+
+    const double ratio = fileBpm / selectedBpm;
+    double hintFactor = 0.0;
+    if (std::abs(ratio - 2.0) <= kHalfDoubleRatioTolerance) {
+        hintFactor = 2.0;
+    } else if (std::abs(ratio - 0.5) <= (kHalfDoubleRatioTolerance * 0.5)) {
+        hintFactor = 0.5;
+    }
+    if (hintFactor <= 0.0) {
+        return std::nullopt;
+    }
+
+    const double hinted = selectedBpm * hintFactor;
+    const double oldLogErr = std::abs(std::log(ratio));
+    const double newLogErr = std::abs(std::log(fileBpm / hinted));
+    if (newLogErr >= oldLogErr) {
+        return std::nullopt;
+    }
+
+    return hinted;
 }
 
 } // namespace
@@ -278,6 +307,7 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
     }
 
     mixxx::BeatsPointer pBeats;
+    std::optional<double> hintedSelectedBpm;
     if (m_pPlugin->supportsBeatTracking()) {
         QVector<mixxx::audio::FramePos> beats = m_pPlugin->getBeats();
         QHash<QString, QString> extraVersionInfo = getExtraVersionInfo(
@@ -286,11 +316,48 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
         for (auto it = pluginExtraInfo.constBegin(); it != pluginExtraInfo.constEnd(); ++it) {
             extraVersionInfo.insert(it.key(), it.value());
         }
+
+        if (m_pluginId == mixxx::AnalyzerLarocheSwingBeats::pluginInfo().id()) {
+            const mixxx::Bpm fileBpm = mixxx::Bpm(pTrack->getBpm());
+            bool okSelected = false;
+            const double selectedBpm =
+                    extraVersionInfo.value(QStringLiteral("bpm_selected")).toDouble(&okSelected);
+            if (okSelected && fileBpm.isValid()) {
+                hintedSelectedBpm = nearHalfDoubleHintedBpm(selectedBpm, fileBpm.value());
+                if (hintedSelectedBpm.has_value()) {
+                    const double hintFactor = *hintedSelectedBpm / selectedBpm;
+                    extraVersionInfo.insert(
+                            QStringLiteral("bpm_selected"),
+                            QString::number(*hintedSelectedBpm, 'f', 2));
+
+                    bool okMultiplier = false;
+                    const double oldMultiplier = extraVersionInfo
+                                                         .value(QStringLiteral("tempo_level_multiplier"))
+                                                         .toDouble(&okMultiplier);
+                    const double newMultiplier =
+                            (okMultiplier ? oldMultiplier : 1.0) * hintFactor;
+                    extraVersionInfo.insert(
+                            QStringLiteral("tempo_level_multiplier"),
+                            QString::number(newMultiplier, 'f', 2));
+
+                    qDebug() << "AnalyzerBeats applying half/double hint from file BPM:"
+                             << "selected" << selectedBpm
+                             << "file" << fileBpm
+                             << "hinted" << *hintedSelectedBpm;
+                }
+            }
+        }
+
         pBeats = BeatFactory::makePreferredBeats(
                 beats,
                 extraVersionInfo,
                 m_bPreferencesFixedTempo,
                 m_sampleRate);
+        if (pBeats && hintedSelectedBpm.has_value()) {
+            if (const auto adjusted = pBeats->trySetBpm(mixxx::Bpm(*hintedSelectedBpm))) {
+                pBeats = *adjusted;
+            }
+        }
         qDebug() << "AnalyzerBeats plugin detected" << beats.size()
                  << "beats. Predominant BPM:"
                  << (pBeats ? pBeats->getBpmInRange(
@@ -303,25 +370,6 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
         mixxx::Bpm bpm = m_pPlugin->getBpm();
         qDebug() << "AnalyzerBeats plugin detected constant BPM: " << bpm;
         pBeats = mixxx::Beats::fromConstTempo(m_sampleRate, mixxx::audio::kStartFramePos, bpm);
-    }
-
-    if (pBeats &&
-            m_pluginId == mixxx::AnalyzerLarocheSwingBeats::pluginInfo().id()) {
-        const mixxx::Bpm existingBpm = mixxx::Bpm(pTrack->getBpm());
-        if (existingBpm.isValid()) {
-            const mixxx::audio::FramePos endFramePos = mixxx::audio::FramePos{
-                    pTrack->getDuration() * pBeats->getSampleRate()};
-            const mixxx::Bpm analyzedBpm = pBeats->getBpmInRange(
-                    mixxx::audio::kStartFramePos,
-                    endFramePos);
-            if (analyzedBpm.isValid() && analyzedBpm != existingBpm) {
-                if (const auto adjustedBeats = pBeats->trySetBpm(existingBpm)) {
-                    qDebug() << "AnalyzerBeats preserving existing BPM for Laroche:" << existingBpm
-                             << "instead of analyzed" << analyzedBpm;
-                    pBeats = *adjustedBeats;
-                }
-            }
-        }
     }
 
     pTrack->trySetBeats(pBeats);
