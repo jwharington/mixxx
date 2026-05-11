@@ -124,14 +124,14 @@ Variables:
 
       <TempoSwingDisplay>
         <ObjectName>BpmSwingLabelSingle</ObjectName>
-        <Size>50f,24min</Size>
+        <Size>50f,28min</Size>
         <Channel><Variable name="chanNum" /></Channel>
         <Alignment>center</Alignment>
         <Compact>false</Compact>
-        <BpmDecimals>1</BpmDecimals>
+        <BpmDecimals>0</BpmDecimals>
         <SwingDecimals>0</SwingDecimals>
         <NoTrackText>--.-&#10;--%</NoTrackText>
-        <FontSize>9</FontSize>
+        <FontSize>11</FontSize>
         <Connection>
           <ConfigKey persist="true">[Skin],show_rate_controls</ConfigKey>
           <BindProperty>visible</BindProperty>
