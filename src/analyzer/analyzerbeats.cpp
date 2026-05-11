@@ -312,7 +312,7 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
     }
 
     mixxx::BeatsPointer pBeats;
-    std::optional<double> hintedSelectedBpm;
+    std::optional<mixxx::Bpm> existingLarocheFileBpm;
     if (m_pPlugin->supportsBeatTracking()) {
         QVector<mixxx::audio::FramePos> beats = m_pPlugin->getBeats();
         QHash<QString, QString> extraVersionInfo = getExtraVersionInfo(
@@ -324,11 +324,16 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
 
         if (m_pluginId == mixxx::AnalyzerLarocheSwingBeats::pluginInfo().id()) {
             const mixxx::Bpm fileBpm = mixxx::Bpm(pTrack->getBpm());
+            if (fileBpm.isValid()) {
+                existingLarocheFileBpm = fileBpm;
+            }
+
             bool okSelected = false;
             const double selectedBpm =
                     extraVersionInfo.value(QStringLiteral("bpm_selected")).toDouble(&okSelected);
             if (okSelected && fileBpm.isValid()) {
-                hintedSelectedBpm = nearTempoLevelHintedBpm(selectedBpm, fileBpm.value());
+                const auto hintedSelectedBpm =
+                        nearTempoLevelHintedBpm(selectedBpm, fileBpm.value());
                 if (hintedSelectedBpm.has_value()) {
                     const double hintFactor = *hintedSelectedBpm / selectedBpm;
                     extraVersionInfo.insert(
@@ -358,8 +363,10 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
                 extraVersionInfo,
                 m_bPreferencesFixedTempo,
                 m_sampleRate);
-        if (pBeats && hintedSelectedBpm.has_value()) {
-            if (const auto adjusted = pBeats->trySetBpm(mixxx::Bpm(*hintedSelectedBpm))) {
+        if (pBeats && existingLarocheFileBpm.has_value()) {
+            if (const auto adjusted = pBeats->trySetBpm(*existingLarocheFileBpm)) {
+                qDebug() << "AnalyzerBeats preserving existing file BPM for Laroche:"
+                         << *existingLarocheFileBpm;
                 pBeats = *adjusted;
             }
         }
