@@ -81,7 +81,8 @@ def run_analysis(
     verbose: bool,
     gold_paths: set[str] | None = None,
     skip_paths: set[str] | None = None,
-) -> list[dict[str, str]]:
+    on_row=None,
+) -> dict[str, int]:
     env = os.environ.copy()
     env["MIXXX_LAROCHE_ROOT"] = str(root)
     env["MIXXX_LAROCHE_MAX_FILES"] = str(max_files)
@@ -119,8 +120,8 @@ def run_analysis(
         bufsize=1,
     )
 
-    rows: list[dict[str, str]] = []
     header: list[str] | None = None
+    rows_emitted = 0
     matched_seen = 0
     unmatched_seen = 0
 
@@ -135,7 +136,7 @@ def run_analysis(
             if len(values) != len(header):
                 continue
             row = dict(zip(header, values))
-            rows.append(row)
+            rows_emitted += 1
 
             path = normalize_track_location(row.get("path", ""))
             if gold_paths is None or path in gold_paths:
@@ -143,8 +144,11 @@ def run_analysis(
             else:
                 unmatched_seen += 1
 
+            if on_row is not None:
+                on_row(row)
+
             elapsed = max(1, int(time.monotonic() - start))
-            analyzed = len(rows)
+            analyzed = rows_emitted
             eta = ""
             if analyzed < max_files:
                 rate = analyzed / elapsed
@@ -173,13 +177,17 @@ def run_analysis(
         print(" " * 120, end="\r")
     print(
         f"Analyzer finished in {int(time.monotonic() - start)}s "
-        f"(rows_emitted={len(rows)}, matched={matched_seen}, unmatched={unmatched_seen})"
+        f"(rows_emitted={rows_emitted}, matched={matched_seen}, unmatched={unmatched_seen})"
     )
 
-    if not rows:
+    if rows_emitted == 0:
         raise RuntimeError("No CSV rows were emitted by analyzer test")
 
-    return rows
+    return {
+        "rows_emitted": rows_emitted,
+        "matched_seen": matched_seen,
+        "unmatched_seen": unmatched_seen,
+    }
 
 
 def main() -> int:
@@ -202,15 +210,6 @@ def main() -> int:
 
     output.parent.mkdir(parents=True, exist_ok=True)
     processed_paths = load_processed_paths(output)
-
-    analysis_rows = run_analysis(
-        mixxx_test,
-        root,
-        args.max_files,
-        args.verbose,
-        gold_paths=set(gold.keys()),
-        skip_paths=processed_paths,
-    )
 
     fields = [
         "path",
@@ -236,17 +235,19 @@ def main() -> int:
     matched = 0
     unmatched = 0
     skipped_existing = 0
+
     with output.open(mode, newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         if not file_exists:
             writer.writeheader()
             f.flush()
 
-        for row in analysis_rows:
+        def on_row(row: dict[str, str]) -> None:
+            nonlocal written, matched, unmatched, skipped_existing
             path = normalize_track_location(row.get("path", ""))
             if path in processed_paths:
                 skipped_existing += 1
-                continue
+                return
 
             meta = gold.get(path)
             out_row = {
@@ -280,9 +281,20 @@ def main() -> int:
             processed_paths.add(path)
             written += 1
 
+        run_stats = run_analysis(
+            mixxx_test,
+            root,
+            args.max_files,
+            args.verbose,
+            gold_paths=set(gold.keys()),
+            skip_paths=processed_paths,
+            on_row=on_row,
+        )
+
     print(
         f"Incremental write complete: wrote={written}, matched={matched}, "
-        f"unmatched={unmatched}, skipped_existing={skipped_existing}, output={output}"
+        f"unmatched={unmatched}, skipped_existing={skipped_existing}, "
+        f"rows_emitted={run_stats['rows_emitted']}, output={output}"
     )
     return 0
 
