@@ -2555,6 +2555,13 @@ if(NOT ANDROID)
     DESTINATION "${MIXXX_INSTALL_DATADIR}"
   )
 
+  # Trained model artifacts (e.g. tempo-level correction)
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/models"
+    DESTINATION "${MIXXX_INSTALL_DATADIR}"
+    OPTIONAL
+  )
+
   # Translation files
   install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/res/translations"

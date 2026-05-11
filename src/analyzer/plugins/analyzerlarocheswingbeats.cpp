@@ -3,7 +3,10 @@
 
 #include "analyzer/plugins/analyzerlarocheswingbeats.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -162,9 +165,31 @@ const TempoLevelModel& getTempoLevelModel() {
     static std::once_flag once;
     static TempoLevelModel model;
     std::call_once(once, [] {
-        const QString path = qEnvironmentVariable("MIXXX_LAROCHE_TEMPO_MODEL_JSON").trimmed();
-        if (!path.isEmpty()) {
+        QStringList candidatePaths;
+
+        const QString envPath = qEnvironmentVariable("MIXXX_LAROCHE_TEMPO_MODEL_JSON").trimmed();
+        if (!envPath.isEmpty()) {
+            candidatePaths.append(envPath);
+        }
+
+        // Default project/runtime locations when env var is not set.
+        candidatePaths.append(
+                QDir::cleanPath(QDir::currentPath() + "/res/models/tempo_level_model.json"));
+
+        const QString appDir = QCoreApplication::applicationDirPath();
+        if (!appDir.isEmpty()) {
+            candidatePaths.append(QDir::cleanPath(appDir + "/../res/models/tempo_level_model.json"));
+            candidatePaths.append(QDir::cleanPath(appDir + "/res/models/tempo_level_model.json"));
+        }
+
+        for (const QString& path : candidatePaths) {
+            if (path.isEmpty() || !QFileInfo::exists(path)) {
+                continue;
+            }
             model = TempoLevelModel::fromJsonFile(path);
+            if (model.valid) {
+                break;
+            }
         }
     });
     return model;
