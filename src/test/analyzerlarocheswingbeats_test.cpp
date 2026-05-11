@@ -55,6 +55,9 @@ double median(std::vector<double> values) {
 }
 
 TEST(AnalyzerLarocheSwingBeatsSyntheticTest, EstimatesTempoAndSwingOnSyntheticClicks) {
+    const QByteArray oldModelEnv = qgetenv("MIXXX_LAROCHE_TEMPO_MODEL_JSON");
+    qputenv("MIXXX_LAROCHE_TEMPO_MODEL_JSON", QByteArray("__disable_tempo_model_for_test__"));
+
     constexpr auto sampleRate = mixxx::audio::SampleRate(44100);
     constexpr double durationSec = 12.0;
     constexpr double bpm = 120.0;
@@ -122,6 +125,12 @@ TEST(AnalyzerLarocheSwingBeatsSyntheticTest, EstimatesTempoAndSwingOnSyntheticCl
     const double swingEstimatedPercent = extraInfo.value("swing_pct").toDouble(&ok);
     ASSERT_TRUE(ok);
     EXPECT_NEAR(swingEstimatedPercent, swing * 100.0, 10.0);
+
+    if (oldModelEnv.isEmpty()) {
+        qunsetenv("MIXXX_LAROCHE_TEMPO_MODEL_JSON");
+    } else {
+        qputenv("MIXXX_LAROCHE_TEMPO_MODEL_JSON", oldModelEnv);
+    }
 }
 
 TEST_F(AnalyzerLarocheSwingBeatsFileTest, AnalyzesMainmixWavFromTestData) {
