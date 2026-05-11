@@ -13,8 +13,20 @@ WTempoSwingDisplay::WTempoSwingDisplay(const QString& group, QWidget* pParent)
                   QStringLiteral("bpm"),
                   this,
                   ControlFlag::AllowMissingOrInvalid),
+          m_fileBpm(group,
+                  QStringLiteral("file_bpm"),
+                  this,
+                  ControlFlag::AllowMissingOrInvalid),
           m_visualBpm(group,
                   QStringLiteral("visual_bpm"),
+                  this,
+                  ControlFlag::AllowMissingOrInvalid),
+          m_visualBpmSelected(group,
+                  QStringLiteral("visual_bpm_selected"),
+                  this,
+                  ControlFlag::AllowMissingOrInvalid),
+          m_visualTempoLevelConfidence(group,
+                  QStringLiteral("visual_tempo_level_confidence"),
                   this,
                   ControlFlag::AllowMissingOrInvalid),
           m_visualSwing(group,
@@ -28,9 +40,13 @@ WTempoSwingDisplay::WTempoSwingDisplay(const QString& group, QWidget* pParent)
           m_bpmDecimals(1),
           m_swingDecimals(0),
           m_compact(false),
+          m_minComputedBpmConfidence(0.6),
           m_noTrackText(QStringLiteral("--.-\n--%")) {
     m_engineBpm.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
+    m_fileBpm.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     m_visualBpm.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
+    m_visualBpmSelected.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
+    m_visualTempoLevelConfidence.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     m_visualSwing.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     m_trackLoaded.connectValueChanged(this, &WTempoSwingDisplay::refreshDisplay);
     refreshDisplay();
@@ -43,6 +59,8 @@ void WTempoSwingDisplay::setup(const QDomNode& node, const SkinContext& context)
     context.hasNodeSelectInt(node, "SwingDecimals", &m_swingDecimals);
 
     m_compact = context.selectBool(node, "Compact", true);
+    context.hasNodeSelectDouble(
+            node, "MinComputedBpmConfidence", &m_minComputedBpmConfidence);
 
     QString noTrackText;
     if (context.hasNodeSelectString(node, "NoTrackText", &noTrackText)) {
@@ -58,9 +76,27 @@ void WTempoSwingDisplay::refreshDisplay() {
         return;
     }
 
-    const double bpm = m_engineBpm.valid()
-            ? m_engineBpm.get()
-            : (m_visualBpm.valid() ? m_visualBpm.get() : kMissingValue);
+    const double computedBpm =
+            m_visualBpmSelected.valid() ? m_visualBpmSelected.get() : kMissingValue;
+    const double computedConfidence = m_visualTempoLevelConfidence.valid()
+            ? m_visualTempoLevelConfidence.get()
+            : kMissingValue;
+    const double fileBpm = m_fileBpm.valid() ? m_fileBpm.get() : kMissingValue;
+
+    double bpm = kMissingValue;
+    if (computedBpm >= 0.0) {
+        const bool hasConfidence = computedConfidence >= 0.0;
+        const bool lowConfidence =
+                hasConfidence && computedConfidence < m_minComputedBpmConfidence;
+        bpm = lowConfidence && fileBpm >= 0.0 ? fileBpm : computedBpm;
+    } else if (fileBpm >= 0.0) {
+        bpm = fileBpm;
+    } else if (m_engineBpm.valid()) {
+        bpm = m_engineBpm.get();
+    } else if (m_visualBpm.valid()) {
+        bpm = m_visualBpm.get();
+    }
+
     const double swing = m_visualSwing.valid() ? m_visualSwing.get() : kMissingValue;
 
     if (m_compact) {
