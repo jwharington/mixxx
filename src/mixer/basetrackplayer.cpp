@@ -25,6 +25,8 @@ namespace {
 
 constexpr double kNoTrackColor = -1;
 constexpr double kNoSwingPercent = -1;
+constexpr double kNoBpmSelected = -1;
+constexpr double kNoTempoLevelConfidence = -1;
 constexpr double kShiftCuesOffsetMillis = 10;
 constexpr double kShiftCuesOffsetSmallMillis = 1;
 const QString kEffectGroupFormat = QStringLiteral("[EqualizerRack1_%1_Effect1]");
@@ -33,14 +35,16 @@ inline double trackColorToDouble(mixxx::RgbColor::optional_t color) {
     return (color ? static_cast<double>(*color) : kNoTrackColor);
 }
 
-struct SwingEstimate {
-    double now = kNoSwingPercent;
-    double start = kNoSwingPercent;
-    double end = kNoSwingPercent;
+struct TempoSwingEstimate {
+    double bpmSelected = kNoBpmSelected;
+    double tempoLevelConfidence = kNoTempoLevelConfidence;
+    double swingNow = kNoSwingPercent;
+    double swingStart = kNoSwingPercent;
+    double swingEnd = kNoSwingPercent;
 };
 
-inline SwingEstimate extractSwingEstimateFromTrack(const TrackPointer& pTrack) {
-    SwingEstimate estimate;
+inline TempoSwingEstimate extractTempoSwingEstimateFromTrack(const TrackPointer& pTrack) {
+    TempoSwingEstimate estimate;
     if (!pTrack) {
         return estimate;
     }
@@ -53,21 +57,34 @@ inline SwingEstimate extractSwingEstimateFromTrack(const TrackPointer& pTrack) {
     const auto info = BeatFactory::parseSubVersion(pBeats->getSubVersion());
 
     bool ok = false;
-    estimate.now = info.value(QStringLiteral("swing_pct")).toDouble(&ok);
+    estimate.bpmSelected = info.value(QStringLiteral("bpm_selected")).toDouble(&ok);
     if (!ok) {
-        estimate.now = kNoSwingPercent;
+        estimate.bpmSelected = kNoBpmSelected;
     }
 
     ok = false;
-    estimate.start = info.value(QStringLiteral("swing_start_pct")).toDouble(&ok);
+    estimate.tempoLevelConfidence =
+            info.value(QStringLiteral("tempo_level_confidence")).toDouble(&ok);
     if (!ok) {
-        estimate.start = estimate.now;
+        estimate.tempoLevelConfidence = kNoTempoLevelConfidence;
     }
 
     ok = false;
-    estimate.end = info.value(QStringLiteral("swing_end_pct")).toDouble(&ok);
+    estimate.swingNow = info.value(QStringLiteral("swing_pct")).toDouble(&ok);
     if (!ok) {
-        estimate.end = estimate.now;
+        estimate.swingNow = kNoSwingPercent;
+    }
+
+    ok = false;
+    estimate.swingStart = info.value(QStringLiteral("swing_start_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.swingStart = estimate.swingNow;
+    }
+
+    ok = false;
+    estimate.swingEnd = info.value(QStringLiteral("swing_end_pct")).toDouble(&ok);
+    if (!ok) {
+        estimate.swingEnd = estimate.swingNow;
     }
 
     return estimate;
@@ -357,9 +374,15 @@ BaseTrackPlayerImpl::BaseTrackPlayerImpl(
     // BPM and key of the current song
     m_pFileBPM = std::make_unique<ControlObject>(ConfigKey(getGroup(), "file_bpm"));
     m_pVisualBpm = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_bpm"));
+    m_pVisualBpmSelected = std::make_unique<ControlObject>(
+            ConfigKey(getGroup(), "visual_bpm_selected"));
+    m_pVisualTempoLevelConfidence = std::make_unique<ControlObject>(
+            ConfigKey(getGroup(), "visual_tempo_level_confidence"));
     m_pVisualSwing = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_swing"));
     m_pVisualSwingStart = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_swing_start"));
     m_pVisualSwingEnd = std::make_unique<ControlObject>(ConfigKey(getGroup(), "visual_swing_end"));
+    m_pVisualBpmSelected->set(kNoBpmSelected);
+    m_pVisualTempoLevelConfidence->set(kNoTempoLevelConfidence);
     m_pVisualSwing->set(kNoSwingPercent);
     m_pVisualSwingStart->set(kNoSwingPercent);
     m_pVisualSwingEnd->set(kNoSwingPercent);
@@ -583,6 +606,8 @@ TrackPointer BaseTrackPlayerImpl::unloadTrack() {
 
     disconnectLoadedTrack();
 
+    m_pVisualBpmSelected->set(kNoBpmSelected);
+    m_pVisualTempoLevelConfidence->set(kNoTempoLevelConfidence);
     m_pVisualSwing->set(kNoSwingPercent);
     m_pVisualSwingStart->set(kNoSwingPercent);
     m_pVisualSwingEnd->set(kNoSwingPercent);
@@ -632,10 +657,12 @@ void BaseTrackPlayerImpl::connectLoadedTrack() {
             &Track::beatsUpdated,
             this,
             [this] {
-                const auto swing = extractSwingEstimateFromTrack(m_pLoadedTrack);
-                m_pVisualSwing->set(swing.now);
-                m_pVisualSwingStart->set(swing.start);
-                m_pVisualSwingEnd->set(swing.end);
+                const auto estimate = extractTempoSwingEstimateFromTrack(m_pLoadedTrack);
+                m_pVisualBpmSelected->set(estimate.bpmSelected);
+                m_pVisualTempoLevelConfidence->set(estimate.tempoLevelConfidence);
+                m_pVisualSwing->set(estimate.swingNow);
+                m_pVisualSwingStart->set(estimate.swingStart);
+                m_pVisualSwingEnd->set(estimate.swingEnd);
             });
 
     // Listen for updates to the file's Replay Gain
@@ -758,6 +785,8 @@ void BaseTrackPlayerImpl::slotTrackLoaded(TrackPointer pNewTrack,
         emit loadingTrack(pNewTrack, pOldTrack);
         m_pDuration->set(0);
         m_pFileBPM->set(0);
+        m_pVisualBpmSelected->set(kNoBpmSelected);
+        m_pVisualTempoLevelConfidence->set(kNoTempoLevelConfidence);
         m_pVisualSwing->set(kNoSwingPercent);
         m_pVisualSwingStart->set(kNoSwingPercent);
         m_pVisualSwingEnd->set(kNoSwingPercent);
@@ -780,10 +809,12 @@ void BaseTrackPlayerImpl::slotTrackLoaded(TrackPointer pNewTrack,
         // Update the BPM and duration values that are stored in ControlObjects
         m_pDuration->set(m_pLoadedTrack->getDuration());
         m_pFileBPM->set(m_pLoadedTrack->getBpm());
-        const auto swing = extractSwingEstimateFromTrack(m_pLoadedTrack);
-        m_pVisualSwing->set(swing.now);
-        m_pVisualSwingStart->set(swing.start);
-        m_pVisualSwingEnd->set(swing.end);
+        const auto estimate = extractTempoSwingEstimateFromTrack(m_pLoadedTrack);
+        m_pVisualBpmSelected->set(estimate.bpmSelected);
+        m_pVisualTempoLevelConfidence->set(estimate.tempoLevelConfidence);
+        m_pVisualSwing->set(estimate.swingNow);
+        m_pVisualSwingStart->set(estimate.swingStart);
+        m_pVisualSwingEnd->set(estimate.swingEnd);
         m_pKey->set(m_pLoadedTrack->getKey());
         slotSetTrackColor(m_pLoadedTrack->getColor());
 

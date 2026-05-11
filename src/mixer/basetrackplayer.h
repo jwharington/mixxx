@@ -211,6 +211,8 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
     // This may lock the engine
     std::unique_ptr<ControlObject> m_pFileBPM;
     std::unique_ptr<ControlObject> m_pVisualBpm;
+    std::unique_ptr<ControlObject> m_pVisualBpmSelected;
+    std::unique_ptr<ControlObject> m_pVisualTempoLevelConfidence;
     std::unique_ptr<ControlObject> m_pVisualSwing;
     std::unique_ptr<ControlObject> m_pVisualSwingStart;
     std::unique_ptr<ControlObject> m_pVisualSwingEnd;

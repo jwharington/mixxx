@@ -305,6 +305,25 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
         pBeats = mixxx::Beats::fromConstTempo(m_sampleRate, mixxx::audio::kStartFramePos, bpm);
     }
 
+    if (pBeats &&
+            m_pluginId == mixxx::AnalyzerLarocheSwingBeats::pluginInfo().id()) {
+        const mixxx::Bpm existingBpm = mixxx::Bpm(pTrack->getBpm());
+        if (existingBpm.isValid()) {
+            const mixxx::audio::FramePos endFramePos = mixxx::audio::FramePos{
+                    pTrack->getDuration() * pBeats->getSampleRate()};
+            const mixxx::Bpm analyzedBpm = pBeats->getBpmInRange(
+                    mixxx::audio::kStartFramePos,
+                    endFramePos);
+            if (analyzedBpm.isValid() && analyzedBpm != existingBpm) {
+                if (const auto adjustedBeats = pBeats->trySetBpm(existingBpm)) {
+                    qDebug() << "AnalyzerBeats preserving existing BPM for Laroche:" << existingBpm
+                             << "instead of analyzed" << analyzedBpm;
+                    pBeats = *adjustedBeats;
+                }
+            }
+        }
+    }
+
     pTrack->trySetBeats(pBeats);
 }
 
