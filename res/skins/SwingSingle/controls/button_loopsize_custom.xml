@@ -1,0 +1,73 @@
+<!--
+Description:
+  A SwingSingle beatloop-size button that works for arbitrary beat counts
+  by setting beatloop_size directly, then triggering beatloop activate/roll.
+Variables:
+  group: The group for the controls.
+  LoopLength_Text: label text shown on the button.
+  LoopLength_Control: beatloop_size value to set.
+-->
+<Template>
+  <PushButton>
+    <TooltipId>beatloop_activate</TooltipId>
+    <ObjectName>LoopSizeButton</ObjectName>
+    <Size>22f,21f</Size>
+    <NumberStates>2</NumberStates>
+    <RightClickIsPushButton>true</RightClickIsPushButton>
+    <State>
+      <Number>0</Number>
+      <Text><Variable name="LoopLength_Text"/></Text>
+      <Pressed scalemode="STRETCH_ASPECT">skins:Swing/buttons/btn_.svg</Pressed>
+      <Unpressed scalemode="STRETCH_ASPECT">skins:Swing/buttons/btn_.svg</Unpressed>
+    </State>
+    <State>
+      <Number>1</Number>
+      <Text><Variable name="LoopLength_Text"/></Text>
+      <Pressed scalemode="STRETCH_ASPECT">skins:Swing/buttons/btn_.svg</Pressed>
+      <Unpressed scalemode="STRETCH_ASPECT">skins:Swing/buttons/btn_.svg</Unpressed>
+    </State>
+
+    <Connection>
+      <ConfigKey><Variable name="group"/>,beatloop_size</ConfigKey>
+      <Transform>
+        <Add>-<Variable name="LoopLength_Control"/></Add>
+        <IsEqual>0</IsEqual>
+      </Transform>
+      <ConnectValueFromWidget>false</ConnectValueFromWidget>
+    </Connection>
+
+    <Connection>
+      <ConfigKey><Variable name="group"/>,beatloop_size</ConfigKey>
+      <Transform>
+        <Add>-<Variable name="LoopLength_Control"/></Add>
+        <IsEqual>0</IsEqual>
+      </Transform>
+      <ButtonState>LeftButton</ButtonState>
+      <ConnectValueToWidget>false</ConnectValueToWidget>
+      <EmitOnDownPress>true</EmitOnDownPress>
+    </Connection>
+    <Connection>
+      <ConfigKey><Variable name="group"/>,beatloop_activate</ConfigKey>
+      <ButtonState>LeftButton</ButtonState>
+      <ConnectValueToWidget>false</ConnectValueToWidget>
+      <EmitOnDownPress>true</EmitOnDownPress>
+    </Connection>
+
+    <Connection>
+      <ConfigKey><Variable name="group"/>,beatloop_size</ConfigKey>
+      <Transform>
+        <Add>-<Variable name="LoopLength_Control"/></Add>
+        <IsEqual>0</IsEqual>
+      </Transform>
+      <ButtonState>RightButton</ButtonState>
+      <ConnectValueToWidget>false</ConnectValueToWidget>
+      <EmitOnDownPress>true</EmitOnDownPress>
+    </Connection>
+    <Connection>
+      <ConfigKey><Variable name="group"/>,beatlooproll_activate</ConfigKey>
+      <ButtonState>RightButton</ButtonState>
+      <ConnectValueToWidget>false</ConnectValueToWidget>
+      <EmitOnDownPress>true</EmitOnDownPress>
+    </Connection>
+  </PushButton>
+</Template>
