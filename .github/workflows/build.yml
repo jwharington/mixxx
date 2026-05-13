@@ -71,8 +71,8 @@ jobs:
             artifacts_name: Ubuntu 24.04 Qt6 DEB
             artifacts_path: build/*.deb
             artifacts_slug: ubuntu-jammy
-          - name: Windows 2022 x64
-            os: windows-2022
+          - name: Windows 2025 VS2026 x64
+            os: windows-2025-vs2026
             # Attention: If you change the cmake_args for the Windows CI build,
             #            also adjust the for the local Windows build setup in
             #            ./tools/windows_buildenv.bat
@@ -142,7 +142,7 @@ jobs:
       - name: "[Windows] Set up cmake"
         uses: jwlawson/actions-setup-cmake@v2.2
         # Ubuntu 24.04 should use the CMake version from the repos.
-        if: matrix.os == 'windows-2022'
+        if: matrix.os == 'windows-2025-vs2026'
         with:
           # This version of CMake is needed for Wix Toolset >= v4 support,
           # see: https://cmake.org/cmake/help/latest/cpack_gen/wix.html#variable:CPACK_WIX_VERSION
