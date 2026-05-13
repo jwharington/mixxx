@@ -76,6 +76,23 @@ Variables:
                 </Connection>
               </WidgetGroup>
 
+              <WidgetGroup><Size>1f,1min</Size></WidgetGroup>
+
+              <!-- Toggle Loop / Beatjump controls -->
+              <WidgetGroup>
+                <Layout>vertical</Layout>
+                <SizePolicy>min,min</SizePolicy>
+                <Children>
+                  <Template src="skins:Swing/controls/button_2state_persist.xml">
+                    <SetVariable name="ObjectName">LoopBeatJumpToggle</SetVariable>
+                    <SetVariable name="Size">15f,22f</SetVariable>
+                    <SetVariable name="state_0_icon">loop_beatjump_off.svg</SetVariable>
+                    <SetVariable name="state_1_icon">loop_beatjump_on.svg</SetVariable>
+                    <SetVariable name="ConfigKey">[Skin],show_loop_beatjump_controls</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup>
+
               <WidgetGroup><!-- Expandable Deck controls -->
                 <ObjectName>DeckControlsExpandedLeft</ObjectName>
                 <Layout>horizontal</Layout>
