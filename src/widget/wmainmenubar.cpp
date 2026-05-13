@@ -580,11 +580,10 @@ void WMainMenuBar::initialize() {
         QString skinEditModeText =
                 tr("Enable Ctrl+Alt+left-click skin editing mode for disabling skin XML elements.");
         auto* pDeveloperSkinEditMode = new QAction(skinEditModeTitle, this);
-        pDeveloperSkinEditMode->setShortcut(
-                QKeySequence(m_pKbdConfig->getValue(
-                        ConfigKey("[KeyboardShortcuts]", "DeveloperMenu_SkinEditMode"),
-                        tr("Ctrl+Shift+M"))));
-        pDeveloperSkinEditMode->setShortcutContext(Qt::ApplicationShortcut);
+        m_pKeyboard->registerMenuBarActionSetShortcut(
+                pDeveloperSkinEditMode,
+                ConfigKey(kKbdShortcutsGroup, QStringLiteral("DeveloperMenu_SkinEditMode")),
+                QStringLiteral("Ctrl+Shift+M"));
         pDeveloperSkinEditMode->setCheckable(true);
         pDeveloperSkinEditMode->setChecked(false);
         pDeveloperSkinEditMode->setStatusTip(skinEditModeText);
@@ -604,11 +603,10 @@ void WMainMenuBar::initialize() {
         QString skinEditUndoText =
                 tr("Undo the most recently disabled skin XML element in this edit session.");
         m_pDeveloperSkinEditUndoAction = new QAction(skinEditUndoTitle, this);
-        m_pDeveloperSkinEditUndoAction->setShortcut(
-                QKeySequence(m_pKbdConfig->getValue(
-                        ConfigKey("[KeyboardShortcuts]", "DeveloperMenu_SkinEditUndo"),
-                        tr("Ctrl+Shift+Z"))));
-        m_pDeveloperSkinEditUndoAction->setShortcutContext(Qt::ApplicationShortcut);
+        m_pKeyboard->registerMenuBarActionSetShortcut(
+                m_pDeveloperSkinEditUndoAction,
+                ConfigKey(kKbdShortcutsGroup, QStringLiteral("DeveloperMenu_SkinEditUndo")),
+                QStringLiteral("Ctrl+Shift+Z"));
         m_pDeveloperSkinEditUndoAction->setStatusTip(skinEditUndoText);
         m_pDeveloperSkinEditUndoAction->setWhatsThis(
                 buildWhatsThis(skinEditUndoTitle, skinEditUndoText));
