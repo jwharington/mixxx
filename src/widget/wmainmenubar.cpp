@@ -377,7 +377,7 @@ void WMainMenuBar::initialize() {
     m_pKeyboard->registerMenuBarActionSetShortcut(
             pViewMaximizeLibrary,
             ConfigKey(kKbdShortcutsGroup, QStringLiteral("ViewMenu_MaximizeLibrary")),
-            QStringLiteral("Space"));
+            QStringLiteral("Shift+Space"));
     pViewMaximizeLibrary->setStatusTip(maximizeLibraryText);
     pViewMaximizeLibrary->setWhatsThis(buildWhatsThis(maximizeLibraryTitle, maximizeLibraryText));
     createVisibilityControl(pViewMaximizeLibrary,

@@ -118,7 +118,7 @@ Variables:
                 <Size>50f,24min</Size>
                 <TooltipId>visual_bpm</TooltipId>
                 <Channel><Variable name="chanNum" /></Channel>
-                <NumberOfDigits>1</NumberOfDigits>
+                <NumberOfDigits>0</NumberOfDigits>
                 <Alignment>center</Alignment>
                 <Connection>
                   <ConfigKey><Variable name="group"/>,file_bpm</ConfigKey>
