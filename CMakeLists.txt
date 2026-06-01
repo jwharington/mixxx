@@ -1431,6 +1431,7 @@ add_library(
   src/library/export/trackexportwizard.cpp
   src/library/export/trackexportworker.cpp
   src/library/externaltrackcollection.cpp
+  src/library/genres/genresfeature.cpp
   src/library/itunes/itunesdao.cpp
   src/library/itunes/itunesfeature.cpp
   src/library/itunes/itunesimporter.cpp

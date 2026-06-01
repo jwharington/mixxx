@@ -14,6 +14,7 @@
 #include "library/export/libraryexporter.h"
 #endif
 #include "library/externaltrackcollection.h"
+#include "library/genres/genresfeature.h"
 #include "library/itunes/itunesfeature.h"
 #include "library/library_prefs.h"
 #include "library/librarycontrol.h"
@@ -96,6 +97,8 @@ Library::Library(
             &Library::exportLibrary,
             Qt::DirectConnection /* signal-to-signal */);
 #endif
+
+    addFeature(new GenresFeature(this, m_pConfig));
 
     m_pAutoDJFeature = make_parented<AutoDJFeature>(this, m_pConfig, pPlayerManager);
     addFeature(m_pAutoDJFeature);
