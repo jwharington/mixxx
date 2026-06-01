@@ -2,6 +2,7 @@
 
 #include <QDoubleSpinBox>
 #include <QLineEdit>
+#include <QWheelEvent>
 
 #include "control/controlproxy.h"
 #include "widget/wbasewidget.h"
@@ -22,19 +23,30 @@ class WBeatSpinBox : public QDoubleSpinBox, public WBaseWidget {
     void slotControlValueChanged(double newValue);
 
   private:
+    enum class StepMode {
+        PowerOfTwo,
+        Linear,
+    };
+
     QString textFromValue(double value) const override;
     double valueFromText(const QString& text) const override;
     QValidator::State validate(QString& input, int& pos) const override;
 
     void stepBy(int steps) override;
     QString fractionString(int numerator, int denominator) const;
+    bool parseLocaleDouble(const QString& text, double* pOutValue) const;
 
     ControlProxy m_valueControl;
 
     // for font scaling
     bool event(QEvent* pEvent) override;
     void keyPressEvent(QKeyEvent* pEvent) override;
+    void wheelEvent(QWheelEvent* pEvent) override;
     double m_scaleFactor;
+    StepMode m_stepMode;
+    double m_stepSize;
+    bool m_showButtons;
+    bool m_allowStepping;
 };
 
 // This is an inherited class that supports font scaling

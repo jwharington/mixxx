@@ -1,5 +1,8 @@
 #include "widget/wbeatspinbox.h"
 
+#include <algorithm>
+
+#include <QDomElement>
 #include <QKeyEvent>
 #include <QRegularExpression>
 
@@ -21,7 +24,11 @@ WBeatSpinBox::WBeatSpinBox(QWidget* parent,
         : QDoubleSpinBox(parent),
           WBaseWidget(this),
           m_valueControl(configKey, this, ControlFlag::NoAssertIfMissing),
-          m_scaleFactor(1.0) {
+          m_scaleFactor(1.0),
+          m_stepMode(StepMode::PowerOfTwo),
+          m_stepSize(1.0),
+          m_showButtons(true),
+          m_allowStepping(true) {
     // replace the original QLineEdit by one that supports font scaling.
     setLineEdit(new WBeatLineEdit(this));
     setDecimals(decimals);
@@ -43,22 +50,86 @@ WBeatSpinBox::WBeatSpinBox(QWidget* parent,
 }
 
 void WBeatSpinBox::setup(const QDomNode& node, const SkinContext& context) {
-    Q_UNUSED(node);
     m_scaleFactor = context.getScaleFactor();
     qobject_cast<WBeatLineEdit*>(lineEdit())->setScaleFactor(m_scaleFactor);
+
+    const auto element = node.toElement();
+
+    auto parseBool = [](const QString& text, bool defaultValue) {
+        const auto trimmed = text.trimmed();
+        if (trimmed.isEmpty()) {
+            return defaultValue;
+        }
+        if (trimmed.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+        if (trimmed.compare(QStringLiteral("false"), Qt::CaseInsensitive) == 0) {
+            return false;
+        }
+        bool ok = false;
+        const int value = trimmed.toInt(&ok);
+        if (ok) {
+            return value != 0;
+        }
+        return defaultValue;
+    };
+
+    double parsedValue = 0.0;
+    if (parseLocaleDouble(element.firstChildElement("Minimum").text(), &parsedValue)) {
+        setMinimum(parsedValue);
+    }
+    if (parseLocaleDouble(element.firstChildElement("Maximum").text(), &parsedValue)) {
+        setMaximum(parsedValue);
+    }
+
+    bool ok = false;
+    const int parsedDecimals = element.firstChildElement("Decimals").text().toInt(&ok);
+    if (ok && parsedDecimals >= 0) {
+        setDecimals(parsedDecimals);
+    }
+
+    const auto stepMode = element.firstChildElement("StepMode").text().trimmed();
+    if (stepMode.compare(QStringLiteral("linear"), Qt::CaseInsensitive) == 0) {
+        m_stepMode = StepMode::Linear;
+    } else {
+        m_stepMode = StepMode::PowerOfTwo;
+    }
+
+    if (parseLocaleDouble(element.firstChildElement("StepSize").text(), &parsedValue) &&
+            parsedValue > 0.0) {
+        m_stepSize = parsedValue;
+    }
+
+    m_showButtons = parseBool(element.firstChildElement("ShowButtons").text(), true);
+    m_allowStepping = parseBool(element.firstChildElement("AllowStepping").text(), true);
+    const bool keyboardTracking = parseBool(
+            element.firstChildElement("KeyboardTracking").text(),
+            false);
+    setKeyboardTracking(keyboardTracking);
+    setButtonSymbols(m_showButtons
+                    ? QAbstractSpinBox::UpDownArrows
+                    : QAbstractSpinBox::NoButtons);
 }
 
 void WBeatSpinBox::stepBy(int steps) {
-    double oldValue = m_valueControl.get();
-    double newValue;
-    QString temp = text();
-    int cursorPos = lineEdit()->cursorPosition();
-    if (validate(temp, cursorPos) == QValidator::Acceptable) {
-        newValue = valueFromText(temp) * pow(2, steps);
-    } else {
-        // here we have an unacceptable edit, going back to the old value first
-        newValue = oldValue;
+    if (!m_allowStepping) {
+        return;
     }
+
+    const double oldValue = m_valueControl.get();
+    double newValue = oldValue;
+
+    if (m_stepMode == StepMode::Linear) {
+        newValue = std::clamp(oldValue + (steps * m_stepSize), minimum(), maximum());
+    } else {
+        QString temp = text();
+        int cursorPos = lineEdit()->cursorPosition();
+        if (validate(temp, cursorPos) == QValidator::Acceptable) {
+            newValue = valueFromText(temp) * pow(2, steps);
+        }
+        newValue = std::clamp(newValue, minimum(), maximum());
+    }
+
     // Do not call QDoubleSpinBox::setValue directly in case
     // the new value of the ControlObject needs to be confirmed.
     m_valueControl.set(newValue);
@@ -79,6 +150,19 @@ void WBeatSpinBox::slotControlValueChanged(double newValue) {
 
 QString WBeatSpinBox::fractionString(int numerator, int denominator) const {
     return QString("%1/%2").arg(numerator).arg(denominator);
+}
+
+bool WBeatSpinBox::parseLocaleDouble(const QString& text, double* pOutValue) const {
+    if (!pOutValue) {
+        return false;
+    }
+    bool ok = false;
+    const double value = locale().toDouble(text.trimmed(), &ok);
+    if (!ok) {
+        return false;
+    }
+    *pOutValue = value;
+    return true;
 }
 
 QString WBeatSpinBox::textFromValue(double value) const {
@@ -295,7 +379,25 @@ void WBeatSpinBox::keyPressEvent(QKeyEvent* pEvent) {
         ControlObject::set(ConfigKey("[Library]", "refocus_prev_widget"), 1);
         return;
     }
+
+    if (!m_allowStepping &&
+            (pEvent->key() == Qt::Key_Up ||
+                    pEvent->key() == Qt::Key_Down ||
+                    pEvent->key() == Qt::Key_PageUp ||
+                    pEvent->key() == Qt::Key_PageDown)) {
+        pEvent->accept();
+        return;
+    }
+
     QDoubleSpinBox::keyPressEvent(pEvent);
+}
+
+void WBeatSpinBox::wheelEvent(QWheelEvent* pEvent) {
+    if (!m_allowStepping) {
+        pEvent->accept();
+        return;
+    }
+    QDoubleSpinBox::wheelEvent(pEvent);
 }
 
 bool WBeatLineEdit::event(QEvent* pEvent) {

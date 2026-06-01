@@ -1,5 +1,8 @@
 #include "library/librarycontrol.h"
 
+#include <algorithm>
+#include <limits>
+
 #include <QApplication>
 #include <QCheckBox>
 #include <QKeyEvent>
@@ -23,6 +26,17 @@
 
 namespace {
 const QString kAppGroup = QStringLiteral("[App]");
+const ConfigKey kAutoDjEnabledKey(QStringLiteral("[AutoDJ]"), QStringLiteral("enabled"));
+const ConfigKey kContinuousPlayEnabledKey(
+        QStringLiteral("[SwingSingle]"),
+        QStringLiteral("continuous_play_enabled"));
+const ConfigKey kContinuousPlayBreakSecondsKey(
+        QStringLiteral("[SwingSingle]"),
+        QStringLiteral("continuous_play_break_seconds"));
+
+bool isAutoDjEnabled() {
+    return ControlObject::exists(kAutoDjEnabledKey) && ControlObject::toBool(kAutoDjEnabledKey);
+}
 } // namespace
 
 LoadToGroupController::LoadToGroupController(LibraryControl* pParent, const QString& group)
@@ -92,6 +106,8 @@ LibraryControl::LibraryControl(Library* pLibrary)
           m_pLibrary(pLibrary),
           m_focusedWidget(FocusWidget::None),
           m_prevFocusedWidget(FocusWidget::None),
+          m_waitForDeckStopBeforeBreak(false),
+          m_waitForBreakDelay(false),
           m_pLibraryWidget(nullptr),
           m_pSidebarWidget(nullptr),
           m_pSearchbox(nullptr),
@@ -334,6 +350,31 @@ LibraryControl::LibraryControl(Library* pLibrary)
                 this,
                 &LibraryControl::slotToggleAutoDjQueueRight);
     }
+
+    m_pContinuousPlayEnabled = std::make_unique<ControlPushButton>(
+            kContinuousPlayEnabledKey,
+            true,
+            0.0);
+    m_pContinuousPlayEnabled->setButtonMode(mixxx::control::ButtonMode::Toggle);
+    m_pContinuousPlayBreakSeconds = std::make_unique<ControlObject>(
+            kContinuousPlayBreakSecondsKey,
+            true,
+            false,
+            true,
+            0.0);
+
+    m_continuousPlayTimer.setSingleShot(true);
+    connect(&m_continuousPlayTimer,
+            &QTimer::timeout,
+            this,
+            &LibraryControl::slotContinuousPlayTimeout);
+
+    m_continuousPlayControlInitTimer.setSingleShot(true);
+    connect(&m_continuousPlayControlInitTimer,
+            &QTimer::timeout,
+            this,
+            &LibraryControl::tryConnectContinuousPlayControl);
+    m_continuousPlayControlInitTimer.start(0);
 
     // Sort controls
     m_pSortColumn = std::make_unique<ControlEncoder>(ConfigKey("[Library]", "sort_column"));
@@ -624,6 +665,8 @@ void LibraryControl::bindLibraryWidget(WLibrary* pLibraryWidget, KeyboardEventFi
             &WLibrary::destroyed,
             this,
             &LibraryControl::libraryWidgetDeleted);
+
+    tryConnectContinuousPlayControl();
 }
 
 void LibraryControl::bindSearchboxWidget(WSearchLineEdit* pSearchbox) {
@@ -639,6 +682,21 @@ void LibraryControl::bindSearchboxWidget(WSearchLineEdit* pSearchbox) {
 
 void LibraryControl::libraryWidgetDeleted() {
     m_pLibraryWidget = nullptr;
+}
+
+void LibraryControl::tryConnectContinuousPlayControl() {
+    if (m_pDeckEndOfTrack) {
+        return;
+    }
+
+    const ConfigKey deckEndOfTrackKey(QStringLiteral("[Channel1]"), QStringLiteral("end_of_track"));
+    if (!ControlObject::exists(deckEndOfTrackKey)) {
+        m_continuousPlayControlInitTimer.start(500);
+        return;
+    }
+
+    m_pDeckEndOfTrack = std::make_unique<ControlProxy>(deckEndOfTrackKey, this);
+    m_pDeckEndOfTrack->connectValueChanged(this, &LibraryControl::slotDeckEndOfTrackChanged);
 }
 
 void LibraryControl::sidebarWidgetDeleted() {
@@ -722,6 +780,118 @@ void LibraryControl::slotToggleAutoDjQueueRight(double v) {
         return;
     }
     m_pLibrary->toggleAutoDJSplitEnabled();
+}
+
+void LibraryControl::slotDeckEndOfTrackChanged(double v) {
+    if (v <= 0.0 ||
+            !m_pLibraryWidget ||
+            !ControlObject::toBool(kContinuousPlayEnabledKey) ||
+            isAutoDjEnabled()) {
+        return;
+    }
+
+    // Ignore duplicate end-of-track notifications while one transition is pending.
+    if (m_waitForDeckStopBeforeBreak || m_waitForBreakDelay) {
+        return;
+    }
+
+    auto* pTrackTableView = m_pLibraryWidget->getCurrentTrackTableView();
+    if (!pTrackTableView || !pTrackTableView->model() || !pTrackTableView->selectionModel()) {
+        return;
+    }
+
+    int currentRow = -1;
+    const auto selectedRows = pTrackTableView->selectionModel()->selectedRows();
+    if (!selectedRows.isEmpty()) {
+        currentRow = selectedRows.first().row();
+    } else if (pTrackTableView->currentIndex().isValid()) {
+        currentRow = pTrackTableView->currentIndex().row();
+    }
+
+    if (currentRow < 0) {
+        return;
+    }
+
+    const int nextRow = currentRow + 1;
+    if (nextRow >= pTrackTableView->model()->rowCount()) {
+        // Stop when the end of the list is reached.
+        return;
+    }
+
+    // [Channel1],end_of_track becomes active before playback fully stops.
+    // Arm the flow and wait for play=0 first, then start the break countdown.
+    m_waitForDeckStopBeforeBreak = true;
+    m_waitForBreakDelay = false;
+    if (!m_continuousPlayTimer.isActive()) {
+        m_continuousPlayTimer.start(100);
+    }
+}
+
+void LibraryControl::slotContinuousPlayTimeout() {
+    if (!m_pLibraryWidget ||
+            !ControlObject::toBool(kContinuousPlayEnabledKey) ||
+            isAutoDjEnabled()) {
+        m_waitForDeckStopBeforeBreak = false;
+        m_waitForBreakDelay = false;
+        return;
+    }
+
+    const ConfigKey playKey(QStringLiteral("[Channel1]"), QStringLiteral("play"));
+
+    if (m_waitForDeckStopBeforeBreak) {
+        if (ControlObject::toBool(playKey)) {
+            m_continuousPlayTimer.start(100);
+            return;
+        }
+
+        m_waitForDeckStopBeforeBreak = false;
+        m_waitForBreakDelay = true;
+
+        const double breakSeconds = std::max(0.0, ControlObject::get(kContinuousPlayBreakSecondsKey));
+        const auto delayMs = static_cast<int>(std::clamp(
+                breakSeconds * 1000.0,
+                0.0,
+                static_cast<double>(std::numeric_limits<int>::max())));
+        if (delayMs > 0) {
+            m_continuousPlayTimer.start(delayMs);
+            return;
+        }
+    }
+
+    m_waitForBreakDelay = false;
+
+    auto* pTrackTableView = m_pLibraryWidget->getCurrentTrackTableView();
+    if (!pTrackTableView || !pTrackTableView->model() || !pTrackTableView->selectionModel()) {
+        return;
+    }
+
+    int currentRow = -1;
+    const auto selectedRows = pTrackTableView->selectionModel()->selectedRows();
+    if (!selectedRows.isEmpty()) {
+        currentRow = selectedRows.first().row();
+    } else if (pTrackTableView->currentIndex().isValid()) {
+        currentRow = pTrackTableView->currentIndex().row();
+    }
+
+    if (currentRow < 0) {
+        return;
+    }
+
+    const int nextRow = currentRow + 1;
+    if (nextRow >= pTrackTableView->model()->rowCount()) {
+        // Stop when the end of the list is reached.
+        return;
+    }
+
+    pTrackTableView->selectRow(nextRow);
+#ifdef __STEM__
+    pTrackTableView->loadSelectedTrackToGroup(
+            QStringLiteral("[Channel1]"),
+            mixxx::StemChannelSelection(),
+            true);
+#else
+    pTrackTableView->loadSelectedTrackToGroup(QStringLiteral("[Channel1]"), true);
+#endif
 }
 
 void LibraryControl::slotSelectNextTrack(double v) {

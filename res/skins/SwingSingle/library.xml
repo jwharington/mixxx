@@ -81,6 +81,67 @@ Description:
                             </Children>
                           </WidgetGroup><!-- /Search, Maxi button -->
 
+                          <WidgetGroup>
+                            <ObjectName>ContinuousPlayControls</ObjectName>
+                            <Layout>horizontal</Layout>
+                            <SizePolicy>me,min</SizePolicy>
+                            <Children>
+                              <PushButton>
+                                <ObjectName>ContinuousPlayToggle</ObjectName>
+                                <Tooltip>Continuous Play</Tooltip>
+                                <Size>30f,20f</Size>
+                                <NumberStates>2</NumberStates>
+                                <State>
+                                  <Number>0</Number>
+                                </State>
+                                <State>
+                                  <Number>1</Number>
+                                </State>
+                                <Connection>
+                                  <ConfigKey>[SwingSingle],continuous_play_enabled</ConfigKey>
+                                  <ButtonState>LeftButton</ButtonState>
+                                </Connection>
+                              </PushButton>
+
+                              <WidgetGroup><Size>3f,1min</Size></WidgetGroup>
+
+                              <BeatSpinBox>
+                                <ObjectName>ContinuousPlayBreakSpinBox</ObjectName>
+                                <Value>[SwingSingle],continuous_play_break_seconds</Value>
+                                <Size>37f,20f</Size>
+                                <Minimum>0</Minimum>
+                                <Maximum>3600</Maximum>
+                                <Decimals>0</Decimals>
+                                <StepMode>linear</StepMode>
+                                <StepSize>1</StepSize>
+                                <ShowButtons>false</ShowButtons>
+                                <AllowStepping>false</AllowStepping>
+                                <KeyboardTracking>true</KeyboardTracking>
+                              </BeatSpinBox>
+
+                              <WidgetGroup><Size>0f,1min</Size></WidgetGroup>
+
+                              <Label>
+                                <ObjectName>ContinuousPlayUnitLabel</ObjectName>
+                                <Size>16f,20f</Size>
+                                <Align>left</Align>
+                                <Text>sec</Text>
+                              </Label>
+
+                              <WidgetGroup><Size>0me,1min</Size></WidgetGroup>
+                            </Children>
+                            <Connection>
+                              <ConfigKey>[AutoDJ],enabled</ConfigKey>
+                              <Transform><Not/></Transform>
+                              <BindProperty>visible</BindProperty>
+                            </Connection>
+                            <Connection>
+                              <ConfigKey>[AutoDJ],enabled</ConfigKey>
+                              <Transform><Not/></Transform>
+                              <BindProperty>enabled</BindProperty>
+                            </Connection>
+                          </WidgetGroup>
+
                           <!-- Tree View -->
                           <LibrarySidebar></LibrarySidebar>
                         </Children>

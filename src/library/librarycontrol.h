@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
 #include <memory>
 
 #include "control/controlproxy.h"
@@ -124,6 +125,10 @@ class LibraryControl : public QObject {
     void slotAutoDjAddReplace(double v);
     void slotToggleAutoDjQueueRight(double v);
 
+    void slotDeckEndOfTrackChanged(double v);
+    void slotContinuousPlayTimeout();
+    void tryConnectContinuousPlayControl();
+
     void maybeCreateGroupController(const QString& group);
     void slotNumDecksChanged(double v);
     void slotNumSamplersChanged(double v);
@@ -182,6 +187,15 @@ class LibraryControl : public QObject {
     std::unique_ptr<ControlObject> m_pAutoDjAddBottom;
     std::unique_ptr<ControlObject> m_pAutoDjAddReplace;
     std::unique_ptr<ControlPushButton> m_pToggleAutoDjQueueRight;
+
+    // SwingSingle continuous play controls
+    std::unique_ptr<ControlPushButton> m_pContinuousPlayEnabled;
+    std::unique_ptr<ControlObject> m_pContinuousPlayBreakSeconds;
+    std::unique_ptr<ControlProxy> m_pDeckEndOfTrack;
+    QTimer m_continuousPlayTimer;
+    QTimer m_continuousPlayControlInitTimer;
+    bool m_waitForDeckStopBeforeBreak;
+    bool m_waitForBreakDelay;
 
     // Controls to sort the track view
     std::unique_ptr<ControlEncoder> m_pSortColumn;
