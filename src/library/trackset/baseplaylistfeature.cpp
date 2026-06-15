@@ -229,6 +229,7 @@ void BasePlaylistFeature::activateChild(const QModelIndex& index) {
     m_lastRightClickedIndex = QModelIndex();
     emit saveModelState();
     m_pPlaylistTableModel->selectPlaylist(playlistId);
+    emit switchToView(QStringLiteral("WTrackTableView"));
     emit showTrackModel(m_pPlaylistTableModel);
     emit enableCoverArtDisplay(true);
 }
@@ -246,6 +247,7 @@ void BasePlaylistFeature::activatePlaylist(int playlistId) {
     m_lastRightClickedIndex = QModelIndex();
     emit saveModelState();
     m_pPlaylistTableModel->selectPlaylist(playlistId);
+    emit switchToView(QStringLiteral("WTrackTableView"));
     emit showTrackModel(m_pPlaylistTableModel);
     emit enableCoverArtDisplay(true);
     // Update selection

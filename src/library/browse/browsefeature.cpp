@@ -323,6 +323,7 @@ void BrowseFeature::activateChild(const QModelIndex& index) {
         emit saveModelState();
         m_browseModel.setPath(std::move(dirAccess));
     }
+    emit switchToView(QStringLiteral("WTrackTableView"));
     emit showTrackModel(&m_proxyModel);
     // Search is restored in Library::slotShowTrackModel, disable it where it's useless
     if (path == QUICK_LINK_NODE || path == DEVICE_NODE) {
