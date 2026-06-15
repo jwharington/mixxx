@@ -26,6 +26,7 @@
 #include "widget/wlibrary.h"
 #include "widget/wlibrarysidebar.h"
 #include "widget/wlibrarytextbrowser.h"
+#include "widget/wtracktableview.h"
 
 namespace {
 constexpr QChar kUnsafeFilenameReplacement = '-';
@@ -229,7 +230,15 @@ void BasePlaylistFeature::activateChild(const QModelIndex& index) {
     m_lastRightClickedIndex = QModelIndex();
     emit saveModelState();
     m_pPlaylistTableModel->selectPlaylist(playlistId);
-    emit switchToView(QStringLiteral("WTrackTableView"));
+    // Only switch to the track view if we're not already there (e.g. the
+    // PLAYLISTHOME HTML view). If we're already on the track view, calling
+    // switchToView would trigger restoreCurrentViewState() which restores
+    // the state saved when we last left the track view — wiping the current
+    // playlist selection.
+    if (m_pLibraryWidget &&
+            !qobject_cast<WTrackTableView*>(m_pLibraryWidget->currentWidget())) {
+        emit switchToView(QStringLiteral("WTrackTableView"));
+    }
     emit showTrackModel(m_pPlaylistTableModel);
     emit enableCoverArtDisplay(true);
 }
@@ -247,7 +256,10 @@ void BasePlaylistFeature::activatePlaylist(int playlistId) {
     m_lastRightClickedIndex = QModelIndex();
     emit saveModelState();
     m_pPlaylistTableModel->selectPlaylist(playlistId);
-    emit switchToView(QStringLiteral("WTrackTableView"));
+    if (m_pLibraryWidget &&
+            !qobject_cast<WTrackTableView*>(m_pLibraryWidget->currentWidget())) {
+        emit switchToView(QStringLiteral("WTrackTableView"));
+    }
     emit showTrackModel(m_pPlaylistTableModel);
     emit enableCoverArtDisplay(true);
     // Update selection

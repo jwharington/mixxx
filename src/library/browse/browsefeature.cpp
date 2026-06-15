@@ -17,6 +17,7 @@
 #include "widget/wlibrary.h"
 #include "widget/wlibrarysidebar.h"
 #include "widget/wlibrarytextbrowser.h"
+#include "widget/wtracktableview.h"
 
 namespace {
 
@@ -269,6 +270,7 @@ TreeItemModel* BrowseFeature::sidebarModel() const {
 void BrowseFeature::bindLibraryWidget(WLibrary* libraryWidget,
                                KeyboardEventFilter* keyboard) {
     Q_UNUSED(keyboard);
+    m_pLibraryWidget = QPointer(libraryWidget);
     WLibraryTextBrowser* edit = new WLibraryTextBrowser(libraryWidget);
     edit->setHtml(getRootViewHtml());
     libraryWidget->registerView(kViewName, edit);
@@ -323,7 +325,14 @@ void BrowseFeature::activateChild(const QModelIndex& index) {
         emit saveModelState();
         m_browseModel.setPath(std::move(dirAccess));
     }
-    emit switchToView(QStringLiteral("WTrackTableView"));
+    // Only switch to the track view if we're not already there (e.g. the
+    // BROWSEHOME HTML view). Calling switchToView when already on the track
+    // view would trigger restoreCurrentViewState() and wipe the current
+    // selection.
+    if (m_pLibraryWidget &&
+            !qobject_cast<WTrackTableView*>(m_pLibraryWidget->currentWidget())) {
+        emit switchToView(QStringLiteral("WTrackTableView"));
+    }
     emit showTrackModel(&m_proxyModel);
     // Search is restored in Library::slotShowTrackModel, disable it where it's useless
     if (path == QUICK_LINK_NODE || path == DEVICE_NODE) {

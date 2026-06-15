@@ -82,4 +82,5 @@ class BrowseFeature : public LibraryFeature {
     TreeItem* m_pQuickLinkItem;
     QStringList m_quickLinkList;
     QPointer<WLibrarySidebar> m_pSidebarWidget;
+    QPointer<WLibrary> m_pLibraryWidget;
 };
