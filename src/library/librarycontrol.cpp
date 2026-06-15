@@ -883,15 +883,33 @@ void LibraryControl::slotContinuousPlayTimeout() {
         return;
     }
 
+    // Select the next row for visual feedback
     pTrackTableView->selectRow(nextRow);
+
+    // Directly load the track by index to avoid a race condition with the
+    // selection model: selectRow() queues a selection change but does not
+    // apply it synchronously, so loadSelectedTrackToGroup()'s call to
+    // getSelectedRows() would still see the old selection. Loading by
+    // index sidesteps the selection model entirely.
+    const QModelIndex index = pTrackTableView->model()->index(nextRow, 0);
+    TrackModel* pTrackModel = dynamic_cast<TrackModel*>(pTrackTableView->model());
+    if (pTrackModel) {
+        TrackPointer pTrack = pTrackModel->getTrack(index);
+        if (pTrack) {
 #ifdef __STEM__
-    pTrackTableView->loadSelectedTrackToGroup(
-            QStringLiteral("[Channel1]"),
-            mixxx::StemChannelSelection(),
-            true);
+            pTrackTableView->loadTrackToPlayer(
+                    pTrack,
+                    QStringLiteral("[Channel1]"),
+                    mixxx::StemChannelSelection(),
+                    true);
 #else
-    pTrackTableView->loadSelectedTrackToGroup(QStringLiteral("[Channel1]"), true);
+            pTrackTableView->loadTrackToPlayer(
+                    pTrack,
+                    QStringLiteral("[Channel1]"),
+                    true);
 #endif
+        }
+    }
 }
 
 void LibraryControl::slotSelectNextTrack(double v) {
