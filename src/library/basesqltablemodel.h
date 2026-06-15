@@ -179,5 +179,15 @@ class BaseSqlTableModel : public BaseTrackTableModel {
     QVector<QHash<int, QVariant>> m_headerInfo;
     QString m_trackSourceOrderBy;
 
+signals:
+    // Emitted before select() clears the model rows. Connected slots should
+    // save any view state (selection, scroll position) that should survive
+    // the model reset.
+    void aboutToResetModel();
+    // Emitted after select() has repopulated the model rows. Connected slots
+    // should restore any view state that was saved in response to aboutToResetModel.
+    void modelResetComplete();
+
+  private:
     DISALLOW_COPY_AND_ASSIGN(BaseSqlTableModel);
 };

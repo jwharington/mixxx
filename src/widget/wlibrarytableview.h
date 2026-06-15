@@ -4,6 +4,7 @@
 #include <QString>
 #include <QTableView>
 
+#include "library/basesqltablemodel.h"
 #include "library/library_decl.h"
 #include "library/libraryview.h"
 #include "preferences/usersettings.h"
@@ -75,7 +76,54 @@ class WLibraryTableView : public QTableView, public virtual LibraryView {
     void setTrackTableRowHeight(int rowHeight);
     void setSelectedClick(bool enable);
 
+    void slotModelAboutToBeReset() {
+        saveTrackModelState(model(), getModelStateKey());
+    }
+    void slotModelReset() {
+        restoreTrackModelState(model(), getModelStateKey());
+    }
+    void slotModelResetComplete() {
+        restoreTrackModelState(model(), getModelStateKey());
+    }
+
   protected:
+    bool eventFilter(QObject* pObj, QEvent* pEvent) override;
+    void setModel(QAbstractItemModel* pModel) override {
+        // Disconnect old model signals
+        if (m_pCurrentModel) {
+            disconnect(m_pCurrentModel, &QAbstractItemModel::modelAboutToBeReset,
+                    this, &WLibraryTableView::slotModelAboutToBeReset);
+            disconnect(m_pCurrentModel, &QAbstractItemModel::modelReset,
+                    this, &WLibraryTableView::slotModelReset);
+            auto* pBaseSqlModel = qobject_cast<BaseSqlTableModel*>(m_pCurrentModel);
+            if (pBaseSqlModel) {
+                disconnect(pBaseSqlModel, &BaseSqlTableModel::aboutToResetModel,
+                        this, &WLibraryTableView::slotModelAboutToBeReset);
+                disconnect(pBaseSqlModel, &BaseSqlTableModel::modelResetComplete,
+                        this, &WLibraryTableView::slotModelResetComplete);
+            }
+            m_pCurrentModel->removeEventFilter(this);
+        }
+
+        QTableView::setModel(pModel);
+
+        // Install event filter on new model
+        m_pCurrentModel = model();
+        if (m_pCurrentModel) {
+            m_pCurrentModel->installEventFilter(this);
+            connect(m_pCurrentModel, &QAbstractItemModel::modelAboutToBeReset,
+                    this, &WLibraryTableView::slotModelAboutToBeReset);
+            connect(m_pCurrentModel, &QAbstractItemModel::modelReset,
+                    this, &WLibraryTableView::slotModelReset);
+            auto* pNewBaseSqlModel = qobject_cast<BaseSqlTableModel*>(m_pCurrentModel);
+            if (pNewBaseSqlModel) {
+                connect(pNewBaseSqlModel, &BaseSqlTableModel::aboutToResetModel,
+                        this, &WLibraryTableView::slotModelAboutToBeReset);
+                connect(pNewBaseSqlModel, &BaseSqlTableModel::modelResetComplete,
+                        this, &WLibraryTableView::slotModelResetComplete);
+            }
+        }
+    }
     void focusInEvent(QFocusEvent* event) override;
     QModelIndex moveCursor(CursorAction cursorAction,
             Qt::KeyboardModifiers modifiers) override;
@@ -87,4 +135,5 @@ class WLibraryTableView : public QTableView, public virtual LibraryView {
   private:
     const UserSettingsPointer m_pConfig;
     QCache<QString, ModelState> m_modelStateCache;
+    QAbstractItemModel* m_pCurrentModel = nullptr;
 };

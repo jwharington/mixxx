@@ -237,6 +237,7 @@ void BaseSqlTableModel::select() {
     // Remove all the rows from the table after(!) the query has been
     // executed successfully. See issue #6782.
     // TODO(rryan) we could edit the table in place instead of clearing it?
+    emit aboutToResetModel();
     clearRows();
 
     // The size of the result set is not known in advance for a
@@ -351,6 +352,8 @@ void BaseSqlTableModel::select() {
             std::move(trackPosToRows));
     // Both rowInfo and trackIdToRows (might) have been moved and
     // must not be used afterwards!
+
+    emit modelResetComplete();
 
     qDebug() << this << "select() returned" << m_rowInfo.size()
              << "results in" << time.elapsed().debugMillisWithUnit();

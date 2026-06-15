@@ -426,3 +426,10 @@ void WLibraryTableView::dataChanged(
     }
     QAbstractItemView::dataChanged(topLeft, bottomRight, roles);
 };
+
+bool WLibraryTableView::eventFilter(QObject* pObj, QEvent* pEvent) {
+    Q_UNUSED(pObj);
+    Q_UNUSED(pEvent);
+    // Event filter placeholder. Used for future enhancements.
+    return false;
+}
